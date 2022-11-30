@@ -1,0 +1,31 @@
+/**
+ * Copyright 2021 Appvia Ltd <info@appvia.io>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package common
+
+const (
+	// WorkspaceImplicitRobotGroup is a workspace group applied implicitly to all robots in a workspace
+	WorkspaceImplicitRobotGroup = "robotmember"
+	// WorkspaceImplicitUserGroup is a workspace group applied implicitly to all users (i.e. not robots) in a workspace
+	WorkspaceImplicitUserGroup = "usermember"
+
+	// WayfinderImplicitUserGroup is a global group applied implicitly to all users (i.e. not robots) in Wayfinder
+	WayfinderImplicitUserGroup = "authenticated"
+	// WayfinderImplicitRobotGroup is a global group applied implicitly to all robots in Wayfinder
+	WayfinderImplicitRobotGroup = "robot"
+	// WayfinderImplicitAdminGroup is a global group applied implicitly to all global admins of Wayfinder
+	WayfinderImplicitAdminGroup = "admin"
+)
