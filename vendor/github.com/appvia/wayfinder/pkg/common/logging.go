@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	// This is imported to provide a reasonable default logger, however see
 	// pkg/cmd/defaults.go for the main instantiation of the logger in the Wayfinder
@@ -139,4 +140,87 @@ func Recorder(ctx context.Context) record.EventRecorder {
 	}
 	Log(ctx).Warn("Event Recorder requested from context when no event recorder has been registered - no events will be logged")
 	return record.NewFakeRecorder(10)
+}
+
+// ProgressReporter echos the CLI's logging interface, used to report progress of a multi-step
+// process
+type ProgressReporter interface {
+	// Step should be used to indicate a progress step has commenced
+	Step(message string, args ...interface{})
+	// Success should be used to indicate an operation has successfully completed
+	Success(message string, args ...interface{})
+	// Warn should be used to indicate a warning that the user might need to be aware of, but has
+	// not caused a failure
+	Warn(message string, args ...interface{})
+	// Error should be used to indicate a failure has occurred meaning the operation the user
+	// requested has not completed successfully
+	Error(message string, args ...interface{})
+}
+
+func LoggingProgressReporter(ctx context.Context) ProgressReporter {
+	return &loggingProgressReporter{l: Log(ctx)}
+}
+
+type loggingProgressReporter struct {
+	l Logger
+}
+
+func (l *loggingProgressReporter) Step(message string, args ...interface{}) {
+	l.l.Debugf(message, args...)
+}
+func (l *loggingProgressReporter) Success(message string, args ...interface{}) {
+	l.l.Infof(message, args...)
+}
+func (l *loggingProgressReporter) Warn(message string, args ...interface{}) {
+	l.l.Warnf(message, args...)
+}
+func (l *loggingProgressReporter) Error(message string, args ...interface{}) {
+	l.l.Errorf(message, args...)
+}
+
+// NewStringProgressReporter returns a progress reporter that concatenates the reported statuses
+// into a single multi-line string. Call .Out() to get the resulting string. It will also log the
+// output as per LoggingProgressReporter if log is true
+func NewStringProgressReporter(ctx context.Context, log bool) *StringProgressReporter {
+	logger := &StringProgressReporter{
+		sb: strings.Builder{},
+	}
+	if log {
+		logger.l = Log(ctx)
+	}
+	return logger
+}
+
+type StringProgressReporter struct {
+	sb strings.Builder
+	l  Logger
+}
+
+func (l *StringProgressReporter) Step(message string, args ...interface{}) {
+	l.sb.WriteString(fmt.Sprintf("* "+message+"\n", args...))
+	if l.l != nil {
+		l.l.Debugf(message, args...)
+	}
+}
+func (l *StringProgressReporter) Success(message string, args ...interface{}) {
+	l.sb.WriteString(fmt.Sprintf("✓ "+message+"\n", args...))
+	if l.l != nil {
+		l.l.Infof(message, args...)
+	}
+}
+func (l *StringProgressReporter) Warn(message string, args ...interface{}) {
+	l.sb.WriteString(fmt.Sprintf("! "+message+"\n", args...))
+	if l.l != nil {
+		l.l.Warnf(message, args...)
+	}
+}
+func (l *StringProgressReporter) Error(message string, args ...interface{}) {
+	l.sb.WriteString(fmt.Sprintf("X "+message+"\n", args...))
+	if l.l != nil {
+		l.l.Errorf(message, args...)
+	}
+}
+
+func (l *StringProgressReporter) Out() string {
+	return l.sb.String()
 }

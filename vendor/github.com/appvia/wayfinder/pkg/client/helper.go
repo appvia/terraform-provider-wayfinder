@@ -19,7 +19,10 @@ package client
 import (
 	"net"
 	"net/http"
+	"strings"
 	"time"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/appvia/wayfinder/pkg/apiserver/types"
 )
@@ -80,4 +83,13 @@ func isExpectedError(err error, code int) bool {
 	}
 
 	return e.Code == code
+}
+
+func IsAlreadyExists(err error) bool {
+	return kerrors.IsAlreadyExists(err) ||
+		strings.Contains(err.Error(), "already exists") // TODO: Fix error types we return
+}
+
+func IsObjectModified(err error) bool {
+	return err != nil && err.Error() == ObjectModifiedError
 }

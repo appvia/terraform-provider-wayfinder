@@ -53,7 +53,7 @@ func (o Ownership) APIVersion() string {
 
 // IsCloudAccount returns whether this ownership represents a CloudAccount
 func (o Ownership) IsCloudAccount() bool {
-	return o.Kind == "CloudAccount" &&
+	return o.Kind == "CloudAccessConfig" &&
 		o.Group == "cloudaccess.appvia.io"
 }
 
@@ -145,6 +145,20 @@ func (o Ownership) IsOwn(other Ownership) bool {
 	return true
 }
 
+// IsOwnershipEqual will check if two ownership pointers are equivalent
+func IsOwnershipEqual(own1, own2 *Ownership) bool {
+	if own1 == nil && own2 == nil {
+		return true
+	}
+	if own1 == nil && own2 != nil {
+		return false
+	}
+	if own1 != nil && own2 == nil {
+		return false
+	}
+	return own1.IsOwn(*own2)
+}
+
 // GetGroupVersionKind returns the gvk
 func (o Ownership) GetGroupVersionKind() string {
 	return fmt.Sprintf("%s/%s/%s", o.Group, o.Version, o.Kind)
@@ -153,4 +167,9 @@ func (o Ownership) GetGroupVersionKind() string {
 // String returns a string representation
 func (o Ownership) String() string {
 	return fmt.Sprintf("%s.%s/%s/%s/%s", o.Kind, o.Group, o.Version, o.Namespace, o.Name)
+}
+
+// IsPopulated will return true if the minimum set of values required is populated on this ownership
+func (o Ownership) IsPopulated() bool {
+	return o.Name != ""
 }

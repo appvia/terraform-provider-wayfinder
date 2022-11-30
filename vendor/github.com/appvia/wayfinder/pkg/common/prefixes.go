@@ -19,16 +19,9 @@ package common
 import "fmt"
 
 const (
-	// KubeResourceNamePrefix is the prefix for naming all wayfinder created kube resources
-	KubeResourceNamePrefix = "wf"
 	// CloudResourceNamePrefix represents generic cloud resource name prefix that is used or created by wayfinder
 	CloudResourceNamePrefix = "wf"
 )
-
-// GetKubePrefixedName returns a kubernetes resource name string
-func GetKubePrefixedName(original string) string {
-	return fmt.Sprintf("%s-%s", KubeResourceNamePrefix, original)
-}
 
 // GetCloudPrefixedName returns a cloud resource name string
 func GetCloudPrefixedName(original string) string {

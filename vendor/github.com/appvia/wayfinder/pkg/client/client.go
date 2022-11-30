@@ -30,12 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
-
 	corev1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
 	"github.com/appvia/wayfinder/pkg/apiserver/types"
 	"github.com/appvia/wayfinder/pkg/client/config"
-	cmderr "github.com/appvia/wayfinder/pkg/cmd/errors"
 	"github.com/appvia/wayfinder/pkg/common"
 	"github.com/appvia/wayfinder/pkg/utils/httputils"
 	jwsutils "github.com/appvia/wayfinder/pkg/utils/jwt"
@@ -91,9 +88,10 @@ var (
 
 // cc provides a wrapper around th config
 type cc struct {
-	cfg     *config.Config
-	handler UpdateHandlerFunc
-	profile string
+	cfg       *config.Config
+	handler   UpdateHandlerFunc
+	profile   string
+	apiClient func(cfg *config.Config) RestInterface
 }
 
 // New creates and returns an API client
@@ -107,6 +105,17 @@ func New(cfg *config.Config, options ...OptionFunc) (Interface, error) {
 	// apply the options
 	for _, fn := range options {
 		fn(c)
+	}
+	if c.apiClient == nil {
+		c.apiClient = func(cfg *config.Config) RestInterface {
+			return &apiClient{
+				cfg:        cfg,
+				client:     c,
+				handler:    c.handler,
+				parameters: make(map[string]string),
+				profile:    c.CurrentProfile(),
+			}
+		}
 	}
 
 	return c, nil
@@ -135,13 +144,7 @@ func (c *cc) CurrentProfile() string {
 
 // Request creates a request instance
 func (c *cc) Request() RestInterface {
-	return &apiClient{
-		cfg:        c.cfg,
-		client:     c,
-		handler:    c.handler,
-		parameters: make(map[string]string),
-		profile:    c.CurrentProfile(),
-	}
+	return c.apiClient(c.cfg)
 }
 
 // RefreshIdentity is called to refresh the identity token of the client
@@ -151,7 +154,7 @@ func (c *cc) RefreshIdentity() error {
 
 	switch {
 	case auth == nil:
-		return cmderr.NewProfileInvalidError("missing authentication profile", c.CurrentProfile())
+		return NewProfileInvalidError("missing authentication profile", c.CurrentProfile())
 
 	case auth.OIDC != nil:
 
@@ -172,19 +175,19 @@ func (c *cc) RefreshIdentity() error {
 
 		switch {
 		case auth.Identity.IsExchangeToken():
-			common.LogWithoutContext().Debug("attempting to refresh access token via robot exchange")
+			common.LogWithoutContext().Debug("attempting to refresh access token via access token exchange")
 
 			ttl := 30 * time.Minute
-			token, err := ExchangeRobotToken(c, []byte(auth.Identity.RefreshToken), ttl)
+			token, err := ExchangeAccessToken(c, []byte(auth.Identity.RefreshToken), ttl)
 			if err != nil {
-				common.LogWithoutContext().WithError(err).Error("trying to exchange robot token")
+				common.LogWithoutContext().WithError(err).Error("trying to exchange access token")
 
 				return err
 			}
 			auth.Identity.Token = string(token)
 
 		default:
-			common.LogWithoutContext().Debug("attempting to refresh access token of wayfinder identity")
+			common.LogWithoutContext().Debug("attempting to refresh identity token")
 
 			token, err := RefreshWayfinderIdentityToken(c, []byte(auth.Identity.RefreshToken))
 			if err != nil {
@@ -197,11 +200,11 @@ func (c *cc) RefreshIdentity() error {
 		return errors.New("no token available to refresh")
 	}
 
-	return c.HandleConfigurationUpdate()
+	return c.handleConfigurationUpdate()
 }
 
-// HandleConfigurationUpdate is called when the configuration has been updated
-func (c *cc) HandleConfigurationUpdate() error {
+// handleConfigurationUpdate is called when the configuration has been updated
+func (c *cc) handleConfigurationUpdate() error {
 	if c.handler == nil {
 		return nil
 	}
@@ -213,35 +216,35 @@ func (a *apiClient) Profile() string {
 	return a.profile
 }
 
-// MakeAPIEndpoint is responsible for getting the api endpoint
-func (a *apiClient) MakeAPIEndpoint() (*config.Server, error) {
+// makeAPIEndpoint is responsible for getting the api endpoint
+func (a *apiClient) makeAPIEndpoint() (*config.Server, error) {
 	// @step: check we have the endpoint
 	profile, found := a.cfg.Profiles[a.Profile()]
 	if !found {
-		return nil, cmderr.ErrMissingProfile
+		return nil, ErrMissingProfile
 	}
 	server, found := a.cfg.Servers[profile.Server]
 	if !found {
-		return nil, cmderr.NewProfileInvalidError("missing profile server", a.Profile())
+		return nil, NewProfileInvalidError("missing profile server", a.Profile())
 	}
 
 	if server.Endpoint == "" {
-		return nil, cmderr.NewProfileInvalidError("missing endpoint", a.Profile())
+		return nil, NewProfileInvalidError("missing endpoint", a.Profile())
 
 	}
 
 	return server, nil
 }
 
-// HandleRequest is responsible for handling the request chain
-func (a *apiClient) HandleRequest(method string) RestInterface {
+// handleRequest is responsible for handling the request chain
+func (a *apiClient) handleRequest(method string) RestInterface {
 	err := func() error {
 		if a.ferror != nil {
 			return a.ferror
 		}
 
 		// @step: find the endpoint
-		server, err := a.MakeAPIEndpoint()
+		server, err := a.makeAPIEndpoint()
 		if err != nil {
 			a.ferror = err
 
@@ -253,7 +256,7 @@ func (a *apiClient) HandleRequest(method string) RestInterface {
 		}
 
 		// @step: we generate the uri from the parameter
-		uri, err := a.MakeRequestURI()
+		uri, err := a.makeRequestURI()
 		if err != nil {
 			return err
 		}
@@ -278,7 +281,7 @@ func (a *apiClient) HandleRequest(method string) RestInterface {
 
 		err = retry.Retry(ctx, 3, true, 1*time.Second, func() (bool, error) {
 			var respErr error
-			resp, respErr = a.MakeRequest(method, ep, server.CACertificate)
+			resp, respErr = a.makeRequest(method, ep)
 			if respErr != nil {
 				return false, respErr
 			}
@@ -296,7 +299,7 @@ func (a *apiClient) HandleRequest(method string) RestInterface {
 			return err
 		}
 
-		return a.HandleResponse(resp)
+		return a.handleResponse(resp)
 	}()
 	if err != nil {
 		a.ferror = err
@@ -305,102 +308,17 @@ func (a *apiClient) HandleRequest(method string) RestInterface {
 	return a
 }
 
-// MakeStreamRequest is used to stream from the apiserver
-func (a *apiClient) MakeStreamRequest(ctx context.Context, method string) (chan []byte, error) {
-	if a.ferror != nil {
-		return nil, a.ferror
-	}
-
-	// @step: find the endpoint
-	server, err := a.MakeAPIEndpoint()
-	if err != nil {
-		return nil, err
-	}
-
-	// @step: we generate the uri from the parameter
-	uri, err := a.MakeRequestURI()
-	if err != nil {
-		return nil, err
-	}
-
-	// @step: we generate the fully qualifies url
-	endpoint := fmt.Sprintf("%s/%s", server.Endpoint, uri)
-	endpoint = strings.TrimPrefix(endpoint, "http")
-	endpoint = "ws" + endpoint
-
-	common.LogWithoutContext().WithFields(map[string]interface{}{
-		"cacert":   server.CACertificate != "",
-		"endpoint": endpoint,
-		"method":   method,
-		"uri":      uri,
-	}).Debug("making streaming request to wayfinder api")
-
-	req := &http.Request{Header: make(http.Header)}
-
-	// @step: add the authentication from profile
-	if err := a.AddAuthorization(req); err != nil {
-		return nil, err
-	}
-
-	dialer := &websocket.Dialer{
-		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:  &tls.Config{InsecureSkipVerify: true},
-	}
-	headers := http.Header{}
-	headers.Set("Authorization", req.Header.Get("Authorization"))
-	headers.Set("X-Client-Version", version.Release)
-
-	socket, resp, err := dialer.DialContext(ctx, endpoint, headers)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp != nil {
-		if resp.StatusCode != http.StatusSwitchingProtocols {
-			return nil, err
-		}
-	}
-
-	ch := make(chan []byte)
-
-	go func() {
-		defer socket.Close()
-		defer close(ch)
-
-		keepalive := time.NewTicker(5 * time.Second)
-		defer keepalive.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-keepalive.C:
-				_ = socket.WriteMessage(websocket.PingMessage, []byte("keepalive"))
-			default:
-				_, message, err := socket.ReadMessage()
-				if err != nil {
-					return
-				}
-				ch <- message
-			}
-		}
-	}()
-
-	return ch, nil
-}
-
-// MakeRequestURI is responsible for generating the request URI
-func (a *apiClient) MakeRequestURI() (string, error) {
+// makeRequestURI is responsible for generating the request URI
+func (a *apiClient) makeRequestURI() (string, error) {
 	if a.endpoint == "" {
-		return a.MakeDefaultURL()
+		return a.makeDefaultURL()
 	}
 
-	return a.MakeEndpointURL()
+	return a.makeEndpointURL()
 }
 
-// MakeDefaultURL generates a URL from the /workspaces/<name>/resource/<name> format
-func (a *apiClient) MakeDefaultURL() (string, error) {
+// makeDefaultURL generates a URL from the /workspaces/<name>/resource/<name> format
+func (a *apiClient) makeDefaultURL() (string, error) {
 	var paths []string
 	// @logic: we simply iterate in a known order of things i.e. workspace, resource
 	// and name check if the parameter is there and if so append
@@ -425,8 +343,8 @@ func (a *apiClient) MakeDefaultURL() (string, error) {
 	return uri, nil
 }
 
-// MakeEndpointURL is responsible for generating the url from a template
-func (a *apiClient) MakeEndpointURL() (string, error) {
+// makeEndpointURL is responsible for generating the url from a template
+func (a *apiClient) makeEndpointURL() (string, error) {
 	uri := strings.TrimPrefix(types.APIVersion, "/") + a.endpoint
 
 	// @step: we add the path elements and the queries together
@@ -442,10 +360,10 @@ func (a *apiClient) MakeEndpointURL() (string, error) {
 	return uri, nil
 }
 
-// MakeRequest is responsible for preparing and handling the http request
-func (a *apiClient) MakeRequest(method, url, cacert string) (*http.Response, error) {
+// makeRequest is responsible for preparing and handling the http request
+func (a *apiClient) makeRequest(method, url string) (*http.Response, error) {
 	// @step: do we have any thing to encode?
-	payload, err := a.MakePayload()
+	payload, err := a.makePayload()
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +414,7 @@ func (a *apiClient) AddAuthorization(req *http.Request) error {
 
 	switch {
 	case auth == nil:
-		return cmderr.NewProfileInvalidError("missing authentication profile", a.Profile())
+		return NewProfileInvalidError("missing authentication profile", a.Profile())
 
 	case auth.OIDC != nil:
 		// @step: has the access token expired
@@ -529,15 +447,15 @@ func (a *apiClient) AddAuthorization(req *http.Request) error {
 	return nil
 }
 
-// HandleResponse is responsible for handling the http response from api
-func (a *apiClient) HandleResponse(resp *http.Response) error {
+// handleResponse is responsible for handling the http response from api
+func (a *apiClient) handleResponse(resp *http.Response) error {
 	// @step: if everything is ok, check for a response and return
 	code := resp.StatusCode
 
 	common.LogWithoutContext().WithField("code", code).Debug("received the following http response code")
 
 	if code >= http.StatusOK && code <= 299 {
-		if err := a.MakeResult(resp, a.result); err != nil {
+		if err := a.makeResult(resp, a.result); err != nil {
 			return err
 		}
 
@@ -566,6 +484,10 @@ func (a *apiClient) HandleResponse(resp *http.Response) error {
 			apiError.Message = "too many requests, please try again"
 		case http.StatusServiceUnavailable:
 			apiError.Message = "api service is unavailable"
+		case http.StatusMethodNotAllowed:
+			apiError.Message = "resource does not support method " + apiError.Verb
+		case http.StatusConflict:
+			apiError.Message = ObjectModifiedError
 		default:
 			apiError.Message = "invalid response from api server"
 		}
@@ -579,31 +501,37 @@ func (a *apiClient) decodeError(resp *http.Response, apiError *types.Error) {
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
 			vError := &validation.Error{}
-			if err := a.MakeResult(resp, vError); err != nil {
+			if err := a.makeResult(resp, vError); err != nil {
 				common.LogWithoutContext().WithError(err).Debug("response cannot be decoded into a validation error")
 				return
 			}
 			apiError.Message = vError.Error()
 			return
 		case http.StatusConflict:
-			err := &validation.ErrDependencyViolation{}
-			if err := a.MakeResult(resp, err); err != nil {
-				common.LogWithoutContext().WithError(err).Debug("response cannot be decoded into a dependency validation error")
-				return
+			// Two different types of conflict are represented by 409 - a conflict when trying to
+			// write an object to k8s and a conflict with a dependency blocking deletion
+			if resp.Header.Get(common.ObjectModifiedHeader) == common.LabelValueTrue {
+				apiError.Message = ObjectModifiedError
+			} else {
+				err := &validation.ErrDependencyViolation{}
+				if err := a.makeResult(resp, err); err != nil {
+					common.LogWithoutContext().WithError(err).Debug("response cannot be decoded into a dependency validation error")
+					return
+				}
+				apiError.Message = err.Error()
 			}
-			apiError.Message = err.Error()
 			return
 		}
 
-		err := a.MakeResult(resp, apiError)
+		err := a.makeResult(resp, apiError)
 		if err != nil && err != io.EOF {
 			common.LogWithoutContext().WithError(err).Debug("response cannot be decoded")
 		}
 	}
 }
 
-// MakeResult is responsible for reading the resulting payload
-func (a *apiClient) MakeResult(resp *http.Response, data interface{}) error {
+// makeResult is responsible for reading the resulting payload
+func (a *apiClient) makeResult(resp *http.Response, data interface{}) error {
 	a.body = &bytes.Buffer{}
 
 	if resp.Body == nil {
@@ -629,8 +557,8 @@ func (a *apiClient) MakeResult(resp *http.Response, data interface{}) error {
 	return json.NewDecoder(a.Body()).Decode(data)
 }
 
-// MakePayload is responsible for encoding the payload if any
-func (a *apiClient) MakePayload() (io.Reader, error) {
+// makePayload is responsible for encoding the payload if any
+func (a *apiClient) makePayload() (io.Reader, error) {
 	if a.payload == nil {
 		return nil, nil
 	}
@@ -666,33 +594,33 @@ func (a *apiClient) Exists() (bool, error) {
 
 // Delete performs a delete
 func (a *apiClient) Delete() RestInterface {
-	return a.HandleRequest(http.MethodDelete)
+	return a.handleRequest(http.MethodDelete)
 }
 
 // Get performs a get request
 func (a *apiClient) Get() RestInterface {
-	return a.HandleRequest(http.MethodGet)
+	return a.handleRequest(http.MethodGet)
 }
 
 // Create performs a get request
 func (a *apiClient) Create() RestInterface {
-	return a.HandleRequest(http.MethodPost)
+	return a.handleRequest(http.MethodPost)
 }
 
 // Update performs an put request
 func (a *apiClient) Update() RestInterface {
-	return a.HandleRequest(http.MethodPut)
+	return a.handleRequest(http.MethodPut)
 }
 
 // Post performs a post request
 func (a *apiClient) Post() RestInterface {
-	return a.HandleRequest(http.MethodPost)
+	return a.handleRequest(http.MethodPost)
 }
 
 // Stream is used to websocket the response
-func (a *apiClient) Stream(ctx context.Context) (chan []byte, error) {
-	return a.MakeStreamRequest(ctx, http.MethodGet)
-}
+// func (a *apiClient) Stream(ctx context.Context) (chan []byte, error) {
+// 	return a.MakeStreamRequest(ctx, http.MethodGet)
+// }
 
 // Parameters defines a list of parameters for the request
 func (a *apiClient) Parameters(params ...ParameterFunc) RestInterface {
@@ -768,8 +696,8 @@ func (a *apiClient) Result(v interface{}) RestInterface {
 	return a
 }
 
-// InjectParam is responsible for injecting the parameter
-func (a *apiClient) InjectParam(key, value string) {
+// injectParam is responsible for injecting the parameter
+func (a *apiClient) injectParam(key, value string) {
 	if value == "" {
 		panic(fmt.Errorf("%q path parameter cannot be empty", key))
 	}
@@ -783,14 +711,14 @@ func (a *apiClient) Name(v string) RestInterface {
 		return a
 	}
 
-	a.InjectParam("name", v)
+	a.injectParam("name", v)
 
 	return a
 }
 
 // Resource set the resource kind in the request
 func (a *apiClient) Resource(v string) RestInterface {
-	a.InjectParam("resource", v)
+	a.injectParam("resource", v)
 
 	return a
 }
@@ -865,11 +793,4 @@ func (a *apiClient) GetPayload() interface{} {
 // Body returns the body if any
 func (a *apiClient) Body() io.Reader {
 	return strings.NewReader(a.body.String())
-}
-
-// HasParamater checks if the parameter is set
-func (a *apiClient) HasParamater(key string) (string, bool) {
-	value, found := a.parameters[key]
-
-	return value, found
 }

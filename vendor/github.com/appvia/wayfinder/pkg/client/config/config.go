@@ -26,10 +26,10 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/appvia/wayfinder/pkg/authentication"
 	"github.com/appvia/wayfinder/pkg/common"
 	"github.com/appvia/wayfinder/pkg/config"
 	"github.com/appvia/wayfinder/pkg/version"
+	"github.com/appvia/wayfinder/server/org/services/authentication"
 )
 
 // New creates a configuration
@@ -63,37 +63,18 @@ func NewEmpty() *Config {
 	}
 }
 
-// NewRobotConfig returns a robot token config
-func NewRobotConfig(endpoint, workspace string, token []byte) *Config {
-	profile := "default"
-
-	return &Config{
-		CurrentProfile: profile,
-		AuthInfos: map[string]*AuthInfo{
-			profile: {
-				Identity: &Identity{
-					RefreshToken: string(token),
-				},
-			},
-		},
-		Profiles: map[string]*Profile{
-			profile: {
-				AuthInfo:  profile,
-				Server:    profile,
-				Workspace: workspace,
-			},
-		},
-		Servers: map[string]*Server{
-			profile: {Endpoint: endpoint},
-		},
-		Version:      version.Release,
-		FeatureGates: config.DefaultFeatureGates(),
-	}
-}
-
 // IsValid checks if the configuration is valid
 func (c *Config) IsValid() error {
 	return nil
+}
+
+// IsAccessToken returns true if the current profile is for an access token user
+func (c *Config) IsAccessToken() bool {
+	ai := c.GetAuthInfo(c.CurrentProfile)
+	if ai == nil {
+		return false
+	}
+	return ai.Identity != nil && ai.Identity.IsExchangeToken()
 }
 
 // IsFeatureEnabled checks if the feature is enabled

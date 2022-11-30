@@ -75,7 +75,7 @@ func New(config Config) (plugin.ProviderFunc, error) {
 					Description: "The URL for the Wayfinder API endpoint (e.g https://api.example.com).",
 					Optional:    true,
 				},
-				"refresh_token": {
+				"access_token": {
 					Type:        schema.TypeString,
 					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_TOKEN", ""),
 					Description: "The refresh robot token used to authenticate to the Wayfinder instance.",
@@ -130,13 +130,14 @@ func createResources(ctx context.Context,
 			UpdateContext: updateResourceHandler(resource),
 			Timeouts: &schema.ResourceTimeout{
 				Default: schema.DefaultTimeout(10 * time.Minute),
+				Read:    schema.DefaultTimeout(60 * time.Second),
 			},
 		}
 	}
 
 	// @step: add the manual resources into the schema
-	resources["wayfinder_workspace"] = makeWorkspaceResource()
 	resources["wayfinder_user"] = makeUserResource()
+	resources["wayfinder_workspaces"] = makeWorkspaceResource()
 
 	return resources, nil
 }

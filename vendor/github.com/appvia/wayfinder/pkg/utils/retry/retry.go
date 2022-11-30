@@ -36,6 +36,13 @@ const (
 	MaxAttempts = 99999999
 )
 
+// IsRetryFailed will return true if the supplied error is one that the Retry / RetryWithTimeout /
+// RetryErrors functions will return if the retry did not succeed within the specified time/number
+// of attempts.
+func IsRetryFailed(err error) bool {
+	return err == ErrCancelled || err == ErrReachMaxAttempts
+}
+
 // RetryFunc performs the operation. It should return true if the operation is complete, false if
 // it should be retried, and an error if an error which should NOT be retried has occurred.
 type RetryFunc func() (bool, error)

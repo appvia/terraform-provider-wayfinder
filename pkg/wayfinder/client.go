@@ -36,7 +36,11 @@ func configure(ctx context.Context, rd *schema.ResourceData) (interface{}, diag.
 
 	configfile := fmt.Sprintf("%v", rd.Get("config_file"))
 	server := fmt.Sprintf("%v", rd.Get("endpoint"))
-	token := fmt.Sprintf("%v", rd.Get("refresh_token"))
+	token := fmt.Sprintf("%v", rd.Get("access_token"))
+
+	if server == "" && token == "" && configfile == "" {
+		configfile = os.ExpandEnv("$HOME/.wayfinder/config.yaml")
+	}
 
 	switch {
 	case server != "" && token != "":

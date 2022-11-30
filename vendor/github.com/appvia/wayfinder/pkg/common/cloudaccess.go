@@ -18,13 +18,17 @@ package common
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
+	cloudaccessv2 "github.com/appvia/wayfinder/server/cloudaccess/apis/cloudaccess/v2beta1"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CloudAccessSessionProvider
@@ -40,8 +44,6 @@ const (
 	CloudProviderAzure = "azure"
 	// CloudProviderUnknown represents unknown clouds
 	CloudProviderUnknown = "unknown"
-	// CloudAccessManagedAccessComponent is the component name used to track Wayfinder's cloudaccess
-	CloudAccessManagedAccessComponent = "CloudAccessManagedAccess"
 )
 
 // CloudProviders is the set of supported cloud providers in Wayfinder
@@ -49,6 +51,22 @@ var CloudProviders = []string{
 	CloudProviderAWS,
 	CloudProviderGCP,
 	CloudProviderAzure,
+}
+
+// WorkspaceCloudAccountName provides a standard name for the cloud access config object in a workspace
+// for the given cloud and stage
+func WorkspaceCloudAccountName(cloud, stage string) string {
+	// This naming convention must match generateCloudAccountResource in ui/lib/api/resources/cloudaccount.ts
+	return fmt.Sprintf("%s-%s", cloud, stage)
+}
+
+// IdentityCredName returns the name to use for a CloudIdentity in the admin workspace for
+// Wayfinder's default identity credential for the specified cloud
+func IdentityCredName(cloud string) cloudaccessv2.CloudIdentityReference {
+	return cloudaccessv2.CloudIdentityReference{
+		Name:      fmt.Sprintf("cloudidentity-%s", cloud),
+		Namespace: corev1.AdminWorkspace.Namespace(),
+	}
 }
 
 // CloudAccessTrustProvider provides trust information to wayfinder setup roles via the API
@@ -73,7 +91,7 @@ type CloudAccessRolesType struct {
 }
 
 // CloudAccessRoles are the set of roles that Wayfinder may need to assume when using a
-// cloud account - these relate to our architecture
+// cloud access config - these relate to our architecture
 var CloudAccessRoles = CloudAccessRolesType{
 	None:                      "None",
 	NetworkManager:            "NetworkManager",
@@ -89,7 +107,7 @@ var CloudAccessRoles = CloudAccessRolesType{
 }
 
 func NewErrCloudAccessRoleNotAvailable(role CloudAccessRole, caNamespace, caName string) error {
-	return errCloudAccessRoleNotAvailble{err: fmt.Errorf("cloud access role %s is not available on the cloud account %s/%s", role, caNamespace, caName)}
+	return errCloudAccessRoleNotAvailble{err: fmt.Errorf("cloud access role %s is not available on the cloud access config %s/%s", role, caNamespace, caName)}
 }
 
 type errCloudAccessRoleNotAvailble struct {
@@ -157,8 +175,8 @@ func GetCloudAccessFeature(feature string) (CloudAccessFeature, error) {
 // - some "features" have overlapping actual roles, see CloudAccessFeatureMeta for feature descriptions.
 // - features are distinct from roles as they relate to sets of product features not the Wayfinder architecture
 type CloudAccessFeatureType struct {
-	AccountManagementComplete   CloudAccessFeature
-	AccountManagement           CloudAccessFeature
+	AccountAutomation           CloudAccessFeature
+	AccountAdministration       CloudAccessFeature
 	CostsAudit                  CloudAccessFeature
 	CostsEstimates              CloudAccessFeature
 	Provisioning                CloudAccessFeature
@@ -168,11 +186,12 @@ type CloudAccessFeatureType struct {
 }
 
 // CloudAccessFeatures are the features known to Wayfinder for permissions management
-// It is the responsibility of a cloud account provider to understand which underlying roles are required
+// It is the responsibility of a cloud access config provider to understand which underlying roles are required
 //
 // See CloudAccountSpec Features property
 var CloudAccessFeatures = CloudAccessFeatureType{
-	AccountManagement:           "AccountManagement",
+	AccountAutomation:           "AccountAutomation",
+	AccountAdministration:       "AccountAdministration",
 	CostsAudit:                  "CostsAudit",
 	CostsEstimates:              "CostsEstimates",
 	Provisioning:                "Provisioning",
@@ -193,11 +212,19 @@ type CloudAccessFeatureMetaData struct {
 // CloudAccessFeaturesMetaData are "features" with the human readable descriptions
 var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 	{
-		Feature:     CloudAccessFeatures.AccountManagement,
+		Feature:     CloudAccessFeatures.AccountAutomation,
 		Title:       "Account Automation",
 		Description: "Create and manage cloud accounts for your workspaces",
 		AccountTypes: []CloudAccountType{
 			CloudAccountTypeOrganization,
+		},
+	},
+	{
+		Feature:     CloudAccessFeatures.AccountAdministration,
+		Title:       "Account Administration",
+		Description: "Allows Wayfinder to manage IAM and service enablement in this account, so it can provision other roles as needed",
+		AccountTypes: []CloudAccountType{
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -206,7 +233,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Description: "Prepare and import actual cost data for your infrastructure into Wayfinder from this account",
 		AccountTypes: []CloudAccountType{
 			CloudAccountTypeOrganization,
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -214,8 +241,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Title:       "Cost Estimates",
 		Description: "Access to cloud pricing information for estimating future costs",
 		AccountTypes: []CloudAccountType{
-			CloudAccountTypeOrganization,
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -223,8 +249,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Title:       "DNS Zone Management",
 		Description: "Create and manage shared DNS zones to provide DNS automatically for workspaces",
 		AccountTypes: []CloudAccountType{
-			CloudAccountTypeOrganization,
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -232,8 +257,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Title:       "Network Peering",
 		Description: "Automate establishment of network connectivity between cloud accounts",
 		AccountTypes: []CloudAccountType{
-			CloudAccountTypeOrganization,
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -241,7 +265,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Title:       "Provisioning",
 		Description: "Deliver Kubernetes clusters, relevant networking, DNS management and cloud container registries",
 		AccountTypes: []CloudAccountType{
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 	{
@@ -249,7 +273,7 @@ var CloudAccessFeaturesMetaData = []CloudAccessFeatureMetaData{
 		Title:       "Container Registry Management",
 		Description: "Create container registries for building and pushing a workspace's containers",
 		AccountTypes: []CloudAccountType{
-			CloudAccountTypeShared,
+			CloudAccountTypeLinked,
 		},
 	},
 }
@@ -262,8 +286,6 @@ const (
 	CloudAccountTypeOrganization CloudAccountType = "organization"
 	// CloudAccountTypeLinked is for user-specified accounts to be used by Wayfinder directly
 	CloudAccountTypeLinked CloudAccountType = "linked"
-	// CloudAccountTypeShared is for user-specified accounts to be used by Wayfinder directly
-	CloudAccountTypeShared CloudAccountType = "shared"
 	// CloudAccountTypeManaged is for Wayfinder-created and managed accounts which belong to a top-level
 	// organisation account
 	CloudAccountTypeManaged CloudAccountType = "managed"
@@ -389,9 +411,6 @@ type CloudAccessRoleInfo struct {
 	UseAsPermissionsTemplate bool `json:"permissionsTemplate,omitempty"`
 	// Features is the specific set of features that this set of permissions is for
 	Features []CloudAccessFeature `json:"feature"`
-	// SeparateProcess signifies this wayfinder role will be used by a separate process, not by the wayfinder
-	// API server, i.e. will need a separate credential or role created
-	SeparateProcess bool `json:"separateProcess,omitempty"`
 }
 
 // RequiredForFeature returns true if this role is required for the given cloud access feature
@@ -403,6 +422,26 @@ func (r CloudAccessRoleInfo) RequiredForFeature(feature CloudAccessFeature) bool
 	}
 
 	return false
+}
+
+// PermissionsHash obtains the checksum of the permissions for this role
+func (r CloudAccessRoleInfo) PermissionsHash() string {
+	// sort the permissions so we get a consistent checksum
+	permissions := make([]string, 0, len(r.Permissions))
+	for k := range r.Permissions {
+		permissions = append(permissions, k)
+	}
+	sort.Strings(permissions)
+	// now append the permissions to a single string
+	var b strings.Builder
+	for _, k := range permissions {
+		b.WriteString(k)
+		b.WriteString(r.Permissions[k])
+	}
+	// finally calculate the resulting Md5 checksum
+	h := md5.New()
+	h.Write([]byte(b.String()))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // CloudAccessProviderData is any provider specific information

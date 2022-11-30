@@ -18,6 +18,9 @@ package common
 
 import (
 	"fmt"
+	"regexp"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Label returns a wayfinder label on a resource
@@ -39,8 +42,9 @@ const (
 )
 
 const (
-	CapabilitiesPrefixName = "capabilities"
-	PackagesPrefixName     = "packages"
+	ChannelsPrefixName = "channels"
+	PackagesPrefixName = "packages"
+	AppEnvsPrefixName  = "appenvs"
 )
 
 // LabelWayfinderIdentifier is the label for the immutable unique identifier for this instance
@@ -86,11 +90,17 @@ var LabelPlatform = Label("platform")
 // LabelProvider is used to identify the provider
 var LabelProvider = Label("provider")
 
+// LabelProviderType is used to identify the type of a provider (e.g. SSO, BasicAuth for identities)
+var LabelProviderType = Label("providertype")
+
 // LabelWorkspace is used to categorize objects
 var LabelWorkspace = Label("workspace")
 
 // LabelCategory is used to categorize objects
 var LabelCategory = Label("category")
+
+// LabelUser is used to label objects owned by users, such as identities, for easy findings.
+var LabelUser = Label("user")
 
 // LabelOwnerWorkspace is used to reference the workspace owning this resource in multitenancy
 var LabelOwnerWorkspace = Label("ownerworkspace")
@@ -107,8 +117,14 @@ var LabelProduction = Label("production")
 // LabelEnvironment is used to record which environment an object belongs to
 var LabelEnvironment = Label("environment")
 
+// LabelRegion is used to record which region an object belongs to
+var LabelRegion = Label("region")
+
 // LabelStage is used to record which stage an object belongs to
 var LabelStage = Label("stage")
+
+// LabelChannel is used to record which channel an object should be following
+var LabelChannel = Label("channel")
 
 // LabelNodepool is used to record which nodepool an object belongs to
 var LabelNodepool = Label("nodepool")
@@ -123,16 +139,35 @@ var LabelQuotaLimitIsDefault = Label("quotalimitdefault")
 // LabelKubernetesVersion is current kubernetes version
 var LabelKubernetesVersion = Label("kubernetesversion")
 
-// LabelCapabilitiesName is used to record the name of the capability
-var LabelCapabilitiesName = NamedLabel(CapabilitiesPrefixName, "name")
+// LabelPackageName is used to record the name of the package
+var LabelPackageName = NamedLabel(PackagesPrefixName, "name")
 
-// LabelCapabilitiesDescription is used to record the description of the capability
-var LabelCapabilitiesDescription = NamedLabel(CapabilitiesPrefixName, "description")
+// LabelPackageVersion is used to record the version of the package
+var LabelPackageVersion = NamedLabel(PackagesPrefixName, "version")
+
+// LabelApplication identifies an element as part of an 'Application' defined in Wayfinder
+var LabelApplication = Label("app")
+
+// LabelAppEnv identifies an element as part of an application environment defined in Wayfinder
+var LabelAppEnv = Label("appenv")
+
+// LabelDedicatedZone can be applied to a DNSZone with the value 'true' to indicate it is dedicated
+// to a specified app (must be combined with LabelApp, LabelStage, and optionally LabelAppEnv)
+var LabelDedicatedZone = Label("dedicatedZone")
+
+// LabelParent identifies the parent resource of a resource (e.g. the global DNS zone that an app DNS zone is derived from)
+var LabelParent = Label("parent")
+
+// LabelOwnedBy is applied to resources which were created or applied with the owner flag set. These
+// will be read-only in the UI and CLI unless the same owner flag is provided, or --force is used
+// by an admin to override.
+var LabelOwnedBy = Label("ownedBy")
 
 // Labels are the list of known labels (excluding internally used ones)
 var Labels = []string{
 	LabelAccountIdentifier,
 	LabelCategory,
+	LabelChannel,
 	LabelOwnerWorkspace,
 	LabelOwnerCluster,
 	LabelClusterIdentifier,
@@ -143,6 +178,7 @@ var Labels = []string{
 	LabelPlatform,
 	LabelProduction,
 	LabelProvider,
+	LabelRegion,
 	LabelQuotaLimit,
 	LabelQuotaLimitIsDefault,
 	LabelStage,
@@ -150,6 +186,20 @@ var Labels = []string{
 	LabelWayfinderIdentifier,
 	LabelWorkspace,
 	LabelKubernetesVersion,
-	LabelCapabilitiesName,
-	LabelCapabilitiesDescription,
+	LabelPackageVersion,
+	LabelPackageName,
+}
+
+// GetOwner returns the owner of this object, as identified by the appvia.io/ownedBy label. Will
+// return an empty string if this object is not owned.
+func GetOwner(object metav1.Object) string {
+	return object.GetLabels()[LabelOwnedBy]
+}
+
+var ValidOwnerPattern = regexp.MustCompile(`^[a-z0-9A-Z][a-z0-9A-Z\._-]{0,61}[a-z0-9A-Z]$`)
+
+// IsValidOwner checks that the provided owner is a valid owner (which, really, is a valid k8s label
+// value)
+func IsValidOwner(owner string) bool {
+	return ValidOwnerPattern.MatchString(owner)
 }

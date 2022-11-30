@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	corev1alpha1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
-	computev1alpha1 "github.com/appvia/wayfinder/server/cloudinfra/clusters/apis/compute/v1alpha1"
+	computev2beta1 "github.com/appvia/wayfinder/server/cloudinfra/clusters/apis/compute/v2beta1"
 )
 
 const (
@@ -101,7 +101,7 @@ func GetClusterDNSProvider(clusterProvider string) (string, bool) {
 
 // IsManagementCluster returns true if the referenced cluster represents Wayfinder's own management
 // cluster
-func IsManagementCluster(c *computev1alpha1.Cluster) bool {
+func IsManagementCluster(c *computev2beta1.Cluster) bool {
 	if c == nil {
 		return false
 	}
@@ -112,4 +112,10 @@ func IsManagementCluster(c *computev1alpha1.Cluster) bool {
 // cluster
 func IsManagementClusterOwnership(o corev1alpha1.Ownership) bool {
 	return o.Workspace() == corev1alpha1.AdminWorkspace && o.Name == ClusterNameManagement
+}
+
+// GetClusterWorkspaceAndName returns the workspace and cluster name from the unique name
+// If the unique name is not in the format workspace.clustername then the requesting workspace is returned with the unique name
+func GetClusterWorkspaceAndName(uniqueName string, requestingWorkspace corev1alpha1.WorkspaceKey) (corev1alpha1.WorkspaceKey, string) {
+	return ParseUniqueName(uniqueName, requestingWorkspace)
 }

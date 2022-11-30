@@ -19,8 +19,11 @@ package strings
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"math/big"
+	mathrand "math/rand"
 	"strings"
+	"time"
 )
 
 // GeneratePassword trys to generate a random password for us
@@ -59,4 +62,14 @@ func GeneratePassword(length int, allowSpecialChars bool) (string, error) {
 	}
 
 	return password, nil
+}
+
+func MustRandomString(length int) string {
+	mathrand.Seed(time.Now().UnixNano())
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%x", b)[:length]
 }

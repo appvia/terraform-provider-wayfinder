@@ -17,15 +17,11 @@
 package client
 
 import (
-	"errors"
+	"fmt"
 	"time"
 
-	corev1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
 	"github.com/appvia/wayfinder/pkg/apiserver/types"
-	"github.com/appvia/wayfinder/pkg/authentication"
-	"github.com/appvia/wayfinder/pkg/utils"
-	jwsutils "github.com/appvia/wayfinder/pkg/utils/jwt"
-	policyutil "github.com/appvia/wayfinder/server/policydelivery/services/utils"
+	"github.com/appvia/wayfinder/server/org/services/authentication"
 )
 
 // RefreshWayfinderIdentityToken is used to exchange the refresh token for a new access token
@@ -47,56 +43,24 @@ func RefreshWayfinderIdentityToken(client Interface, refresh []byte) ([]byte, er
 	return []byte(issued.Token), nil
 }
 
-// ExchangeRobotToken is used to exchange a robot token for us
-func ExchangeRobotToken(client Interface, exchange []byte, expiration time.Duration) ([]byte, error) {
+// ExchangeAccessToken is used to exchange an access token for a valid API token
+func ExchangeAccessToken(client Interface, exchange []byte, expiration time.Duration) ([]byte, error) {
 	if found, err := authentication.IsExchangeToken(exchange); err != nil {
 		return nil, err
 	} else if !found {
 		return nil, authentication.ErrNonExchangeToken
 	}
 
-	claims, err := jwsutils.NewClaimsFromRawBytesToken(exchange)
-	if err != nil {
-		return nil, err
-	}
-
-	groups, found := claims.GetGroups()
-	if !found {
-		return nil, errors.New("no groups claim in the token")
-	}
-	if len(groups) <= 0 {
-		return nil, errors.New("groups claim is empty")
-	}
-	if len(groups) > 1 {
-		return nil, errors.New("groups claim has multiple names")
-	}
-
-	scopes, found := claims.GetScopes()
-	if !found {
-		return nil, errors.New("invalid token, no scopes found")
-	}
-
-	name, found := claims.GetPreferredUsername()
-	if !found {
-		return nil, errors.New("robot subject name not found in token")
-	}
-
-	// @step: ensure the token has the exchange scope
-	if !utils.ContainsMatchingItems([]string{authentication.ScopeExchange}, scopes) {
-		return nil, errors.New("token cannot used for exchange")
-	}
-
 	token := &types.IssuedToken{}
-	err = client.Request().
+	if err := client.Request().
 		Authorization(string(exchange)).
 		Result(token).
-		Workspace(corev1.WorkspaceKey(groups[0])).
-		Name(policyutil.GetRobotAccountName(name)).
-		Resource("robots").
-		SubResource("exchange").
+		Endpoint("/exchange").
 		Parameters(QueryParameter("ttl", expiration.String())).
 		Post().
-		Error()
+		Error(); err != nil {
+		return nil, fmt.Errorf("failed to exchange access token for API token - please check the access token is valid: %w", err)
+	}
 
-	return []byte(token.Token), err
+	return []byte(token.Token), nil
 }
