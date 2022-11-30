@@ -32,6 +32,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
+var (
+	// providerVersion is configuration for the provider
+	providerSchema = map[string]*schema.Schema{
+		"config_file": {
+			Type:        schema.TypeString,
+			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_CONFIG", path.Join(os.Getenv("HOME"), ".wayfinder", "config")),
+			Description: "The path to the wayfinder configuration file.",
+			Optional:    true,
+		},
+		"endpoint": {
+			Type:        schema.TypeString,
+			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_ENDPOINT", "http://localhost:8080"),
+			Description: "The URL for the Wayfinder API endpoint (e.g https://api.example.com).",
+			Optional:    true,
+		},
+		"refresh_token": {
+			Type:        schema.TypeString,
+			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_TOKEN", ""),
+			Description: "The refresh robot token used to authenticate to the Wayfinder instance.",
+			Optional:    true,
+			Sensitive:   true,
+		},
+	}
+)
+
 // New creates and returns a terraform provider
 func New(config Config) (plugin.ProviderFunc, error) {
 	ctx := context.Background()
@@ -58,34 +83,12 @@ func New(config Config) (plugin.ProviderFunc, error) {
 	}
 
 	return func() *schema.Provider {
-		provider := &schema.Provider{
+		return &schema.Provider{
 			ConfigureContextFunc: configure,
 			ResourcesMap:         resources,
 			DataSourcesMap:       dataSources,
-			Schema: map[string]*schema.Schema{
-				"config_file": {
-					Type:        schema.TypeString,
-					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_CONFIG", path.Join(os.Getenv("HOME"), ".wayfinder", "config")),
-					Description: "The path to the wayfinder configuration file.",
-					Optional:    true,
-				},
-				"endpoint": {
-					Type:        schema.TypeString,
-					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_ENDPOINT", "http://localhost:8080"),
-					Description: "The URL for the Wayfinder API endpoint (e.g https://api.example.com).",
-					Optional:    true,
-				},
-				"refresh_token": {
-					Type:        schema.TypeString,
-					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_TOKEN", ""),
-					Description: "The refresh robot token used to authenticate to the Wayfinder instance.",
-					Optional:    true,
-					Sensitive:   true,
-				},
-			},
+			Schema:               providerSchema,
 		}
-
-		return provider
 	}, nil
 }
 
