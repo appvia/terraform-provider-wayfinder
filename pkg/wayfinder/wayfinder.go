@@ -124,6 +124,11 @@ func createResources(ctx context.Context,
 	for name, resource := range list {
 		log.Printf("adding resource: %s, apigroup: %s", name, resource.APIVersion)
 
+		switch name {
+		case "wayfinder_plans", "wayfinder_workspace_clusters":
+			continue
+		}
+
 		resources[name] = &schema.Resource{
 			CreateContext: createResourceHandler(resource),
 			DeleteContext: deleteResourceHandler(resource),
@@ -138,8 +143,10 @@ func createResources(ctx context.Context,
 	}
 
 	// @step: add the manual resources into the schema
-	resources["wayfinder_workspace"] = makeWorkspaceResource()
+	resources["wayfinder_plan"] = makePlanResource()
 	resources["wayfinder_user"] = makeUserResource()
+	resources["wayfinder_workspace"] = makeWorkspaceResource()
+	resources["wayfinder_workspace_cluster"] = makeWayfinderWorkspaceCluster()
 
 	return resources, nil
 }
