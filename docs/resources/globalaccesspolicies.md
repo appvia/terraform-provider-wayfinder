@@ -61,13 +61,14 @@ Optional:
 Required:
 
 - `constraints` (Block List, Min: 1, Max: 1) Constraints are the collection of constraints which control access to the roles This is a combination of when and where (see [below for nested schema](#nestedblock--spec--access_policy_template--constraints))
-- `groups` (List of String) Groups are the list of Wayfinder groups that apply this AccessRoleBindings This is the who in the access question
+- `groups` (List of String) Groups is the list of workspace groups that are permitted access by this access policy. This is the 'who' in the access question. At least one group or wayfinder group must be specified.
 
 Optional:
 
-- `access_role_refs` (List of String) AccessRoleRefs is the reference to AccessRoles (in this workspace) grants access to create AccessRoleBindings for the exact roles only This is the "what" exactly is granted access to
+- `access_role_refs` (List of String) AccessRoleRefs is the set of AccessRoles (in this workspace) that this policy grants access to create AccessRoleBindings for. This is the 'what' exactly is granted access to.
 - `description` (String) Description is a human-readable description of the policy Should describe what sort of function the policy provides (e.g. support for production clusters)
 - `subject_type` (String) SubjectKind is the type of the subject for this policy
+- `wayfinder_groups` (List of String) WayfinderGroups is the list of Wayfinder groups that are permitted access by this access policy. This is the 'who' in the access question At least one group or wayfinder group must be specified.
 
 <a id="nestedblock--spec--access_policy_template--constraints"></a>
 ### Nested Schema for `spec.access_policy_template.constraints`
@@ -245,5 +246,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
@@ -32,54 +33,40 @@ const (
 )
 
 const (
-	// ObjectAPIRouteList enables the list endpoint
-	ObjectAPIRouteList int = 1 << iota
-	// ObjectAPIRouteHas enables the has endpoint
-	ObjectAPIRouteHas
-	// ObjectAPIRouteGet enables the get endpoint
-	ObjectAPIRouteGet
-	// ObjectAPIRouteCreate enables the create endpoint
-	ObjectAPIRouteCreate
-	// ObjectAPIRouteUpdate enables the update endpoint
-	ObjectAPIRouteUpdate
-	// ObjectAPIRouteDelete enables the delete endpoint
-	ObjectAPIRouteDelete
-	// ObjectAPIRouteListAll enables the list all endpoint for a workspace-scoped resource
-	ObjectAPIRouteListAll
+	// ObjectScopeDual is an object that is available at both platform and workspace scope
+	ObjectScopeDual = ObjectScopeWorkspace + ObjectScopeGlobal
 )
 
-const (
-	// ObjectAPIRoutesRead contains all read endpoints
-	ObjectAPIRoutesRead = ObjectAPIRouteList + ObjectAPIRouteHas + ObjectAPIRouteGet + ObjectAPIRouteListAll
-	// ObjectAPIRoutesWrite contains all write endpoints
-	ObjectAPIRoutesWrite = ObjectAPIRouteCreate + ObjectAPIRouteUpdate + ObjectAPIRouteDelete
-	// ObjectAPIRoutesReadWrite contains all read/write endpoints
-	ObjectAPIRoutesReadWrite = ObjectAPIRoutesRead + ObjectAPIRoutesWrite
-	// ObjectAPIRoutesReadDelete contains all read methods and the ability to delete but not create
-	ObjectAPIRoutesReadDelete = ObjectAPIRoutesRead + ObjectAPIRouteDelete
-)
-
-// ObjectFactory can create an API object or an API list object
-type ObjectFactory interface {
-	// CreateObject returns with a pointer to a new object instance
-	CreateObject() corev1alpha1.Object
-	// CreateListObject returns with a pointer to a new list object instance
-	CreateListObject() corev1alpha1.ObjectList
+type ObjectListFilter struct {
+	ParamName   string
+	IsList      bool
+	Description string
+	// DefaultValue will cause this filter to be ALWAYS used; if the parameter is not specified,
+	// this default value will be passed to the filter function. Only
+	DefaultValue string
+	Filter       func(value interface{}) func(client.Object) bool
 }
 
-type ObjectDescriptor interface {
-	// FeatureGate returns the name of the feature gate which enables the handler
-	// Can be left empty in which case the handler is always enabled
-	FeatureGate() string
-	// Subject returns with the description of the object
-	Subject() string
-	// APIRoutes returns with the enabled API routes
-	// You can compose a custom set of routes using the ObjectAPIRoute* flag constants
-	APIRoutes() int
-	// Scope returns with the API scope flags (workspace, global or both)
+type ObjectClient interface {
+	// List returns the existing objects filtered by the filters defined in list options
+	List(context.Context, corev1alpha1.ObjectList, ...client.ListOption) error
+	// Get returns the object
+	Get(context.Context, client.Object) error
+	// Create is responsible for creating an object
+	Create(context.Context, client.Object, ...client.PatchOption) error
+	// Update is responsible for updating an object
+	Update(context.Context, client.Object, ...client.PatchOption) error
+	// Delete is responsible for deleting an object
+	Delete(context.Context, client.Object, ...client.DeleteOption) error
+}
+
+type ObjectHandler interface {
+	// ObjectKind must return the GVK of the Wayfinder API type managed by this handler
+	ObjectKind() schema.GroupVersionKind
+	// CreateObject returns with a pointer to a new object instance
+	CreateObject() corev1alpha1.Object
+	// Scope returns with the API scope flags (workspace, global or dual)
 	Scope() int8
-	// ListFilters returns the available list filters
-	ListFilters() []ObjectListFilter
 	// Allocatable return true if this is a resource that supports allocation across workspace
 	// boundaries.
 	//
@@ -87,93 +74,31 @@ type ObjectDescriptor interface {
 	// returns true.
 	Allocatable() bool
 	// Tags are used for grouping API objects (e.g. in OpenAPI)
-	Tags() []string
-	// ClusterScoped returns true if this resource is implemented as a cluster-scoped CRD. If this is
-	// true, Scope *must* be only Global.
-	ClusterScoped() bool
-}
+	Tag() string
 
-type ObjectListFilter struct {
-	ParamName   string
-	IsList      bool
-	Description string
-	Filter      func(value interface{}) func(client.Object) bool
-}
+	// ListFilters returns a list of filters to provide as optional query parameters on the list API
+	ListFilters() []ObjectListFilter
 
-type ObjectReader interface {
-	// List returns the existing objects filtered by the filters defined in list options
-	List(context.Context, corev1alpha1.ObjectList, ...client.ListOption) error
-	// Has checks if the given object exists
-	Has(context.Context, client.Object) (bool, error)
-	// Get returns the object
-	Get(context.Context, client.Object) error
-}
+	// Mutate is called by the mutation webhook for this type
+	Mutate(ctx context.Context, obj client.Object, oldObj client.Object, dryRun bool) error
 
-type ObjectWriter interface {
-	// Create is responsible for creating an object
-	Create(context.Context, client.Object, ...client.CreateOption) error
-	// Update is responsible for updating an object
-	Update(context.Context, client.Object, ...client.UpdateOption) error
-	// Delete is responsible for deleting an object
-	Delete(context.Context, client.Object, ...client.DeleteOption) error
-	// DeleteDependencyCheck will do a dry-run of the delete to check for any dependencies that will block
-	// deletion. Convenience wrapper around using Delete() with dry run et al for controllers.
-	DeleteDependencyCheck(context.Context, client.Object) error
-}
+	// CheckCreate must perform any validation required for this type on creation. This is called
+	// by the validation webhook for this type when an object is first created. Mutate will be
+	// called before CheckCreate, so it is OK to depend on mutations being represented in the
+	// provided object.
+	CheckCreate(ctx context.Context, o client.Object, dryRun bool) error
 
-type ObjectClient interface {
-	ObjectReader
-	ObjectWriter
-}
+	// CheckUpdate must perform any validation required for this type on update. This is called
+	// by the validation webhook for this type when an object is updated. Mutate will be called
+	// before CheckUpdate, so it is OK to depend on mutations being represented in the provided
+	// object.
+	CheckUpdate(ctx context.Context, before, after client.Object, dryRun bool) error
 
-type ObjectHandler interface {
-	ObjectFactory
-	ObjectDescriptor
-	ObjectClient
+	// CheckDelete must perform any pre-delete validation required for this object. This is called
+	// by the validation webhook for this type when deletion of the object is requested. We don't
+	// typically mutate on delete, but if we did, this would happen after that mutation.
+	CheckDelete(ctx context.Context, o client.Object, dryRun bool) error
 }
 
 // ObjectHandlerFactory is the signature for an object handler that can be registered
 type ObjectHandlerFactory func(func() client.Client) ObjectHandler
-
-// ObjectValidator provides the interface for the webhook validation code
-type ObjectValidator interface {
-	// CheckCreate verifies whether the object can be created
-	CheckCreate(ctx context.Context, o client.Object, options ...client.CreateOption) error
-	// CheckUpdate verifies whether the object can be updated
-	CheckUpdate(ctx context.Context, before, after client.Object, options ...client.UpdateOption) error
-	// CheckDelete verifies whether the object can be deleted
-	CheckDelete(ctx context.Context, o client.Object, options ...client.DeleteOption) error
-	// UseWebhooks should return true, if the webhook server will handle validation/admission webhooks
-	// Requires code change in the API definition and in the controller before you can set this to true
-	UseWebhooks() bool
-}
-
-// ObjectMutator is an optional interface which can be implemented by the object handler
-// If implemented and webhooks are enabled, the Mutate function will be called at the end of the admission request
-type ObjectMutator interface {
-	Mutate(_ context.Context, _ client.Object, dryRun bool) error
-}
-
-// NoopObjectValidator creates a new object validator which does no validation
-func NoopObjectValidator() ObjectValidator {
-	return noopObjectValidator{}
-}
-
-type noopObjectValidator struct {
-}
-
-func (v noopObjectValidator) CheckCreate(context.Context, client.Object, ...client.CreateOption) error {
-	return nil
-}
-
-func (v noopObjectValidator) CheckUpdate(context.Context, client.Object, client.Object, ...client.UpdateOption) error {
-	return nil
-}
-
-func (v noopObjectValidator) CheckDelete(context.Context, client.Object, ...client.DeleteOption) error {
-	return nil
-}
-
-func (v noopObjectValidator) UseWebhooks() bool {
-	return false
-}

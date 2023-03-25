@@ -112,7 +112,7 @@ type CommonStatus struct {
 	LastSuccess *LastReconcileStatus `json:"lastSuccess,omitempty"`
 	// CloudResourcesCreated indicates that at some point, this resource has successfully created
 	// one or more cloud resources. This is used when deleting to decide whether to fail or ignore
-	// if a related cloud account is inaccessible.
+	// if a related cloud access config is inaccessible.
 	CloudResourcesCreated bool `json:"cloudResourcesCreated,omitempty"`
 	// ObsoleteResources contains a list of resources that are marked for deletion
 	// +kubebuilder:validation:Optional
@@ -126,6 +126,16 @@ func (s CommonStatus) Error() error {
 	}
 
 	return errors.New(s.Message)
+}
+
+// SetStatusIfNotSet sets the status if it is not already set
+// used by apis in GetCommonStatus where there is no controller
+// allows an operator to set the status to "NOT Ready" when required
+// Allows the wf client to follow the status of the resource
+func (s *CommonStatus) SetStatusIfNotSet(status Status) {
+	if s.Status == "" {
+		s.Status = status
+	}
 }
 
 // +k8s:openapi-gen=true
@@ -151,6 +161,14 @@ func (s *CommonStatus) SetStatus(status Status) {
 // GetCommonStatus returns the standard Wayfinder common status information for the resource
 func (s *CommonStatus) GetCommonStatus() *CommonStatus {
 	return s
+}
+
+// LastReconcileGeneration returns the last generation we attempted to reconcile
+func (s *CommonStatus) LastReconcileGeneration() int64 {
+	if s.LastReconcile != nil {
+		return s.LastReconcile.Generation
+	}
+	return 0
 }
 
 // CommonStatusAware is implemented by any Wayfinder resource which has the standard Wayfinder common status

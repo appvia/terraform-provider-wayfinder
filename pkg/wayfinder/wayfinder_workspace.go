@@ -51,13 +51,44 @@ func makeWorkspaceResource() *schema.Resource {
 						Description: "A more detail sumary description the purpose of the workspace.",
 						Optional:    true,
 					},
+					"owners": {
+						Description: "Owners is the set of users who own this workspace (i.e can control access to the workspace and its resources). If unpopulated on creation, Wayfinder will set this to the user who created the workspace.",
+						Type:        schema.TypeList,
+						Optional:    true,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"kind": {
+									Type:        schema.TypeString,
+									Description: "Kind is the kind of the resource, eg. IAMRole",
+									Required:    true,
+								},
+								"name": {
+									Type:        schema.TypeString,
+									Description: "Name is the name of the resource, eg. my-iam-role",
+									Required:    true,
+								},
+							},
+						},
+					},
+					"type": {
+						Type:        schema.TypeString,
+						Description: "Type is an optional type for this workspace. If unspecified, 'standard' is assumed.",
+						Computed:    true,
+						Optional:    true,
+					},
+					"resource_namespace": {
+						Type:        schema.TypeString,
+						Description: "ResourceNamespace will be set by Wayfinder on creation and cannot be modified or defined by users. This is the namespace within Wayfinder in which this workspace's resources will exist.",
+						Optional:    true,
+						Computed:    true,
+					},
 				},
 			},
 		},
 	}
 
 	resource := &Resource{
-		APIVersion: "org.appvia.io/v1alpha1",
+		APIVersion: "org.appvia.io/v2beta1",
 		Kind:       "Workspace",
 		Plural:     "workspaces",
 		Name:       "workspace",

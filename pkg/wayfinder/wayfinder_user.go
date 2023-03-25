@@ -59,7 +59,7 @@ func makeUserResource() *schema.Resource {
 	resource := &Resource{
 		APIVersion:              "org.appvia.io/v1alpha1",
 		Kind:                    "User",
-		Name:                    "users",
+		Name:                    "wayfinder_users",
 		Namespaced:              false,
 		Plural:                  "users",
 		Schema:                  spec,

@@ -17,15 +17,20 @@
 package common
 
 const (
-	// WorkspaceImplicitRobotGroup is a workspace group applied implicitly to all robots in a workspace
-	WorkspaceImplicitRobotGroup = "robotmember"
-	// WorkspaceImplicitUserGroup is a workspace group applied implicitly to all users (i.e. not robots) in a workspace
+	// WorkspaceImplicitAccessTokenGroup is a workspace group applied implicitly to all access
+	// tokens in a workspace
+	WorkspaceImplicitAccessTokenGroup = "accesstokenmember"
+	// WorkspaceImplicitUserGroup is a workspace group applied implicitly to all users (i.e. not access tokens) in a workspace
 	WorkspaceImplicitUserGroup = "usermember"
 
-	// WayfinderImplicitUserGroup is a global group applied implicitly to all users (i.e. not robots) in Wayfinder
+	// WayfinderImplicitUserGroup is a global group applied implicitly to all users (i.e. not access tokens) in Wayfinder
 	WayfinderImplicitUserGroup = "authenticated"
-	// WayfinderImplicitRobotGroup is a global group applied implicitly to all robots in Wayfinder
-	WayfinderImplicitRobotGroup = "robot"
-	// WayfinderImplicitAdminGroup is a global group applied implicitly to all global admins of Wayfinder
-	WayfinderImplicitAdminGroup = "admin"
+	// WayfinderImplicitAccessTokenGroup is a global group applied implicitly to all access tokens in Wayfinder
+	WayfinderImplicitAccessTokenGroup = "accesstoken"
+
+	// WayfinderAdminGroup is a fixed global group of admins of Wayfinder
+	WayfinderAdminGroup = "admin"
+
+	// WayfinderImplicitExchangeGroup is applied implicitly to exchange tokens _only_
+	WayfinderImplicitExchangeGroup = "accesstokenexchange"
 )

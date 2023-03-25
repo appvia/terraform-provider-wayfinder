@@ -32,31 +32,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
-var (
-	// providerVersion is configuration for the provider
-	providerSchema = map[string]*schema.Schema{
-		"config_file": {
-			Type:        schema.TypeString,
-			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_CONFIG", path.Join(os.Getenv("HOME"), ".wayfinder", "config")),
-			Description: "The path to the wayfinder configuration file.",
-			Optional:    true,
-		},
-		"endpoint": {
-			Type:        schema.TypeString,
-			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_ENDPOINT", "http://localhost:8080"),
-			Description: "The URL for the Wayfinder API endpoint (e.g https://api.example.com).",
-			Optional:    true,
-		},
-		"refresh_token": {
-			Type:        schema.TypeString,
-			DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_TOKEN", ""),
-			Description: "The refresh robot token used to authenticate to the Wayfinder instance.",
-			Optional:    true,
-			Sensitive:   true,
-		},
-	}
-)
-
 // New creates and returns a terraform provider
 func New(config Config) (plugin.ProviderFunc, error) {
 	ctx := context.Background()
@@ -83,12 +58,34 @@ func New(config Config) (plugin.ProviderFunc, error) {
 	}
 
 	return func() *schema.Provider {
-		return &schema.Provider{
+		provider := &schema.Provider{
 			ConfigureContextFunc: configure,
 			ResourcesMap:         resources,
 			DataSourcesMap:       dataSources,
-			Schema:               providerSchema,
+			Schema: map[string]*schema.Schema{
+				"config_file": {
+					Type:        schema.TypeString,
+					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_CONFIG", path.Join(os.Getenv("HOME"), ".wayfinder", "config")),
+					Description: "The path to the wayfinder configuration file.",
+					Optional:    true,
+				},
+				"endpoint": {
+					Type:        schema.TypeString,
+					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_ENDPOINT", "http://localhost:8080"),
+					Description: "The URL for the Wayfinder API endpoint (e.g https://api.example.com).",
+					Optional:    true,
+				},
+				"access_token": {
+					Type:        schema.TypeString,
+					DefaultFunc: schema.EnvDefaultFunc("WAYFINDER_TOKEN", ""),
+					Description: "The refresh robot token used to authenticate to the Wayfinder instance.",
+					Optional:    true,
+					Sensitive:   true,
+				},
+			},
 		}
+
+		return provider
 	}, nil
 }
 
@@ -124,11 +121,6 @@ func createResources(ctx context.Context,
 	for name, resource := range list {
 		log.Printf("adding resource: %s, apigroup: %s", name, resource.APIVersion)
 
-		switch name {
-		case "wayfinder_plans", "wayfinder_workspace_clusters":
-			continue
-		}
-
 		resources[name] = &schema.Resource{
 			CreateContext: createResourceHandler(resource),
 			DeleteContext: deleteResourceHandler(resource),
@@ -138,15 +130,14 @@ func createResources(ctx context.Context,
 			UpdateContext: updateResourceHandler(resource),
 			Timeouts: &schema.ResourceTimeout{
 				Default: schema.DefaultTimeout(10 * time.Minute),
+				Read:    schema.DefaultTimeout(60 * time.Second),
 			},
 		}
 	}
 
 	// @step: add the manual resources into the schema
-	resources["wayfinder_plan"] = makePlanResource()
 	resources["wayfinder_user"] = makeUserResource()
-	resources["wayfinder_workspace"] = makeWorkspaceResource()
-	resources["wayfinder_workspace_cluster"] = makeWayfinderWorkspaceCluster()
+	resources["wayfinder_workspaces"] = makeWorkspaceResource()
 
 	return resources, nil
 }

@@ -92,9 +92,9 @@ func (c *Claims) GetUserClaim(claims ...string) (string, bool) {
 	return "", false
 }
 
-// GetID returns the id of the token
+// GetID returns the id ('jti') of the token
 func (c *Claims) GetID() (string, bool) {
-	return c.GetString("id")
+	return c.GetString("jti")
 }
 
 // GetPreferredUsername returns a specific claim
@@ -127,10 +127,10 @@ func (c *Claims) GetSubject() (string, bool) {
 	return c.GetString("sub")
 }
 
-// GetGroups returns the groups claim
-func (c *Claims) GetGroups() ([]string, bool) {
-	return c.GetStringSlice("groups")
-}
+// // GetGroups returns the groups claim
+// func (c *Claims) GetGroups() ([]string, bool) {
+// 	return c.GetStringSlice("groups")
+// }
 
 // GetEmailVerified returns if the email is verified
 func (c *Claims) GetEmailVerified() (bool, bool) {

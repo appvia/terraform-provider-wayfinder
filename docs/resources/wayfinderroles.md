@@ -56,8 +56,7 @@ Required:
 
 Optional:
 
-- `description` (String) Description is a human-readable description of the role Should describe what the role would provide access to when bound to a user/group/robot
-- `scope` (String) Scope indicates what this access role provides permission to. A 'Workspace' scoped role bound to a subject will permit access to the specified resources in a workspace ONLY if the subject is a member of that workspace.
+- `description` (String) Description is a human-readable description of the role Should describe what the role would provide access to when bound to a user/group/accesstoken
 
 <a id="nestedblock--spec--rules"></a>
 ### Nested Schema for `spec.rules`
@@ -81,5 +80,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

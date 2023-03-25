@@ -3,12 +3,12 @@
 page_title: "wayfinder_workspaces Resource - terraform-provider-wayfinder"
 subcategory: ""
 description: |-
-  Workspace is the Schema for the workspace API
+  
 ---
 
 # wayfinder_workspaces (Resource)
 
-Workspace is the Schema for the workspace API
+
 
 
 
@@ -18,13 +18,12 @@ Workspace is the Schema for the workspace API
 ### Required
 
 - `metadata` (Block List, Min: 1, Max: 1) Metadata associated to the resource (see [below for nested schema](#nestedblock--metadata))
+- `spec` (Block List, Min: 1, Max: 1) Definition for the workspace resource (see [below for nested schema](#nestedblock--spec))
 
 ### Optional
 
 - `api_version` (String) The API version for the resource
 - `kind` (String) The resource kind of the object
-- `spec` (Block List, Max: 1) (see [below for nested schema](#nestedblock--spec))
-- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
@@ -52,16 +51,22 @@ Read-Only:
 
 Required:
 
-- `description` (String) Description is a description for the workspace
-- `key` (String) Key is the unique identifier for this workspace
-- `summary` (String) Summary is a summary name for this workspace
-
-
-<a id="nestedblock--timeouts"></a>
-### Nested Schema for `timeouts`
+- `key` (String) Unique short key used to identity the workspace.
+- `summary` (String) A summary used an a display name of the workspace.
 
 Optional:
 
-- `default` (String)
+- `description` (String) A more detail sumary description the purpose of the workspace.
+- `owners` (Block List) Owners is the set of users who own this workspace (i.e can control access to the workspace and its resources). If unpopulated on creation, Wayfinder will set this to the user who created the workspace. (see [below for nested schema](#nestedblock--spec--owners))
+- `resource_namespace` (String) ResourceNamespace will be set by Wayfinder on creation and cannot be modified or defined by users. This is the namespace within Wayfinder in which this workspace's resources will exist.
+- `type` (String) Type is an optional type for this workspace. If unspecified, 'standard' is assumed.
+
+<a id="nestedblock--spec--owners"></a>
+### Nested Schema for `spec.owners`
+
+Required:
+
+- `kind` (String) Kind is the kind of the resource, eg. IAMRole
+- `name` (String) Name is the name of the resource, eg. my-iam-role
 
 

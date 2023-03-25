@@ -57,7 +57,7 @@ Required:
 
 Optional:
 
-- `cloud_account` (Block List, Max: 1) CloudAccount provides an optional reference to a cloudaccount which has the permission to carry out the tasks required to fulfil peering or gateway attachments (see [below for nested schema](#nestedblock--spec--cloud_account))
+- `cloud_access_config_ref` (Block List, Max: 1) CloudAccessConfigRef provides an optional reference to a cloudaccount which has the permission to carry out the tasks required to fulfil peering or gateway attachments (see [below for nested schema](#nestedblock--spec--cloud_access_config_ref))
 
 <a id="nestedblock--spec--connection"></a>
 ### Nested Schema for `spec.connection`
@@ -81,7 +81,7 @@ Required:
 
 Optional:
 
-- `enable_auto_approval` (Boolean) EnableAutoApproval indicates we should always accept the peering connection on the other end of the peer. This requires the user provides a cloud account which the correct permissions to do so.
+- `enable_auto_approval` (Boolean) EnableAutoApproval indicates we should always accept the peering connection on the other end of the peer. This requires the user provides a cloud access config which the correct permissions to do so.
 - `location` (String) Location is the cloud region which where the transit gateway resides
 - `provider_details` (Block List, Max: 1) ProviderDetails provides the cloud specific options when performing a gateway attachment (see [below for nested schema](#nestedblock--spec--connection--gateway--provider_details))
 - `route_table_selectors` (Map of String) RouteTableSelectors is required when enableAutoApproval is enabled. The field provides a collection of cloud tags which is used to filter on which routing tables in the external network need updating to include the source network routes.
@@ -108,7 +108,7 @@ Optional:
 
 Optional:
 
-- `enable_auto_approval` (Boolean) EnableAutoApproval indicates we should always accept the peering connection on the other end of the peer. This requires the user provides a cloud account which the correct permissions to do so.
+- `enable_auto_approval` (Boolean) EnableAutoApproval indicates we should always accept the peering connection on the other end of the peer. This requires the user provides a cloud access config which the correct permissions to do so.
 - `network` (Block List, Max: 1) Network provides the ability to override the network which the peering is created on. By default this is the management cluster. (see [below for nested schema](#nestedblock--spec--connection--peering--network))
 - `provider_details` (Block List, Max: 1) ProviderDetails provides the cloud specific options when performing a gateway attachment (see [below for nested schema](#nestedblock--spec--connection--peering--provider_details))
 - `subnets` (Map of String) Subnets provides a means to filter which on the subnets you want to push down the peering. By default we assume all the subnets attached to the virtual network should be routed down the peer
@@ -192,8 +192,8 @@ Optional:
 
 
 
-<a id="nestedblock--spec--cloud_account"></a>
-### Nested Schema for `spec.cloud_account`
+<a id="nestedblock--spec--cloud_access_config_ref"></a>
+### Nested Schema for `spec.cloud_access_config_ref`
 
 Required:
 
@@ -208,5 +208,6 @@ Required:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

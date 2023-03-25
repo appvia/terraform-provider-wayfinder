@@ -121,9 +121,9 @@ func ParseForResources(options ParserOptions) (Resources, error) {
 		// is this a workspace or globally scopes resource
 		switch len(items) {
 		case 6:
-			resource.Plural = items[3]
+			resource.Plural = items[4]
 			resource.Namespaced = true
-			resource.Name = fmt.Sprintf("wayfinder_workspace_%s", strings.ToLower(resource.Kind))
+			resource.Name = fmt.Sprintf("wayfinder_%s", strings.ToLower(resource.Kind))
 
 		default:
 			resource.Plural = items[2]

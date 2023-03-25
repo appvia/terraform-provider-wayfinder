@@ -56,15 +56,15 @@ Required:
 
 Optional:
 
-- `cloud_account` (Block List, Max: 1) CloudAccount identifies which cloud account (organization or shared) should be used to pull costs data from. Must relate to the same cloud provider as specified in Cloud. (see [below for nested schema](#nestedblock--spec--cloud_account))
-- `cloud_credential` (Block List, Max: 1) CloudCredential specifies an optional custom credential to use for this integration, instead of using the default credentials for the CloudAccount. (see [below for nested schema](#nestedblock--spec--cloud_credential))
+- `cloud_access_config_ref` (Block List, Max: 1) CloudAccessConfigRef identifies which cloud access config (organization or shared) should be used to pull costs data from. Must relate to the same cloud provider as specified in Cloud. (see [below for nested schema](#nestedblock--spec--cloud_access_config_ref))
+- `cloud_identity` (Block List, Max: 1) CloudIdentity specifies an optional custom credential to use for this integration, instead of using the default credentials for the CloudAccount. (see [below for nested schema](#nestedblock--spec--cloud_identity))
 - `days_history` (Number) DaysHistory determines how many days worth of historical data to consider each time this import is run
 - `frequency_minutes` (Number) FrequencyMinutes describes how many minutes to leave between imports, e.g. 30 would import twice per hour. If greater than 60, should be a multiple of 60 (other values will be rounded to an integer number of hours, e.g. 90 will round to 120, 89 will round to 60).
 - `import_zero_cost_items` (Boolean) ImportZeroCostItems determines whether zero-costed line items in the cloud providers' cost data is imported to wayfinder or not.
 - `provider_details` (Block List, Max: 1) ProviderDetails provides the cloud-specific configuration details (see [below for nested schema](#nestedblock--spec--provider_details))
 
-<a id="nestedblock--spec--cloud_account"></a>
-### Nested Schema for `spec.cloud_account`
+<a id="nestedblock--spec--cloud_access_config_ref"></a>
+### Nested Schema for `spec.cloud_access_config_ref`
 
 Required:
 
@@ -72,13 +72,13 @@ Required:
 - `namespace` (String)
 
 
-<a id="nestedblock--spec--cloud_credential"></a>
-### Nested Schema for `spec.cloud_credential`
+<a id="nestedblock--spec--cloud_identity"></a>
+### Nested Schema for `spec.cloud_identity`
 
 Required:
 
 - `name` (String) Name for the credential, specify empty for implicit credentials
-- `namespace` (String) Namespace for the credential, specify empty for implicit credentials
+- `namespace` (String) Namespace for the identity, specify empty for implicit credentials
 
 
 <a id="nestedblock--spec--provider_details"></a>
@@ -146,5 +146,6 @@ Examples: * EU (geo-dispersed across multiple EU GCP regions) * US (geo-disperse
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

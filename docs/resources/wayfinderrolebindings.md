@@ -56,7 +56,7 @@ Required:
 
 Optional:
 
-- `role_ref` (Block List, Max: 1) RoleRef is the role being bound - either a WayfinderRole or WorkspaceRole (see [below for nested schema](#nestedblock--spec--role_ref))
+- `role_ref` (Block List, Max: 1) RoleRef is the role being bound (see [below for nested schema](#nestedblock--spec--role_ref))
 
 <a id="nestedblock--spec--subjects"></a>
 ### Nested Schema for `spec.subjects`
@@ -91,5 +91,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

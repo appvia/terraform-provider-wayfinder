@@ -60,6 +60,7 @@ Optional:
 - `include_workspaces` (List of String)
 - `networks` (Block List) (see [below for nested schema](#nestedblock--spec--networks))
 - `plans` (List of String)
+- `stages` (List of String)
 
 <a id="nestedblock--spec--networks"></a>
 ### Nested Schema for `spec.networks`
@@ -69,12 +70,6 @@ Required:
 - `range` (String)
 - `type` (String)
 
-Optional:
-
-- `default_mask` (Number)
-- `max_mask` (Number)
-- `min_mask` (Number)
-
 
 
 <a id="nestedblock--timeouts"></a>
@@ -83,5 +78,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

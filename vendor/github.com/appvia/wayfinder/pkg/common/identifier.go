@@ -41,3 +41,20 @@ func InstanceIdentifier() string {
 
 	return instanceIdentifier
 }
+
+// ShortenInstanceID shortens the provided instance ID to a max of 6 characters for annoying clouds
+// like GCP who have really tight name length limits. Should be reasonably unique, but can't
+// guarantee globally unique.
+func ShortenInstanceID(instanceID string) string {
+	instID := instanceID
+	if len(instID) > 6 {
+		instID = instID[len(instID)-6:]
+	}
+	return instID
+}
+
+// InstanceIdentifierShort returns the last few characters of the instance ID - should be enough to
+// be reasonably unique.
+func InstanceIdentifierShort() string {
+	return ShortenInstanceID(InstanceIdentifier())
+}

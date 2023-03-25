@@ -53,6 +53,10 @@ type Config struct {
 	ChartsImage string `json:"charts-image,omitempty"`
 	// AuthProxyImage is the image to use for oidc proxy
 	AuthProxyImage string `json:"auth-proxy-image,omitempty"`
+	// FluxHelmControllerImage is the image to use for the flux helm controller
+	FluxHelmControllerImage string `json:"flux-helm-controller-image,omitempty"`
+	// FluxSourceControllerImage is the image to use for the flux source controller
+	FluxSourceControllerImage string `json:"flux-source-controller-image,omitempty"`
 	// CertificateAuthority is the path to a CA
 	CertificateAuthority string `json:"certificate-authority,omitempty"`
 	// CertificateAuthorityKey is the path to the private key
@@ -74,8 +78,20 @@ type Config struct {
 	InstanceIdentifier string `json:"instance-identifier,omitempty"`
 	// KubeNameSpace is the namespace to use when using kubernetes assets e.g. the wayfinder service account. Need to use for workload identity
 	KubeNameSpace string `json:"kube-namespace,omitempty"`
+	// KognizerCollectorURL is the URL for the Kognizer collector, used to configure the agent on clusters
+	KognizerCollectorURL string `json:"kognizer-collector-url,omitempty"`
+	// KognizerCollectorToken is the auth token for the Kognizer collector, used to configure the agent on clusters
+	KognizerCollectorToken string `json:"kognizer-collector-token,omitempty"`
+	// KognizerCollectorImage is the image to deploy for the Kognizer agent
+	KognizerCollectorImage string `json:"kognizer-collector-image,omitempty"`
 	// Verbose is debug logging for this and deployed services e.g. oidc:proxy
 	Verbose bool `json:"verbose,omitempty"`
+
+	// DedicatedCluster is true if this instance of Wayfinder is running in a dedicated management
+	// cluster which it owns, instead of pointing at a different Kube API for data storage
+	//
+	// i.e. this will be false in 'W-in-K' mode and true for a full install.
+	DedicatedCluster bool `json:"dedicatedCluster,omitempty"`
 }
 
 // IsValid checks the options
@@ -108,3 +124,7 @@ func (c Config) IsFeatureGateEnabled(gate string) bool {
 
 	return c.FeatureGates[gate]
 }
+
+// UIConfigMap is the name of a config map that stores the UI config, the content of which is
+// controlled by the UI
+const UIConfigMap = "portal-config"

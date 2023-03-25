@@ -19,11 +19,59 @@ package client
 import (
 	"context"
 	"io"
-	"net/http"
 
 	corev1 "github.com/appvia/wayfinder/pkg/apis/core/v1alpha1"
 	"github.com/appvia/wayfinder/pkg/client/config"
 )
+
+// ObjectKey identifies a Wayfinder object
+type ObjectKey struct {
+	Workspace corev1.WorkspaceKey
+	Name      string
+}
+
+// ObjectKeyFromObject returns the ObjectKey given a runtime.Object.
+func ObjectKeyFromObject(obj Object) ObjectKey {
+	return ObjectKey{Workspace: corev1.Workspace(obj), Name: obj.GetName()}
+}
+
+// Object is the basic interface implemented by all Wayfinder objects
+type Object corev1.Object
+
+// ObjectList is the basic list interface implemented by all Wayfinder list objects
+type ObjectList corev1.ObjectList
+
+// Reader knows how to read and list Wayfinder objects.
+type Reader interface {
+	// Get retrieves an obj for the given object key from the Kubernetes Cluster.
+	// obj must be a struct pointer so that obj can be updated with the response
+	// returned by the Server.
+	Get(ctx context.Context, key ObjectKey, obj Object) error
+
+	// List retrieves list of objects for a given namespace and list options. On a
+	// successful call, Items field in the list will be populated with the
+	// result returned from the server.
+	List(ctx context.Context, list ObjectList, opts ...ListOption) error
+}
+
+// Writer knows how to create, delete, and update Kubernetes objects.
+type Writer interface {
+	// Create saves the object obj in the Wayfinder API.
+	Create(ctx context.Context, obj Object, opts ...CreateOption) error
+
+	// Delete deletes the given obj from Wayfinder API.
+	Delete(ctx context.Context, obj Object, opts ...DeleteOption) error
+
+	// Update updates the given obj in the Wayfinder API. obj must be a
+	// struct pointer so that obj can be updated with the content returned by the Server.
+	Update(ctx context.Context, obj Object, opts ...UpdateOption) error
+}
+
+// WFClient provides a simple client to Wayfinder, inspired by controller-manager's client.Client
+type WFClient interface {
+	Reader
+	Writer
+}
 
 // Interface is the api client interface
 type Interface interface {
@@ -44,12 +92,7 @@ type UpdateHandlerFunc func() error
 
 // ClientVersionHeader is the header used in the client cli
 const ClientVersionHeader = "X-Client-Version"
-
-// Plugin provides an interface for plugins
-type Plugin interface {
-	// WrapTransport provides the entrypoint for the authentication handle
-	WrapTransport(http.RoundTripper) http.RoundTripper
-}
+const ObjectModifiedError = "the object has been modified, please try again"
 
 // RestInterface provides the rest interface
 type RestInterface interface {
@@ -79,8 +122,8 @@ type RestInterface interface {
 	Get() RestInterface
 	// GetPayload returns the payload for inspection
 	GetPayload() interface{}
-	// HasParamater checks if the parameter is set
-	HasParamater(string) (string, bool)
+	// HasParameter checks if the parameter is set
+	HasParameter(string) (string, bool)
 	// Name sets the resource name
 	Name(string) RestInterface
 	// Resource set the resource kind in the request
@@ -94,7 +137,7 @@ type RestInterface interface {
 	// Result set the object which we should decode into
 	Result(interface{}) RestInterface
 	// Stream is used to stream from the api server
-	Stream(context.Context) (chan []byte, error)
+	// Stream(context.Context) (chan []byte, error)
 	// SubResource adds a subresource to the operation
 	SubResource(string) RestInterface
 	// SubResourceName sets the sub-resource name

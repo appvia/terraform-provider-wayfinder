@@ -59,6 +59,7 @@ Required:
 Optional:
 
 - `allocation` (Block List, Max: 1) Allocation defines which workspaces can create child zones from this DNS zone. Only applicable to GlobalDNSZones. This must be set for AutoProvisionChildZones to have any effect. (see [below for nested schema](#nestedblock--spec--allocation))
+- `available_to_apps` (Block List, Max: 1) AvailableToApps allows a global zone to be identified for auto-provisioning of app-specific DNS zones. This is only valid on global DNS zones and is ignored otherwise. (see [below for nested schema](#nestedblock--spec--available_to_apps))
 - `available_to_clusters` (Block List, Max: 1) AvailableToClusters allows this zone, or automatically-created child zones of it, to be made available automatically in the targeted clusters, with ExternalDNS deployed and configured.
 
 Leave unspecified to not make this zone available in any clusters.
@@ -66,7 +67,7 @@ Leave unspecified to not make this zone available in any clusters.
 For a GlobalDNSZone, this provide DNS in *any* workspace (subject to the label selectors you define *and* the allocation specified in the Allocation field).
 
 For a DNSZone, this will only provide DNS for clusters in the *same* workspace the zone is created in. (see [below for nested schema](#nestedblock--spec--available_to_clusters))
-- `cloud_account_ref` (Block List, Max: 1) CloudAccountRef is a reference to the cloud account that should be used to create the DNS zone. This may not be required for all DNS providers. (see [below for nested schema](#nestedblock--spec--cloud_account_ref))
+- `cloud_access_config_ref` (Block List, Max: 1) CloudAccessConfigRef is a reference to the cloud access config that should be used to create the DNS zone. This may not be required for all DNS providers. (see [below for nested schema](#nestedblock--spec--cloud_access_config_ref))
 - `cloud_resource_name` (String) CloudResourceName specifies the name of the DNS zone in the DNS provider Can be left blank so that the name is derived from the resource name
 - `manual_child_zone_creation` (Boolean) ManualChildZoneCreation defines whether workspaces should be able to manually provision child DNS zones within a cluster
 
@@ -88,6 +89,14 @@ Required:
 Optional:
 
 - `workspaces` (List of String)
+
+
+<a id="nestedblock--spec--available_to_apps"></a>
+### Nested Schema for `spec.available_to_apps`
+
+Required:
+
+- `stage` (String) Stage is the stage this zone will provide app DNS zones for. A global zone can only provide DNS zones for a single stage - create two global zones for different domains to automate provisioning of app DNS zones for different stages.
 
 
 <a id="nestedblock--spec--available_to_clusters"></a>
@@ -125,8 +134,8 @@ Optional:
 
 
 
-<a id="nestedblock--spec--cloud_account_ref"></a>
-### Nested Schema for `spec.cloud_account_ref`
+<a id="nestedblock--spec--cloud_access_config_ref"></a>
+### Nested Schema for `spec.cloud_access_config_ref`
 
 Required:
 
@@ -198,5 +207,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

@@ -23,26 +23,15 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/appvia/wayfinder/pkg/authentication"
 	"github.com/appvia/wayfinder/pkg/common"
-	"github.com/appvia/wayfinder/pkg/utils"
 	fileutils "github.com/appvia/wayfinder/pkg/utils/file"
-	jwsutils "github.com/appvia/wayfinder/pkg/utils/jwt"
+	"github.com/appvia/wayfinder/server/org/services/authentication"
 )
 
 // IsExchangeToken checks if the token is an exchange token
 func IsExchangeToken(token []byte) bool {
-	claims, err := jwsutils.NewClaimsFromRawBytesToken(token)
-	if err != nil {
-		return false
-	}
-
-	scopes, found := claims.GetScopes()
-	if !found {
-		return false
-	}
-
-	return utils.Contains(authentication.ScopeExchange, scopes)
+	exch, err := authentication.IsExchangeToken(token)
+	return exch && err == nil
 }
 
 // ParseTokenConfiguration is used parse the token configuration

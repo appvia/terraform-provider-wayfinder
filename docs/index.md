@@ -17,6 +17,6 @@ description: |-
 
 ### Optional
 
+- `access_token` (String, Sensitive) The refresh robot token used to authenticate to the Wayfinder instance.
 - `config_file` (String) The path to the wayfinder configuration file.
 - `endpoint` (String) The URL for the Wayfinder API endpoint (e.g https://api.example.com).
-- `refresh_token` (String, Sensitive) The refresh robot token used to authenticate to the Wayfinder instance.

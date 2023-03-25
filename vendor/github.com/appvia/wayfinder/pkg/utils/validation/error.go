@@ -28,6 +28,9 @@ import (
 // FieldRoot is used to reference the root object
 const FieldRoot = "(root)"
 
+// ErrNonSystemServiceAccount indicates that the resource can only be managed by Wayfinder itself
+var ErrNonSystemServiceAccount = NewError("operations on this resource can only be performed by Wayfinder")
+
 // Error is a specific error returned when the input provided by
 // the user has failed validation somehow.
 type Error struct {
@@ -186,6 +189,16 @@ func (e *Error) Append(err *Error) {
 	for _, fe := range err.FieldErrors {
 		e.AddNewFieldError(fe)
 	}
+}
+
+// ContainsFieldError checks if an error with a matching field exists
+func (e *Error) ContainsFieldError(field string) bool {
+	for _, e := range e.FieldErrors {
+		if e.Field == field {
+			return true
+		}
+	}
+	return false
 }
 
 // FieldError provides information about a validation error on a specific field.

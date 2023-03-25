@@ -19,24 +19,24 @@ package common
 import (
 	"fmt"
 
-	networkingv1alpha1 "github.com/appvia/wayfinder/server/cloudinfra/networks/apis/networking/v1alpha1"
+	networkingv2 "github.com/appvia/wayfinder/server/cloudinfra/networks/apis/networking/v2beta1"
 )
 
 // GetNetworkFabricProviderDetailsAzureDefaults will return the default values for the Azure provider for network fabric
-func GetNetworkFabricProviderDetailsAzureDefaults(network *networkingv1alpha1.NetworkFabric) *networkingv1alpha1.ProviderDetailsAzure {
-	return &networkingv1alpha1.ProviderDetailsAzure{
-		ResourceGroup: GetCloudPrefixedName(fmt.Sprintf("%s-%s", network.CloudResourceName(), network.Spec.Location)),
+func GetNetworkFabricProviderDetailsAzureDefaults(network *networkingv2.NetworkFabric) *networkingv2.ProviderDetailsAzure {
+	return &networkingv2.ProviderDetailsAzure{
+		ResourceGroup: GetCloudPrefixedName(fmt.Sprintf("%s-%s", network.Spec.CloudResourceName, network.Spec.Location)),
 	}
 }
 
 // GetNetworkFabricGatewayName returns the expected name of the gateway
-func GetNetworkFabricGatewayName(network *networkingv1alpha1.NetworkFabric, gateway *networkingv1alpha1.NetworkFabricGateway) string {
+func GetNetworkFabricGatewayName(network *networkingv2.NetworkFabric, gateway *networkingv2.NetworkFabricGateway) string {
 	switch {
 	case gateway.Associate.Location != nil:
-		return fmt.Sprintf("wf-%s-%s", network.CloudResourceName(), *gateway.Associate.Location)
+		return fmt.Sprintf("wf-%s-%s", network.Spec.CloudResourceName, *gateway.Associate.Location)
 
 	case gateway.Associate.Subnet != nil:
-		return fmt.Sprintf("wf-%s-%s", network.CloudResourceName(), *gateway.Associate.Subnet)
+		return fmt.Sprintf("wf-%s-%s", network.Spec.CloudResourceName, *gateway.Associate.Subnet)
 	}
 
 	return ""

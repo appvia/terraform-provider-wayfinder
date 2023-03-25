@@ -19,11 +19,14 @@ package config
 const (
 	// FeaturePermissionLearning enables permission learning
 	FeaturePermissionLearning = "permission_learning"
+	// FeatureKognizer enables kognizer backend and configures the server
+	FeatureKognizer = "kognizer"
 )
 
 // DefaultFeatureGates returns the existing feature gates with the default statuses
 func DefaultFeatureGates() map[string]bool {
 	return map[string]bool{
 		FeaturePermissionLearning: true,
+		FeatureKognizer:           false,
 	}
 }

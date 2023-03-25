@@ -61,9 +61,6 @@ type Configurator interface {
 	// wfVersion and kversion (k8s version) can be provided as 'latest'
 	GetChartVersion(provider, kVersion, wfVersion, chartName string) (string, error)
 
-	// GetImages will return images for particular provider, wayfinder version and k8s version
-	GetImages(provider, kVersion, wfVersion string) (*Images, error)
-
 	// GetGlobalCharts will return list of charts that are available for all providers
 	GetGlobalCharts() (*ChartList, error)
 }
@@ -265,39 +262,6 @@ func (c configurator) GetGlobalCharts() (*ChartList, error) {
 	}
 
 	return &c.releseseConfig.GlobalCharts, nil
-}
-
-func (c configurator) GetImages(provider, kVersion, wfVersion string) (*Images, error) {
-	versions, err := c.GetVersions(provider, kVersion, wfVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if kVersion == "latest" {
-		kVersion, err = getLatestVersion(versions)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		kVersion, err = parseVersionMinor(kVersion)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	switch strings.ToLower(provider) {
-	case strings.ToLower(common.ClusterProviderAzure):
-		img := versions.Charts[kVersion].AKS.Images
-		return &img, nil
-	case strings.ToLower(common.ClusterProviderGCP):
-		img := versions.Charts[kVersion].GKE.Images
-		return &img, nil
-	case strings.ToLower(common.ClusterProviderAWS):
-		img := versions.Charts[kVersion].EKS.Images
-		return &img, nil
-	}
-
-	return nil, fmt.Errorf("images not found for provider %s and kVersion %s ", provider, kVersion)
 }
 
 func getLatestVersion(versions *ReleaseConfig) (string, error) {

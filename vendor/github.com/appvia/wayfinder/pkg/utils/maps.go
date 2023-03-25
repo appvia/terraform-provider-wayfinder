@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 )
@@ -156,4 +157,22 @@ func StringMapEquals(m1, m2 map[string]string) bool {
 	}
 
 	return true
+}
+
+// StringsSliceIntersectEqualFold returns true if the two slices have any keys in common
+// with equalFold
+func StringsSliceIntersectEqualFold(m1, m2 []string) bool {
+	if len(m1) == 0 || len(m2) == 0 {
+		return false
+	}
+
+	for _, v1 := range m1 {
+		for _, v2 := range m2 {
+			if strings.EqualFold(v1, v2) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

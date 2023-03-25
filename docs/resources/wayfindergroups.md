@@ -52,11 +52,24 @@ Read-Only:
 
 Required:
 
-- `description` (String) Description is the description for this Wayfinder Group this should identify who the group of users are
+- `description` (String) Description provides a human-readable description of this group
 
 Optional:
 
-- `user_names` (List of String) UserNames are the members of the global group
+- `members` (Block List) Members are the members of the group (see [below for nested schema](#nestedblock--spec--members))
+
+<a id="nestedblock--spec--members"></a>
+### Nested Schema for `spec.members`
+
+Required:
+
+- `name` (String)
+
+Optional:
+
+- `kind` (String) The resource kind of the object
+- `workspace` (String)
+
 
 
 <a id="nestedblock--timeouts"></a>
@@ -65,5 +78,6 @@ Optional:
 Optional:
 
 - `default` (String)
+- `read` (String)
 
 

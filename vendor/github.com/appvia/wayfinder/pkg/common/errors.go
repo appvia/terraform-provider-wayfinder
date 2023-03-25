@@ -42,6 +42,11 @@ var (
 	ErrAlreadyExists = errors.New("object already exists, please use update instead")
 )
 
+// ObjectModifiedHeader is added to a http conflict response to indicate that this conflict has
+// been detected as caused by an object modification conflict where the server's view of the object
+// is different to the version supplied by the client
+const ObjectModifiedHeader = "x-wayfinder-objectmodified"
+
 // NewErrNotAllowed returns an new not allowed error
 func NewErrNotAllowed(message string) error {
 	return ErrNotAllowed{message: message}

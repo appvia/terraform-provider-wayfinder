@@ -16,6 +16,8 @@
 
 package client
 
+import "github.com/appvia/wayfinder/pkg/client/config"
+
 // OptionFunc is a option function
 type OptionFunc func(*cc)
 
@@ -24,5 +26,11 @@ func UseUpdateHandler(handle UpdateHandlerFunc) OptionFunc {
 
 	return func(c *cc) {
 		c.handler = handle
+	}
+}
+
+func UseAPIClient(clientSrc func(*config.Config) RestInterface) OptionFunc {
+	return func(c *cc) {
+		c.apiClient = clientSrc
 	}
 }

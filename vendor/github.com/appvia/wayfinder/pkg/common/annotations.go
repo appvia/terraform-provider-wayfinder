@@ -45,6 +45,12 @@ func AnnotationPrefix() string {
 const (
 	AnnotationValueTrue  = "true"
 	AnnotationValueFalse = "false"
+	// AnnotationValueScopePlatform is used to indicate that a particular resource is applicable at
+	// a platform, not workspace, scope.
+	AnnotationValueScopePlatform = "platform"
+	// AnnotationValueScopeWorkspace is used to indicate that a particular resource is applicable at
+	// a workspace, not platform, scope.
+	AnnotationValueScopeWorkspace = "workspace"
 )
 
 var (
@@ -55,35 +61,61 @@ var (
 	// Wayfinder - it should NOT be used for generated resources relating to user resources (use
 	// AnnotationReadOnly for that)
 	AnnotationSystem = Annotation("system")
+	// AnnotationBuiltin should be applied to packages and global packages which are shipped
+	// with Wayfinder
+	AnnotationBuiltin = Annotation("builtin")
+	// AnnotationInternal should be applied to any objects which are internal implementation details
+	// of Wayfinder and not typically used by users directly (e.g. internal Wayfinder roles such as
+	// 'anonymous' which are required for the system to function but would never be bound directly
+	// by end users)
+	AnnotationInternal = Annotation("internal")
+	// AnnotationScope is used to provide an indication that a particular resource is applicable
+	// at either platform or workspace scope. Used primarily to filter things on display to users.
+	AnnotationScope = Annotation("scope")
 
-	AnnotationAdoptionPolicy          = Annotation("adoptionPolicy")
-	AnnotationAzureRoleName           = Annotation("azureRoleName")
-	AnnotationClaimedBy               = Annotation("claimedBy")
-	AnnotationCloudIdentity           = Annotation("cloudIdentity")
-	AnnotationCloudRoleCredential     = Annotation("cloudRoleCredential")
-	AnnotationCloudRoleMeta           = Annotation("cloudRoleObjs")
-	AnnotationSetupRolesLastRun       = Annotation("setupRolesLastRun")
-	AnnotationDeletionPolicy          = Annotation("deletionPolicy")
-	AnnotationDescription             = Annotation("description")
-	AnnotationEnabled                 = Annotation("enabled")
-	AnnotationExternalName            = Annotation("externalName")
-	AnnotationInstallOnce             = Annotation("installOnce")
-	AnnotationKeywords                = Annotation("keywords")
-	AnnotationLastApplied             = Annotation("lastApplied")
-	AnnotationOwner                   = Annotation("owner")
-	AnnotationPriority                = Annotation("priority")
-	AnnotationRevision                = Annotation("revision")
-	AnnotationSecretsProvider         = Annotation("secretsProvider")
-	AnnotationSystemNamespace         = Annotation("systemNamespace")
-	AnnotationType                    = Annotation("type")
-	AnnotationDependenciesUpdated     = Annotation("dependenciesUpdated")
-	AnnotationNoInfraReconcile        = Annotation("noInfraReconcile")
-	AnnotationNoReconcile             = Annotation("noReconcile")
-	AnnotationCapabilitiesName        = NamedAnnotation(CapabilitiesPrefixName, "name")
-	AnnotationCapabilitiesDescription = NamedAnnotation(CapabilitiesPrefixName, "description")
-	AnnotationsCapabilitiesReadOnly   = NamedAnnotation(CapabilitiesPrefixName, "readOnly")
-	AnnotationPackageValuesEdited     = NamedAnnotation(PackagesPrefixName, "values-edited")
-	AnnotationChartIcon               = NamedAnnotation(PackagesPrefixName, "icon")
+	// AnnotationCreatedBy is automatically applied in our object handler to identify the user or
+	// token that created the resource.
+	AnnotationCreatedBy = Annotation("createdBy")
+	// AnnotationLastUpdatedBy is automatically applied in our object handler to identify the user
+	// or token that last changed the spec of the resource (or deleted it in the case of a deleted
+	// object)
+	AnnotationLastUpdatedBy = Annotation("lastUpdatedBy")
+	// AnnotationLastUpdated is automatically applied in our object handler with the timestamp at
+	// which this resource was last updated by a user
+	AnnotationLastUpdated = Annotation("lastUpdated")
+
+	// AnnotationSource describes an upstream source of an item, for information only - e.g. the
+	// upstream terranetes cloud resource that a cloud resource plan was derived from
+	AnnotationSource = Annotation("source")
+
+	AnnotationAdoptionPolicy      = Annotation("adoptionPolicy")
+	AnnotationAzureRoleName       = Annotation("azureRoleName")
+	AnnotationClaimedBy           = Annotation("claimedBy")
+	AnnotationChanged             = Annotation("changed")
+	AnnotationCloudIdentity       = Annotation("cloudIdentity")
+	AnnotationCloudRoleCredential = Annotation("cloudRoleCredential")
+	AnnotationCloudRoleMeta       = Annotation("cloudRoleObjs")
+	AnnotationSetupRolesLastRun   = Annotation("setupRolesLastRun")
+	AnnotationDeletionPolicy      = Annotation("deletionPolicy")
+	AnnotationDescription         = Annotation("description")
+	AnnotationUniqueName          = Annotation("uniqueName")
+	AnnotationEnabled             = Annotation("enabled")
+	AnnotationExternalName        = Annotation("externalName")
+	AnnotationInstallOnce         = Annotation("installOnce")
+	AnnotationKeywords            = Annotation("keywords")
+	AnnotationLastApplied         = Annotation("lastApplied")
+	AnnotationOwner               = Annotation("owner")
+	AnnotationPriority            = Annotation("priority")
+	AnnotationRevision            = Annotation("revision")
+	AnnotationSecretsProvider     = Annotation("secretsProvider")
+	AnnotationSystemNamespace     = Annotation("systemNamespace")
+	AnnotationType                = Annotation("type")
+	AnnotationDependenciesUpdated = Annotation("dependenciesUpdated")
+	AnnotationNoInfraReconcile    = Annotation("noInfraReconcile")
+	AnnotationNoReconcile         = Annotation("noReconcile")
+	AnnotationPackageVersion      = NamedAnnotation(PackagesPrefixName, "version")
+	AnnotationPackageValuesEdited = NamedAnnotation(PackagesPrefixName, "values-edited")
+	AnnotationChartIcon           = NamedAnnotation(PackagesPrefixName, "icon")
 
 	// For controlling in-built defaults objects:
 
@@ -121,8 +153,7 @@ var Annotations = []string{
 	AnnotationSystemNamespace,
 	AnnotationCloudIdentity,
 	AnnotationCloudRoleMeta,
-	AnnotationCapabilitiesName,
-	AnnotationCapabilitiesDescription,
+	AnnotationPackageVersion,
 }
 
 // IsReadOnlyResource returns true if the given Kubernetes object is read-only
@@ -133,6 +164,11 @@ func IsReadOnlyResource(object metav1.Object) bool {
 // IsSystemResource returns true if the given Kubernetes object is managed by Wayfinder
 func IsSystemResource(object metav1.Object) bool {
 	return object.GetAnnotations()[AnnotationSystem] == AnnotationValueTrue
+}
+
+// IsBuiltinResource returns true if the given Kubernetes object is shipped with Wayfinder
+func IsBuiltInResource(object metav1.Object) bool {
+	return object.GetAnnotations()[AnnotationBuiltin] == AnnotationValueTrue
 }
 
 // IsEnabled check if the object is enabled

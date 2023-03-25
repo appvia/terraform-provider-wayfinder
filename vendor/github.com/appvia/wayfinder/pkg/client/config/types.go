@@ -51,6 +51,20 @@ type Config struct {
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 	// FeatureGates shows all feature gates
 	FeatureGates map[string]bool `json:"feature-gates,omitempty" yaml:"feature-gates,omitempty"`
+	// Plugins are addon configuration for the CLI
+	Plugins *Plugins `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+}
+
+// Plugins is a collection of features that can be enabled/disabled and the configuration
+type Plugins struct {
+	// Terranetes is the terranetes configuration
+	Terranetes *TerranetesPlugin `json:"terranetes,omitempty" yaml:"terranetes,omitempty"`
+}
+
+// TerranetesPlugin is the configuration for the terranetes cli
+type TerranetesPlugin struct {
+	// Sources is a collection of sources to search for modules
+	Sources []string `json:"sources,omitempty" yaml:"sources,omitempty"`
 }
 
 // AuthInfo defines a credential to the api endpoint
