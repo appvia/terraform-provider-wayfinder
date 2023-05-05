@@ -61,6 +61,10 @@ check-gofmt:
 		exit 1; \
 	fi
 
+check-schema:
+	@echo "--> Running schema check"
+	@cd tests/e2e/schema && terraform init >/dev/null && terraform providers schema -json >/dev/null
+
 gofmt:
 	@echo "--> Running go fmt"
 	@go fmt $(shell go list ./... | grep -v /vendor/)
