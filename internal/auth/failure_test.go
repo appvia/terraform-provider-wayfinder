@@ -137,3 +137,30 @@ func TestToken_when_refresh_response_rotates_token(t *testing.T) {
 		t.Fatal("refresh token rotation lost")
 	}
 }
+
+func TestToken_when_token_endpoint_rate_limits(t *testing.T) {
+	// Given a token endpoint that rate limits the first two requests (as Wayfinder's anonymous
+	// per-IP limiter does) and then issues a token.
+	var calls atomic.Int32
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) <= 2 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		if _, err := w.Write([]byte(`{"access_token":"issued","expires_in":3600}`)); err != nil {
+			t.Error(err)
+		}
+	}))
+	t.Cleanup(s.Close)
+	r, err := auth.Resolve(auth.Config{Server: s.URL, ClientID: "acme:robot", ClientSecret: "secret", Getenv: emptyEnv, HTTP: s.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When
+	got, err := r.TokenSource.Token(context.Background())
+	// Then the request is retried until the token is issued.
+	if err != nil || got != "issued" || calls.Load() != 3 {
+		t.Fatalf("token = %q, err = %v, calls = %d", got, err, calls.Load())
+	}
+}

@@ -71,7 +71,8 @@ resource "wayfinder_kube_resource_plan" "test" {
 	run(t, lifecycle{
 		create: cfg("Redis in-memory cache deployment"), update: cfg("Redis cache, updated"),
 		updated: "wayfinder_kube_resource_plan.test",
-		imports: []importStep{{addr: "wayfinder_kube_resource_plan.test", id: name + "@1.0.0"}},
+		// The server defaults helm.release_name to the plan name; import adopts it.
+		imports: []importStep{{addr: "wayfinder_kube_resource_plan.test", id: name + "@1.0.0", ignore: []string{"helm.release_name"}}},
 		checks:  []resource.TestCheckFunc{resource.TestCheckResourceAttr("wayfinder_kube_resource_plan.test", "id", name+"@1.0.0")},
 	})
 }
@@ -88,9 +89,6 @@ resource "wayfinder_manifest" "test" {
       name: %s
     spec:
       description: %s
-      members:
-        - kind: User
-          name: alice@example.com
   EOT
 }
 `, name, description)

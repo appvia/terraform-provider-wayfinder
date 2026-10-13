@@ -62,3 +62,22 @@ func TestServerDefaults_whenComputedFieldsAtVariousDepths(t *testing.T) {
 		}
 	}
 }
+
+func TestServerDefaults_whenComputedListOfObjects(t *testing.T) {
+	// Given a computed list of objects with optional, non-computed children, like
+	// ExternalIdentity spec.usableBy that the server fills with the creator.
+	k := manifest.Kind{Kind: "Thing", Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
+		"usableBy": {Type: "array", Computed: true, Items: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
+			"canGrant": {Type: "boolean"},
+			"subject":  {Type: "object", Properties: map[string]*manifest.Field{"kind": {Type: "string"}}},
+			"token":    {Type: "string", Sensitive: true},
+		}}},
+	}}}
+	// When deriving the server defaults.
+	got := ServerDefaults(k)
+	// Then the list holds one element with every non-secret child filled in.
+	want := []any{map[string]any{"canGrant": true, "subject": map[string]any{"kind": "server-default"}}}
+	if fmt.Sprint(got["spec.usableBy"]) != fmt.Sprint(want) {
+		t.Fatalf("spec.usableBy = %v, want %v", got["spec.usableBy"], want)
+	}
+}

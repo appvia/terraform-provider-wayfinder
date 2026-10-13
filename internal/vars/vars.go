@@ -11,6 +11,7 @@
 package vars
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -116,8 +117,20 @@ type setValueRequest struct {
 // get reads one key. A missing key yields an error matching client.ErrNotFound.
 func get(ctx context.Context, c *client.Client, k scopedKey, kind string) (rawItem, error) {
 	var out rawItem
-	err := c.DoJSON(ctx, http.MethodGet, k.itemPath(c.Tenant, kind), nil, &out)
-	return out, err
+	if err := c.DoJSON(ctx, http.MethodGet, k.itemPath(c.Tenant, kind), nil, &out); err != nil {
+		return out, err
+	}
+	// The server indents its responses; keep the compact form jsonencode produces so an
+	// imported value matches a created one. Secrets come back without a value.
+	if len(out.Value) == 0 {
+		return out, nil
+	}
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, out.Value); err != nil {
+		return out, fmt.Errorf("decoding %s %s value: %w", kind, k.ID(), err)
+	}
+	out.Value = compact.Bytes()
+	return out, nil
 }
 
 // put upserts one key with a JSON value.

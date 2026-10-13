@@ -12,6 +12,10 @@ import (
 type emitter struct {
 	imports    map[string]string
 	dataSource bool
+	// inComputed is set while emitting the descendants of a computed container. Terraform
+	// treats a non-computed value inside a server-filled computed container as configuration
+	// and plans it away, so every descendant is Optional+Computed.
+	inComputed bool
 }
 
 func (e *emitter) use(alias, path string) string { e.imports[alias] = path; return alias }

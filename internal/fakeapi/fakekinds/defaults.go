@@ -5,7 +5,7 @@ import "github.com/appvia/terraform-provider-wayfinder/internal/manifest"
 // ServerDefaults returns, for every computed scalar or scalar-list spec field whose parent
 // objects are always present (spec itself or Required objects), the value the fake server
 // should fill in when the client leaves it unset: the first enum value, "server-default",
-// true, 1, or a one-element list of those. Fields under an Optional object, an array or a map
+// true, 1, an object of those, or a one-element list of those. Fields under an Optional object, an array or a map
 // are left out, because fakeapi.KindSpec.Defaults creates missing parents, which a real server
 // does not do for an absent optional block. Assign the result to fakeapi.KindSpec.Defaults.
 func ServerDefaults(k manifest.Kind) map[string]any {
@@ -44,6 +44,18 @@ func defaultValue(f *manifest.Field) (any, bool) {
 	case "array":
 		v, ok := defaultValue(f.Items)
 		return []any{v}, ok
+	case "object":
+		// Only reached inside a computed container: the server fills the whole value.
+		obj := map[string]any{}
+		for name, child := range f.Properties {
+			if child.Sensitive {
+				continue
+			}
+			if v, ok := defaultValue(child); ok {
+				obj[name] = v
+			}
+		}
+		return obj, len(obj) > 0
 	default:
 		return nil, false
 	}

@@ -75,7 +75,7 @@ func (e *emitter) attribute(f *manifest.Field, path string) (string, error) {
 		b.WriteString("Computed:true,")
 	case f.Sensitive:
 		fmt.Fprintf(&b, "Required:%t,Optional:%t,Sensitive:true,WriteOnly:true,", f.Required, !f.Required)
-	case f.Computed:
+	case f.Computed || e.inComputed:
 		b.WriteString("Optional:true,Computed:true,")
 	default:
 		fmt.Fprintf(&b, "Required:%t,Optional:%t,", f.Required, !f.Required)
@@ -100,6 +100,10 @@ func (e *emitter) attribute(f *manifest.Field, path string) (string, error) {
 	fmt.Fprintf(&b, "MarkdownDescription:%q,", description)
 	if !e.dataSource && !f.Sensitive {
 		b.WriteString(e.modifiers(modifierClass(class), f.Immutable, f.Computed))
+	}
+	if f.Computed && !e.dataSource {
+		defer func(prev bool) { e.inComputed = prev }(e.inComputed)
+		e.inComputed = true
 	}
 	switch f.Type {
 	case "string", "json":

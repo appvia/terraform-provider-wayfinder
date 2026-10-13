@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -67,18 +69,9 @@ func (s *cachedSource) Token(ctx context.Context) (string, error) {
 		}
 		payload.SubjectToken = subject
 	}
-	body, err := json.Marshal(payload)
+	issued, err := s.issue(ctx, payload)
 	if err != nil {
-		return "", fmt.Errorf("encode token request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.server+"/api/v3/general/login/token", bytes.NewReader(body))
-	if err != nil {
-		return "", &safeError{operation: "create token request", cause: err}
-	}
-	req.Header.Set("Content-Type", "application/json")
-	var issued tokenResponse
-	if err := s.decode(req, &issued); err != nil {
-		return "", fmt.Errorf("authentication failed: %w", err)
+		return "", err
 	}
 	if issued.AccessToken == "" {
 		return "", errEmptyToken
@@ -101,8 +94,64 @@ func (s *cachedSource) Token(ctx context.Context) (string, error) {
 	return s.token, nil
 }
 
+// issue posts the token request, retrying while the endpoint is rate limited: Wayfinder limits
+// unauthenticated requests per client IP, and every Terraform command mints a token.
+func (s *cachedSource) issue(ctx context.Context, payload tokenRequest) (tokenResponse, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return tokenResponse{}, fmt.Errorf("encode token request: %w", err)
+	}
+	for attempt := 0; ; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.server+"/api/v3/general/login/token", bytes.NewReader(body))
+		if err != nil {
+			return tokenResponse{}, &safeError{operation: "create token request", cause: err}
+		}
+		req.Header.Set("Content-Type", "application/json")
+		var issued tokenResponse
+		err = s.decode(req, &issued)
+		var status *HTTPStatusError
+		if err == nil || attempt >= maxRateLimitRetries || !errors.As(err, &status) || status.StatusCode != http.StatusTooManyRequests {
+			if err != nil {
+				return tokenResponse{}, fmt.Errorf("authentication failed: %w", err)
+			}
+			return issued, nil
+		}
+		if err := wait(ctx, status.retryAfter(attempt)); err != nil {
+			return tokenResponse{}, fmt.Errorf("authentication failed: %w", err)
+		}
+	}
+}
+
+const (
+	maxRateLimitRetries = 6
+	rateLimitBaseDelay  = 250 * time.Millisecond
+)
+
+func wait(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	case <-t.C:
+		return nil
+	}
+}
+
 // HTTPStatusError deliberately excludes response bodies, which may echo credentials.
-type HTTPStatusError struct{ StatusCode int }
+type HTTPStatusError struct {
+	StatusCode int
+	// RetryAfter is the delay a 429 response asked for, or nil when it named none.
+	RetryAfter *time.Duration
+}
+
+// retryAfter is the server-requested delay, else exponential backoff from rateLimitBaseDelay.
+func (e *HTTPStatusError) retryAfter(attempt int) time.Duration {
+	if e.RetryAfter != nil {
+		return *e.RetryAfter
+	}
+	return rateLimitBaseDelay << attempt
+}
 
 func (e *HTTPStatusError) Error() string {
 	return fmt.Sprintf("HTTP %d %s", e.StatusCode, http.StatusText(e.StatusCode))
@@ -128,10 +177,20 @@ func (s *cachedSource) decode(req *http.Request, out any) (err error) {
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return &HTTPStatusError{StatusCode: resp.StatusCode}
+		return &HTTPStatusError{StatusCode: resp.StatusCode, RetryAfter: retryAfterHeader(resp.Header.Get("Retry-After"))}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return &safeError{operation: "decode authentication response", cause: err}
 	}
 	return nil
+}
+
+// retryAfterHeader parses a delta-seconds Retry-After value.
+func retryAfterHeader(v string) *time.Duration {
+	secs, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || secs < 0 {
+		return nil
+	}
+	d := time.Duration(secs) * time.Second
+	return &d
 }

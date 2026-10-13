@@ -67,7 +67,8 @@ func TestServerRelease_whenServerReportsVersion(t *testing.T) {
 	f := fakeapi.New(t)
 	f.SetServerVersion("v9.8.7")
 	// When reading it.
-	got, err := ServerRelease(context.Background(), nil, f.URL)
+	c := &client.Client{BaseURL: f.URL, Tenant: fakeTenant, TokenSource: staticToken(fakeapi.DefaultToken)}
+	got, err := ServerRelease(context.Background(), c)
 	// Then the release is returned.
 	if err != nil || got != "v9.8.7" {
 		t.Fatalf("release = %q, err = %v", got, err)

@@ -247,13 +247,10 @@ Optional:
 <a id="nestedatt--usable_by--role"></a>
 ### Nested Schema for `usable_by.role`
 
-Required:
-
-- `role` (String) Role is the name of the Wayfinder role whose holders are granted, e.g. "deployer", "viewer" or "workspace.manager".
-
 Optional:
 
 - `environment` (String) Environment narrows the grant to holders of the role in a single environment. Leave it empty to require the role at workspace scope and nothing narrower, or set "*" to match the role held at workspace scope or in any one environment. It is inert where the granting resource pins an environment of its own, and has no meaning alongside tenant, which names a scope no environment sits under.
+- `role` (String) Role is the name of the Wayfinder role whose holders are granted, e.g. "deployer", "viewer" or "workspace.manager".
 - `tenant` (Boolean) Tenant grants to holders of the role at tenant scope, such as "tenant.owner" - a tenant-level role holding rather than one held in any particular workspace, so the two never match the same people. It may only be set where the granting resource reaches the whole tenant, and is mutually exclusive with workspace.
 - `workspace` (String) Workspace is the workspace holders must hold the role in. "*" matches any workspace. It is inert where the granting resource pins a workspace of its own, and is mutually exclusive with tenant.
 

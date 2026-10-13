@@ -22,8 +22,10 @@ import (
 )
 
 // defaultIgnore lists attributes that import cannot or need not reproduce: provider-only
-// settings and server-owned status, which a reconcile may change between two reads.
-var defaultIgnore = []string{"wait_for_ready", "timeouts", "status"}
+// settings, server-owned status, which a reconcile may change between two reads, and the
+// annotations Wayfinder stamps on every write (appvia.io/createdBy, lastUpdated, ...), which
+// import adopts because it populates every field.
+var defaultIgnore = []string{"wait_for_ready", "timeouts", "status", "annotations"}
 
 // importStep is one resource to import after the update step.
 type importStep struct {

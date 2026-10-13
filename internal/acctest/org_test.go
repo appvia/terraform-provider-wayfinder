@@ -65,35 +65,44 @@ resource "wayfinder_environment" "test" {
 	})
 }
 
-// groupHCL follows doc/public/examples/Group-developers.yaml at tenant scope.
-func groupHCL(name, description, managerKind string, members ...string) string {
+// groupHCL renders a tenant group shaped like doc/public/examples/Group-developers.yaml.
+// Wayfinder refuses subjects that do not exist, so members are other test groups (the cheapest
+// subject a test can create) given as HCL name expressions, and managers is raw HCL or "".
+func groupHCL(label, name, description, managers string, members ...string) string {
 	list := ""
-	for _, m := range members {
-		list += fmt.Sprintf("    { kind = \"User\", name = %q },\n", m)
+	if len(members) > 0 {
+		list = "  members = [\n"
+		for _, m := range members {
+			list += fmt.Sprintf("    { kind = \"Group\", name = %s },\n", m)
+		}
+		list += "  ]\n"
+	}
+	if managers != "" {
+		managers = "  managers = " + managers + "\n"
 	}
 	return fmt.Sprintf(`
-resource "wayfinder_group" "test" {
+resource "wayfinder_group" %q {
   name        = %q
   description = %q
-  managers = [
-    { kind = %q, name = "charlie@example.com" },
-  ]
-  members = [
-%s  ]
-}
-`, name, description, managerKind, list)
+%s%s}
+`, label, name, description, managers, list)
 }
 
 func TestAccGroup_lifecycle(t *testing.T) {
-	name := RandomName()
+	name, a, b, c := RandomName(), RandomName(), RandomName(), RandomName()
+	cfg := func(description string, members ...string) string {
+		return groupHCL("a", a, "Member group", "") + groupHCL("b", b, "Member group", "") +
+			groupHCL("c", c, "Member group", "") + groupHCL("test", name, description, "", members...)
+	}
 	run(t, lifecycle{
-		create:  groupHCL(name, "Development team members", "User", "alice@example.com", "bob@example.com"),
-		update:  groupHCL(name, "Development team members and dana", "User", "alice@example.com", "bob@example.com", "dana@example.com"),
+		create:  cfg("Development team members", "wayfinder_group.a.name", "wayfinder_group.b.name"),
+		update:  cfg("Development team members and c", "wayfinder_group.a.name", "wayfinder_group.b.name", "wayfinder_group.c.name"),
 		updated: "wayfinder_group.test",
 		imports: []importStep{{addr: "wayfinder_group.test", id: name}},
 		checks: []resource.TestCheckFunc{
 			resource.TestCheckResourceAttr("wayfinder_group.test", "members.#", "2"),
-			resource.TestCheckResourceAttr("wayfinder_group.test", "managers.0.name", "charlie@example.com"),
+			resource.TestCheckResourceAttr("wayfinder_group.test", "members.0.kind", "Group"),
+			resource.TestCheckResourceAttrPair("wayfinder_group.test", "members.1.name", "wayfinder_group.b", "name"),
 		},
 	})
 }
@@ -101,7 +110,7 @@ func TestAccGroup_lifecycle(t *testing.T) {
 func TestAccRoleBinding_lifecycle(t *testing.T) {
 	ws, group, rb := RandomName(), RandomName(), RandomName()
 	cfg := func(roles string) string {
-		return workspaceHCL(ws, "Holds a test role binding") + groupHCL(group, "Bound group", "User", "alice@example.com") + fmt.Sprintf(`
+		return workspaceHCL(ws, "Holds a test role binding") + groupHCL("test", group, "Bound group", "") + fmt.Sprintf(`
 resource "wayfinder_role_binding" "test" {
   workspace = wayfinder_workspace.test.name
   name      = %q
@@ -159,12 +168,15 @@ resource "wayfinder_workspace" "test" {
 }
 
 func TestAccGroup_serverValidationMapsToAttribute(t *testing.T) {
-	// The server only accepts User managers and reports spec.managers[0].kind.
+	// The server only accepts User managers and reports spec.managers[0]; mapped to that
+	// attribute, Terraform quotes the manager's line rather than the resource block.
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() { PreCheck(t) }, ProtoV6ProviderFactories: ProtoV6ProviderFactories, CheckDestroy: checkDestroyed,
 		Steps: []resource.TestStep{{
-			Config:      groupHCL(RandomName(), "Invalid manager", "Group", "alice@example.com"),
-			ExpectError: regexp.MustCompile(`(?s)Wayfinder validation failed.*with wayfinder_group\.test,.*managers.*Only 'User' subjects`),
+			Config: groupHCL("test", RandomName(), "Invalid manager", `[
+    { kind = "Group", name = "charlie@example.com" },
+  ]`),
+			ExpectError: regexp.MustCompile(`(?s)Wayfinder validation failed.*with wayfinder_group\.test,.*\d+:\s+\{ kind = "Group", name = "charlie@example\.com" \},.*Only 'User' subjects`),
 		}},
 	})
 }

@@ -144,3 +144,23 @@ func TestGenerate_whenKindsBecomeManifestOnlyRemovesStaleExamples(t *testing.T) 
 		t.Fatalf("stale example remains: %v", err)
 	}
 }
+
+func TestGenerate_whenComputedParentHasChildren(t *testing.T) {
+	// Given a computed object whose children are not computed themselves.
+	m, err := manifest.Load("../../internal/manifest/testdata/golden-manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Kinds[0].Spec.Properties["owner"] = &manifest.Field{Type: "object", Computed: true, Properties: map[string]*manifest.Field{
+		"kind": {Type: "string", Required: true},
+	}}
+	// When
+	files, err := render(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then the server-filled child is Optional+Computed, so Terraform keeps its prior value.
+	if !bytes.Contains(files["zz_schemas.go"], []byte(`"kind": rschema.StringAttribute{Optional: true, Computed: true,`)) {
+		t.Fatal("child of a computed container is not Optional+Computed")
+	}
+}

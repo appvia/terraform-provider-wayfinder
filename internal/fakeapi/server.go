@@ -111,16 +111,15 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, body []byte) {
 		// Unauthenticated by design (pkg/wfclient/refresh.go:98-100 uses Unauthenticated()).
 		s.handleToken(w, r, body)
 		return
-	case path == serverInfoPath && r.Method == http.MethodGet:
-		// ASSUMPTION: serverinfo is readable without a token (the CLI calls it before login).
-		s.handleServerInfo(w)
-		return
 	}
 	if !s.authorized(r) {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	switch {
+	case path == serverInfoPath && r.Method == http.MethodGet:
+		// Like every other endpoint, serverinfo needs a token (a real server answers 401).
+		s.handleServerInfo(w)
 	case strings.HasPrefix(path, resourcesPrefix):
 		s.handleResource(w, r, body)
 	case strings.HasPrefix(path, tenantsPrefix):
@@ -200,7 +199,11 @@ func (r *statusRecorder) WriteHeader(code int) {
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
+	// Indented like Wayfinder's responses (go-restful PrettyPrintResponses defaults to true),
+	// so raw values the client keeps, such as variable values, carry the server's formatting.
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", " ")
+	_ = enc.Encode(v)
 }
 
 // writeError writes the generic types.Error body (pkg/apiserver/errors/errors.go:64-77,

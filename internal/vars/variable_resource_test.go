@@ -149,3 +149,27 @@ func TestVariableDataSource_reads_value_at_environment_scope(t *testing.T) {
 		},
 	})
 }
+
+func TestVariable_import_when_server_pretty_prints_value(t *testing.T) {
+	// Given a variable the server returns indented, as Wayfinder does.
+	e := newEnv(t)
+	scope := testScopes["workspace"]
+	e.fake.SetVariable(scope, "region", []byte("{\n  \"region\": \"eu-west-2\",\n  \"zones\": [\n    \"a\"\n  ]\n}"))
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: e.factories,
+		Steps: []resource.TestStep{{
+			// When importing it.
+			Config:        variableHCL(scope, `jsonencode({ region = "eu-west-2", zones = ["a"] })`),
+			ResourceName:  "wayfinder_variable.example",
+			ImportState:   true,
+			ImportStateId: scopeID(scope, "region"),
+			// Then state holds the compact form jsonencode produces, so import matches create.
+			ImportStateCheck: func(states []*terraform.InstanceState) error {
+				if got := states[0].Attributes["value"]; got != `{"region":"eu-west-2","zones":["a"]}` {
+					return fmt.Errorf("value = %q", got)
+				}
+				return nil
+			},
+		}},
+	})
+}

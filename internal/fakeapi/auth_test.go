@@ -91,10 +91,18 @@ func TestServerInfo_returns_version_release(t *testing.T) {
 	s := newServer(t)
 	s.SetServerVersion("v3.3.2")
 
-	got := callWithToken(t, s, "", http.MethodGet, "/api/v3/general/serverinfo", nil)
+	got := callWithToken(t, s, fakeapi.DefaultToken, http.MethodGet, "/api/v3/general/serverinfo", nil)
 
 	wantCode(t, got, http.StatusOK)
 	if dig(got.body, "version", "release") != "v3.3.2" {
 		t.Errorf("body = %s", got.raw)
 	}
+}
+
+func TestServerInfo_without_token_is_401(t *testing.T) {
+	s := newServer(t)
+
+	got := callWithToken(t, s, "", http.MethodGet, "/api/v3/general/serverinfo", nil)
+
+	wantCode(t, got, http.StatusUnauthorized)
 }
