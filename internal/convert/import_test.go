@@ -117,3 +117,35 @@ func TestFromObject_whenPopulateAllRecursesIntoListsAndMaps(t *testing.T) {
 		}
 	}
 }
+
+func TestFromObject_whenPopulateAllSkipsServerManagedMetadata(t *testing.T) {
+	for _, populate := range []bool{true, false} {
+		// Given server-stamped and user-set labels/annotations.
+		m := mapping(t, "Workspace")
+		x := object(t, `{"metadata":{"name":"example","labels":{"appvia.io/createdBy":"a","team":"x"},"annotations":{"appvia.io/createdBy":"a","appvia.io/lastUpdated":"t","appvia.io/lastUpdatedBy":"a","appvia.io/changed":"1","appvia.io/resourceSuffix":"s","note":"y"}},"spec":{}}`)
+		strMap := func(k string) tftypes.Value {
+			return tftypes.NewValue(tftypes.Map{ElementType: tftypes.String}, map[string]tftypes.Value{k: tftypes.NewValue(tftypes.String, "a")})
+		}
+		prior := config(t, m, map[string]any{"labels": strMap("appvia.io/createdBy"), "annotations": strMap("appvia.io/createdBy")})
+		// When reading.
+		got, err := convert.FromObjectOpts(m, x, prior, convert.FromOpts{PopulateAll: populate})
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := values(t, got)
+		wantL, _ := fixtureValue(m.TFType().AttributeTypes["labels"], `{"team":"x"}`)
+		wantA, _ := fixtureValue(m.TFType().AttributeTypes["annotations"], `{"appvia.io/resourceSuffix":"s","note":"y"}`)
+		if populate {
+			// Then import adopts only non-server keys.
+			if !a["labels"].Equal(wantL) || !a["annotations"].Equal(wantA) {
+				t.Fatalf("labels=%s annotations=%s", a["labels"], a["annotations"])
+			}
+			continue
+		}
+		// Then ordinary refresh rules are unchanged: configured keys still read, even server-style ones.
+		wantR, _ := fixtureValue(m.TFType().AttributeTypes["annotations"], `{"appvia.io/createdBy":"a"}`)
+		if !a["annotations"].Equal(wantR) {
+			t.Fatalf("refresh annotations = %s", a["annotations"])
+		}
+	}
+}

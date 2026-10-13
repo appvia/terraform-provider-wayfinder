@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+
+	"github.com/appvia/terraform-provider-wayfinder/internal/convert"
 )
 
 // project keeps only the parts of server that the configured shape names: map keys present in
@@ -79,6 +81,17 @@ func importedView(obj map[string]any) map[string]any {
 		md = maps.Clone(md)
 		for _, k := range []string{"generation", "uid", "creationTimestamp", "deletionTimestamp", "finalizers", "owner"} {
 			delete(md, k)
+		}
+		for _, field := range []string{"labels", "annotations"} {
+			if m, ok := md[field].(map[string]any); ok {
+				m = maps.Clone(m)
+				maps.DeleteFunc(m, func(k string, _ any) bool { return convert.IsServerManagedMetadataKey(k) })
+				if len(m) == 0 {
+					delete(md, field)
+					continue
+				}
+				md[field] = m
+			}
 		}
 		out["metadata"] = md
 	}

@@ -62,7 +62,11 @@ func fromObject(m *Mapping, obj map[string]any, ctx readContext) (tftypes.Value,
 	}
 	for _, name := range []string{"labels", "annotations"} {
 		if ctx.computed || ctx.populateAll {
-			v, err := readScalar(m.typ.AttributeTypes[name], meta[name])
+			raw := meta[name]
+			if ctx.populateAll && !ctx.computed {
+				raw = withoutServerManaged(raw) // import must not adopt server-stamped keys
+			}
+			v, err := readScalar(m.typ.AttributeTypes[name], raw)
 			if err != nil {
 				return tftypes.Value{}, fmt.Errorf("metadata.%s: %w", name, err)
 			}

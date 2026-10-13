@@ -64,3 +64,20 @@ func TestRead_whenGenerationGatesFullImportedView(t *testing.T) {
 		})
 	}
 }
+
+func TestImportedView_whenServerStampedMetadata(t *testing.T) {
+	// Given server-stamped and user-set annotations.
+	obj := map[string]any{"metadata": map[string]any{
+		"annotations": map[string]any{"appvia.io/createdBy": "me", "appvia.io/lastUpdated": "now", "team": "x"},
+		"labels":      map[string]any{"env": "dev"},
+	}}
+	// When building the imported view.
+	got := importedView(obj)["metadata"].(map[string]any)
+	// Then only user-set keys remain, and the source object is untouched.
+	if !reflect.DeepEqual(got["annotations"], map[string]any{"team": "x"}) || !reflect.DeepEqual(got["labels"], map[string]any{"env": "dev"}) {
+		t.Fatalf("metadata = %v", got)
+	}
+	if len(obj["metadata"].(map[string]any)["annotations"].(map[string]any)) != 3 {
+		t.Fatal("source mutated")
+	}
+}
