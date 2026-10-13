@@ -1,0 +1,42 @@
+name: Manifest
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: auto
+
+jobs:
+  manifest:
+    # Fork and Dependabot PRs get no secrets; the public generated-code drift
+    # check lives in test.yml.
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch pinned Wayfinder source
+        run: make wayfinder-src
+        env:
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: .wayfinder-src/go.sum
+      - name: Generator tests
+        run: make manifestgen-test
+        env:
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+      - name: Regenerate manifest
+        run: make manifest
+        env:
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+      - run: go generate ./...
+      - run: make docs
+      - run: git diff --exit-code
