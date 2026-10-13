@@ -87,3 +87,180 @@ kinds[2].spec.properties.foo.type: unknown type "x"
 `excluded` lists `Run` and `Session`.
 
 <!-- Add further sections below this one. Keep the "Manifest contract" heading as is. -->
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `WAYFINDER_REF` | The pinned Wayfinder release tag, one line (for example `v3.3.2`). |
+| `scripts/` | Checkout, generation, bump and guard scripts. Run them through `make` where a target exists. |
+| `tools/manifestgen/` | The manifest generator plus `kinds.yaml` and `fields.yaml`. A nested Go module whose files all carry `//go:build wfmanifestgen`. It only compiles inside the Wayfinder checkout. |
+| `schema/wayfinder-manifest.json` | The committed, generated manifest. Never edit it by hand. |
+| `internal/manifest/` | The manifest contract (see above). |
+| `cmd/tfgen/` | Turns the manifest into Go schema code and examples. Also prints schema diffs (`-diff`). |
+| `internal/generated/` | Output of `go generate ./...`. Never edit it by hand. |
+| `internal/fakeapi/` | In-process fake Wayfinder API used by unit tests. |
+| `.wayfinder-src/` | Disposable, gitignored checkout of the pinned Wayfinder tag. Never commit anything from it. |
+
+## How generation works
+
+The provider's resources come from the Wayfinder release pinned in `WAYFINDER_REF`. The pipeline has four steps.
+
+1. `scripts/wayfinder-checkout.sh` (`make wayfinder-src`) validates `WAYFINDER_REF`, resolves the tag to its peeled commit with `git ls-remote`, and makes a shallow checkout of exactly that tag in `.wayfinder-src/`. If the checkout is already at that commit it is reused.
+2. `scripts/manifestgen.sh` (`make manifest`) copies `tools/manifestgen/*.go`, `tools/manifestgen/testdata/` and `internal/manifest/contract.go` into `.wayfinder-src/hack/tfprovider-manifestgen/`. It then runs `go run -tags wfmanifestgen ./hack/tfprovider-manifestgen` from inside `.wayfinder-src` with `GOTOOLCHAIN=auto`. Wayfinder's own `go.mod` and `go.sum` govern that build, so the provider module never depends on the private Wayfinder module. The generator reflects every registered kind, applies `kinds.yaml` and `fields.yaml`, and writes `schema/wayfinder-manifest.json` with `wayfinderVersion` (the tag) and `wayfinderCommit` (the peeled SHA).
+3. `go generate ./...` (`make generate`) runs `cmd/tfgen`, which reads the manifest and writes `internal/generated/` and the examples.
+4. `make docs` regenerates the documentation. It is a placeholder today.
+
+Useful variants:
+
+```sh
+make manifest MANIFEST_OUT=/tmp/manifest.json   # write somewhere else, leave schema/ alone
+./scripts/manifestgen.sh run -list-kinds        # extra args go to the generator; later flags win
+make manifestgen-test                           # generator unit tests, run inside the checkout
+./scripts/check-no-private-deps.sh              # the private module must stay out of the build graph
+```
+
+Generator tests never run under the provider's `go test ./...`. Only `make manifestgen-test` runs them. Don't run `go mod tidy` in `tools/manifestgen/`, and don't build it in place: its `go.mod` exists only to keep it out of the root module.
+
+## Pinning and bumping Wayfinder
+
+Rules for `WAYFINDER_REF`:
+
+- It holds a Wayfinder release tag matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$` that exists under `refs/tags/`. Branches and bare commit SHAs are rejected.
+- Tags older than `v3.2.0` are rejected. That's the first release with the doc metadata the generator needs.
+- Automated bumps only move to stable tags (no suffix) that are strictly newer than the current pin. They never downgrade.
+
+To bump by hand:
+
+```sh
+make bump-wayfinder REF=v3.4.0
+make bump-wayfinder REF=v3.4.0 BUMP_ARGS=--dry-run           # show the plan, change nothing
+make bump-wayfinder REF=v3.3.1 BUMP_ARGS=--allow-downgrade   # deliberate downgrade
+```
+
+`scripts/bump-wayfinder.sh` refuses to run when `WAYFINDER_REF` or the generated paths (`schema`, `internal/generated`, `docs`, `examples`) have local changes. It then writes `WAYFINDER_REF` and runs `make manifest`, `go generate ./...`, `make docs`, `go build ./...` and `go test ./...`. Last, it runs `go run ./cmd/tfgen -diff <old> <new>` and writes the Terraform schema change summary to `bump-summary.md` (gitignored). If the summary's first line starts with `BREAKING`, the change removes or tightens something users rely on. If any step fails, the script prints the failing step's output and restores `WAYFINDER_REF` and the generated paths.
+
+The scheduled workflow `.github/workflows/bump-wayfinder.yml` runs daily and on manual dispatch (optional `ref` input). It finds the newest stable tag with `scripts/latest-wayfinder-tag.sh`, compares it with `scripts/semver-gt.sh`, and runs the bump script. Then:
+
+- On success it force-pushes branch `chore/wayfinder-bump` and opens or updates one PR titled `chore: bump Wayfinder to <tag>`, with `bump-summary.md` as the body. A `BREAKING` summary adds the `breaking` label.
+- On failure it opens or updates one issue titled `Wayfinder <tag>: provider regeneration failed`, with the error output as the body.
+
+When a bump fails:
+
+1. Read the issue. It names the failing step and includes the last 200 lines of output.
+2. Reproduce locally with `make bump-wayfinder REF=<tag>`.
+3. Typical causes are a new or removed kind (fix `kinds.yaml`), a renamed or removed field (fix `fields.yaml`), or a schema shape `cmd/tfgen` can't map yet (fix the generator). Commit the fix together with the bump.
+
+When a bump PR is `BREAKING`, review the summary and decide whether the release needs a major version or a migration note before merging.
+
+## Classifying kinds
+
+`tools/manifestgen/kinds.yaml` lists every kind registered at the pinned tag, sorted by group then kind. Each entry has `group`, `kind` and a `class`:
+
+| Class | Result |
+|---|---|
+| `typed` | A generated resource and data source. |
+| `manifest` | Manageable only through `wayfinder_manifest`. |
+| `exclude` | Not exposed. `wayfinder_manifest` reports it as "cannot be managed". |
+
+Apply this rule in order:
+
+1. Exclude kinds not served by the API, or System-only kinds.
+2. Exclude runtime and record kinds, and kinds the docs say aren't created directly.
+3. Exclude read-only kinds.
+4. Alpha kinds and user-creatable hidden kinds become `manifest`.
+5. Everything else is `typed`.
+
+Optional keys:
+
+- `reason`: required for `exclude` and for `noWait`. Say why, briefly.
+- `name: wayfinder_<snake>`: override the Terraform type name. The default is `wayfinder_` plus the snake-cased kind.
+- `noWait: true`: don't wait for reconciliation after create or update.
+
+`name` and `noWait` are rejected on excluded kinds. Unknown keys, unsorted entries, duplicates, a registered kind missing from the file and an entry for a kind that no longer exists all fail generation.
+
+The internal kind that stores the variable and secret hierarchy is excluded. Variables and secrets are managed with the hand-written `wayfinder_variable` and `wayfinder_secret` resources instead.
+
+## Field overrides
+
+`tools/manifestgen/fields.yaml` carries Terraform-only metadata for single fields. Each entry has `group`, `kind`, `path` and at least one flag:
+
+| Flag | Use it when | Effect |
+|---|---|---|
+| `immutable: true` | The server rejects changes, or a change only makes sense as a new object. | Changing the value forces replacement. |
+| `computed: true` | The server fills the value in when it's unset. | Optional and Computed, with the prior value kept in plan. |
+| `ignore: true` | The field can't round-trip, for example a deprecated alias the server clears. Needs `reason`. Can't be combined with other flags. | The field isn't exposed. |
+
+`path` is a dotted JSON path from the object root and must start with `spec.`. Array items are addressed by the array field name, so `spec.rules.verbs` means `verbs` inside each item of `spec.rules`.
+
+Entries are sorted by group, kind, path. Generation fails on duplicates, unsorted entries, unknown keys, a kind that is excluded or missing from `kinds.yaml`, or a path that doesn't exist in the reflected spec. That last check catches stale overrides after a bump: when Wayfinder renames or removes a field, fix or delete its entry.
+
+## How `+encrypted` fields become write-only `_wo` attributes
+
+Wayfinder marks secret fields with `+encrypted`. The generator records them as `sensitive: true` in the manifest, and `cmd/tfgen` turns each one into a pair of attributes:
+
+- `<field>_wo`: write-only and sensitive. Required if the field is required, otherwise optional. It's never stored in plan or state, and Read never sets it.
+- `<field>_wo_version`: an optional string stored in state.
+
+Create sends the `_wo` value from configuration. Update sends it again only when `_wo_version` changes. Otherwise the field stays blank, as the server returned it, and the server keeps the stored secret. To rotate a secret, change the value and bump `_wo_version`.
+
+The pair sits at the same level as the original field, so a secret inside a nested object gets its own `_wo` and `_wo_version` inside that object. Data sources omit secret fields entirely.
+
+`cmd/tfgen` fails loudly instead of downgrading to a plain sensitive attribute when a secret can't be modelled this way. That includes a secret below a computed or write-only container, a secret object container, and a secret collection element.
+
+Write-only attributes need Terraform or OpenTofu 1.11 or later.
+
+## Access and secrets
+
+The Wayfinder repository is private. Regenerating the manifest, running `make manifestgen-test` and bumping all need read access to it. Building and testing the provider don't, because they use the committed files.
+
+- Locally, your own git credentials are used against `https://github.com/appvia/wayfinder.git`. With a local clone you can point at it instead. It's still a separate checkout of the pinned tag:
+
+  ```sh
+  make manifest WAYFINDER_GIT_URL=file:///path/to/wayfinder
+  ```
+
+- In CI, `WAYFINDER_READ_TOKEN` grants read access. `scripts/wayfinder-git.sh` passes it to git only through `GIT_CONFIG_*` environment variables as an HTTP auth header. It never goes on the command line, in the URL, in `.wayfinder-src/.git/config` or in logs.
+- `PROVIDER_PR_TOKEN` is optional. The bump workflow uses it to push and open the PR, so that CI runs on the PR. Without it the workflow falls back to `GITHUB_TOKEN`, and you must close and reopen the PR to start checks.
+
+`.github/workflows/manifest.yml` regenerates and checks for drift only on pushes and same-repository PRs. Fork and Dependabot PRs get no secrets, so they skip regeneration. `.github/workflows/test.yml` builds, tests and checks `go generate` drift from the committed files for everyone.
+
+## Adding a new kind
+
+When a Wayfinder release adds a kind, generation fails until it's classified. To add it, or to move an existing kind to another class:
+
+1. Add or edit its entry in `tools/manifestgen/kinds.yaml`, keeping the file sorted by group then kind. Pick the class with the rule above. For `typed`, add `name:` only if the default name reads badly.
+2. Add any `fields.yaml` overrides the kind needs (immutable, computed or ignored fields).
+3. Check the result without touching `schema/`:
+
+   ```sh
+   make manifest MANIFEST_OUT=/tmp/manifest.json
+   jq '.kinds[] | select(.kind == "<Kind>") | {kind, typed, terraformName}' /tmp/manifest.json
+   ```
+
+4. Regenerate everything and run the tests:
+
+   ```sh
+   make manifestgen-test
+   make manifest
+   make generate
+   make docs
+   make test
+   ```
+
+   `make test` also checks generated descriptions for wording that doesn't suit SaaS users (for example Helm advice). If a kind's Wayfinder docs trip that check, keep it `manifest`, as `KubeResource` is.
+
+5. Commit `kinds.yaml`, `fields.yaml` and the regenerated `schema/`, `internal/generated/`, `examples/` and `docs/` together.
+
+## Testing
+
+```sh
+make test              # unit tests
+make lint
+make test-scripts      # shell script scenario tests
+make manifestgen-test  # generator tests, needs Wayfinder access
+```
+
+Unit tests run against `internal/fakeapi`, an in-process fake Wayfinder API, so they need no backend.
+
+Acceptance tests live in `internal/acctest` and talk to a real Wayfinder backend. They only run with `TF_ACC=1` set, which `make testacc` does for you. Their setup is described alongside them.
