@@ -49,3 +49,19 @@ jobs:
         with:
           go-version-file: go.mod
       - run: ./scripts/check-no-private-deps.sh
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4"
+          terraform_wrapper: false
+      - run: make docs
+      - run: git diff --exit-code docs/
+      - name: No untracked docs
+        run: test -z "$(git status --porcelain docs/)"

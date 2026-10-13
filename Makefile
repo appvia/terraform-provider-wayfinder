@@ -21,9 +21,13 @@ generate:
 lint:
 	golangci-lint run
 
-# Placeholder until generated docs land.
+TFPLUGINDOCS = go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+
+# Needs the terraform CLI (>= 1.11) on PATH.
 docs:
-	@echo "docs: not yet implemented"
+	$(TFPLUGINDOCS) generate --provider-name wayfinder --rendered-provider-name Wayfinder
+	$(TFPLUGINDOCS) validate --provider-name wayfinder
+	./scripts/check-docs.sh docs
 
 wayfinder-src:
 	./scripts/wayfinder-checkout.sh

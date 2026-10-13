@@ -1,0 +1,32 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+The `manifest` attribute holds one Wayfinder object as YAML or JSON, in the same shape the `wf` CLI applies: `apiVersion`, `kind`, `metadata` and `spec`. Only the fields you set are managed. Fields that Wayfinder or other tools add are left alone, and labels and annotations you don't set are kept.
+
+Use `wayfinder_manifest` for kinds that have no dedicated resource, such as `KubeResource`, or when you'd rather keep an object in its YAML form. Changing `kind`, `metadata.name`, `metadata.workspace`, `metadata.environment` or `metadata.version` replaces the object.
+
+Secret fields can't be set through a manifest: a manifest that sets one is rejected at plan time. Use the dedicated resource, which takes the secret through a write-only `_wo` attribute, or `wayfinder_secret`.
+
+Kinds that record activity (runs, invocations and conversations) or that Wayfinder manages itself (tenants, users and identities, for example) can't be managed by Terraform, and a manifest for one is rejected at plan time. Use `wayfinder_variable` and `wayfinder_secret` for variables and secrets.
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+The import ID is `<group>/<Kind>/[workspace/[environment/]]name[@version]`, where `<group>` is the API group from `apiVersion` without the version, for example `org/Group/developers` or `core/Environment/plat/dev`.
+
+{{ codefile "shell" .ImportFile }}
+
+After importing, set `manifest` to the fields you want Terraform to manage.
