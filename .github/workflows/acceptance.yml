@@ -1,0 +1,42 @@
+name: Acceptance
+
+# Runs the TF_ACC acceptance tests against a real Wayfinder tenant, then sweeps leftovers.
+# Prerequisite repository secrets: ACC_WAYFINDER_SERVER, ACC_WAYFINDER_TENANT,
+# ACC_WAYFINDER_CLIENT_ID and ACC_WAYFINDER_CLIENT_SECRET (a service account client
+# credential in the test tenant). Never runs for pull requests.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    if: github.repository == 'appvia/terraform-provider-wayfinder'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      WAYFINDER_SERVER: ${{ secrets.ACC_WAYFINDER_SERVER }}
+      WAYFINDER_TENANT: ${{ secrets.ACC_WAYFINDER_TENANT }}
+      WAYFINDER_CLIENT_ID: ${{ secrets.ACC_WAYFINDER_CLIENT_ID }}
+      WAYFINDER_CLIENT_SECRET: ${{ secrets.ACC_WAYFINDER_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.11"
+          terraform_wrapper: false
+      - name: Acceptance tests
+        run: TF_ACC=1 go test ./internal/acctest/... -run TestAcc -timeout 60m -v
+      - name: Sweep leftovers
+        if: always()
+        run: go test ./internal/acctest/... -sweep=ci -timeout 15m

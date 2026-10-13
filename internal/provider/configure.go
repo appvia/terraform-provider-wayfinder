@@ -2,8 +2,12 @@ package provider
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -30,7 +34,11 @@ func (p *wayfinderProvider) Configure(ctx context.Context, req provider.Configur
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	httpClient := newHTTPClient()
+	httpClient, err := NewHTTPClient(os.Getenv(CAFileEnv))
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to configure the Wayfinder provider", err.Error())
+		return
+	}
 	cfg.HTTP = httpClient
 	resolved, err := auth.Resolve(cfg)
 	if err != nil {
@@ -75,7 +83,22 @@ func authConfig(m providerModel) (auth.Config, diag.Diagnostics) {
 	return cfg, d
 }
 
-func newHTTPClient() *http.Client {
+// CAFileEnv names a PEM bundle of extra certificate authorities to trust, for private and test
+// deployments whose API certificate is issued by a custom certificate authority. It is
+// read from the environment only: Go ignores SSL_CERT_FILE on macOS and Windows.
+const CAFileEnv = "WAYFINDER_CA_FILE"
+
+// NewHTTPClient builds the API and token client; caFile, when set, adds its certificates to
+// the system roots.
+func NewHTTPClient(caFile string) (*http.Client, error) {
+	var tlsConfig *tls.Config
+	if caFile != "" {
+		pool, err := caPool(caFile)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	}
 	return &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
@@ -88,6 +111,22 @@ func newHTTPClient() *http.Client {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ResponseHeaderTimeout: requestTimeout,
 			ExpectContinueTimeout: time.Second,
+			TLSClientConfig:       tlsConfig,
 		},
+	}, nil
+}
+
+func caPool(caFile string) (*x509.CertPool, error) {
+	pem, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", CAFileEnv, err)
 	}
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("%s %s contains no PEM certificates", CAFileEnv, caFile)
+	}
+	return pool, nil
 }
