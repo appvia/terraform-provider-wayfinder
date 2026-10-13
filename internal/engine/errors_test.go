@@ -62,3 +62,25 @@ func TestAPIDiagnostics_whenServerMessageMustRemainVerbatim(t *testing.T) {
 		}
 	}
 }
+
+func TestValidation_whenServerReportsBareAndUnknownFields(t *testing.T) {
+	// Given a bare identity field error and an unknown field error.
+	e := newTestEnv(t, "Integration")
+	k := kindSpec(e.k)
+	k.Validate = func(fakeapi.Operation, map[string]any) []fakeapi.FieldError {
+		return []fakeapi.FieldError{{Field: "name", Message: "name invalid"}, {Field: "mystery", Message: "mystery invalid"}}
+	}
+	e.fake.RegisterKind(k)
+	// When creating.
+	resp := createDirect(t, e, rawValue(t, e, map[string]any{"workspace": "ws"}))
+	// Then name is attached to the name attribute; the unknown field keeps its message with no path.
+	if len(resp.Diagnostics) != 2 {
+		t.Fatalf("diagnostics = %v", resp.Diagnostics)
+	}
+	if d, ok := resp.Diagnostics[0].(diag.DiagnosticWithPath); !ok || !d.Path().Equal(path.Root("name")) || d.Detail() != "name invalid" {
+		t.Fatalf("name diagnostic = %v", resp.Diagnostics[0])
+	}
+	if _, ok := resp.Diagnostics[1].(diag.DiagnosticWithPath); ok || resp.Diagnostics[1].Detail() != "mystery invalid" {
+		t.Fatalf("unknown diagnostic = %v", resp.Diagnostics[1])
+	}
+}
