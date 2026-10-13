@@ -1,0 +1,234 @@
+# Terraform classification of every Wayfinder API kind registered at the
+# pinned tag (WAYFINDER_REF). Read by tools/manifestgen; see DEVELOPMENT.md.
+#
+# Format:
+#   kinds:
+#     - group: <API group>          # required
+#       kind: <Kind>                # required
+#       class: typed|manifest|exclude
+#                                   # typed    -> generated resource + data source
+#                                   # manifest -> only via wayfinder_manifest
+#                                   # exclude  -> not exposed by the provider
+#       reason: <text>              # required for exclude and for noWait
+#       name: wayfinder_<snake>     # optional Terraform type name override
+#       noWait: true                # optional; skip waiting for reconciliation
+#
+# Rules enforced by the generator: unknown keys are rejected; entries are
+# sorted by group then kind with no duplicates; the list must match the
+# registry at the pinned tag exactly (missing kinds and kinds that no longer
+# exist both fail).
+#
+# Classification rule (applied in order): exclude kinds not served by the API
+# or System-only; exclude runtime/record kinds and kinds the docs say are not
+# created directly; exclude read-only kinds; alpha kinds and user-creatable
+# hidden kinds -> manifest; otherwise typed.
+kinds:
+  - group: cloudaccess
+    kind: AWSAccount
+    class: typed
+  - group: cloudaccess
+    kind: AzureSubscription
+    class: typed
+  - group: cloudaccess
+    kind: GCPProject
+    class: typed
+  - group: cloudaccess
+    kind: WorkloadIdentity
+    class: exclude
+    reason: created and owned by Wayfinder from workloadIdentity.access in Wayfinder.yaml; not created directly
+  - group: cloudresources
+    kind: CloudResource
+    class: typed
+  - group: cloudresources
+    kind: CloudResourcePlan
+    class: typed
+  - group: cloudresources
+    kind: CloudResourceStateStore
+    class: typed
+  - group: dns
+    kind: DNSZone
+    class: typed
+  - group: inference
+    kind: AIAgent
+    class: typed
+  - group: inference
+    kind: AIContext
+    class: typed
+  - group: inference
+    kind: AIConversation
+    class: exclude
+    reason: runtime record of an AI conversation
+  - group: inference
+    kind: AIMemory
+    class: exclude
+    reason: runtime notes written by AI agents; created on first use by an agent
+  - group: inference
+    kind: AIProvider
+    class: typed
+  - group: inference
+    kind: AISkill
+    class: typed
+  - group: integrations
+    kind: ExternalIdentity
+    class: typed
+  - group: integrations
+    kind: Integration
+    class: typed
+  - group: integrations
+    kind: IntegrationDefinition
+    class: exclude
+    reason: system-scoped catalogue kind supplied by Wayfinder
+  - group: integrations
+    kind: MCP
+    class: typed
+  - group: integrations
+    kind: MCPDefinition
+    class: exclude
+    reason: system-scoped catalogue kind supplied by Wayfinder
+  - group: integrations
+    kind: WebAPI
+    class: typed
+  - group: integrations
+    kind: WebAPIDefinition
+    class: exclude
+    reason: system-scoped catalogue kind supplied by Wayfinder
+  - group: integrations
+    kind: WebAPIInvocation
+    class: exclude
+    reason: runtime record of a single WebAPI operation call
+  - group: integrations
+    kind: Webhook
+    class: typed
+  - group: integrations
+    kind: WebhookDefinition
+    class: exclude
+    reason: system-scoped catalogue kind supplied by Wayfinder
+  - group: integrations
+    kind: WebhookInvocation
+    class: exclude
+    reason: runtime audit record of one inbound webhook delivery
+  - group: kuberesources
+    kind: KubeResource
+    class: manifest
+  - group: kuberesources
+    kind: KubeResourcePlan
+    class: typed
+  - group: kuberesources
+    kind: Repository
+    class: typed
+  - group: kubernetes
+    kind: Cluster
+    class: typed
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    class: typed
+  - group: orchestration
+    kind: CommandInvocation
+    class: exclude
+    reason: runtime record of a CLI command executed server-side
+  - group: orchestration
+    kind: Run
+    class: exclude
+    reason: runtime record of an execution
+  - group: orchestration
+    kind: Sandbox
+    class: exclude
+    reason: runtime execution environment for agents; not yet launched
+  - group: orchestration
+    kind: Schedule
+    class: typed
+  - group: orchestration
+    kind: Workflow
+    class: typed
+  - group: orchestration
+    kind: WorkflowInvocation
+    class: exclude
+    reason: runtime record of a workflow execution
+  - group: org
+    kind: BillingPlan
+    class: exclude
+    reason: tenant lifecycle/identity managed by Appvia/sign-up
+  - group: org
+    kind: ClientAuthorization
+    class: exclude
+    reason: record of a user's consent for an external client; created by the consent flow
+  - group: org
+    kind: DataType
+    class: typed
+  - group: org
+    kind: Environment
+    class: typed
+  - group: org
+    kind: Group
+    class: typed
+  - group: org
+    kind: Identity
+    class: exclude
+    reason: tenant lifecycle/identity managed by Appvia/sign-up
+  - group: org
+    kind: Invite
+    class: typed
+  - group: org
+    kind: Label
+    class: typed
+  - group: org
+    kind: RoleBinding
+    class: typed
+  - group: org
+    kind: ServiceAccount
+    class: typed
+  - group: org
+    kind: ServiceAccountCredential
+    class: typed
+  - group: org
+    kind: System
+    class: exclude
+    reason: tenant lifecycle/identity managed by Appvia/sign-up
+  - group: org
+    kind: Tenant
+    class: exclude
+    reason: tenant lifecycle/identity managed by Appvia/sign-up
+  - group: org
+    kind: TenantConfig
+    class: exclude
+    reason: internal per-tenant singleton created with the tenant
+  - group: org
+    kind: User
+    class: exclude
+    reason: tenant lifecycle/identity managed by Appvia/sign-up
+  - group: org
+    kind: WayfinderRole
+    class: exclude
+    reason: system-scoped built-in roles supplied by Wayfinder
+  - group: org
+    kind: Workspace
+    class: typed
+  - group: secrets
+    kind: VarSet
+    class: exclude
+    reason: managed per key via wayfinder_variable / wayfinder_secret over the vars API
+  - group: sourcecontrol
+    kind: CodeRepo
+    class: typed
+  - group: sourcecontrol
+    kind: GitHubOrg
+    class: typed
+    name: wayfinder_github_org
+  - group: sourcecontrol
+    kind: RepoTemplate
+    class: typed
+  - group: sourcecontrol
+    kind: SourceProposal
+    class: exclude
+    reason: runtime record of proposed changes tracked through a pull request
+  - group: stacks
+    kind: Stack
+    class: typed
+  - group: stacks
+    kind: StackDefinition
+    class: exclude
+    reason: deprecated and unused upstream
+  - group: stacks
+    kind: StackInstance
+    class: exclude
+    reason: created by deploying a Wayfinder.yaml (wf deploy / wf up); not created directly

@@ -1,0 +1,17 @@
+# Terraform-only per-field overrides for typed/manifest kinds. Read by
+# tools/manifestgen; see DEVELOPMENT.md.
+#
+# Format:
+#   fields:
+#     - group: <API group>          # required
+#       kind: <Kind>                # required; must be typed or manifest in kinds.yaml
+#       path: spec.<a>.<b>          # dotted JSON path from the object root; array
+#                                   # items are addressed by the array field name
+#       immutable: true             # change forces replacement
+#       computed: true              # server may set the value (Optional+Computed)
+#       ignore: true                # field not exposed; cannot combine with others
+#       reason: <text>              # required for ignore
+#
+# Entries are sorted by group, kind, path with no duplicates; unknown keys are
+# rejected.
+fields: []
