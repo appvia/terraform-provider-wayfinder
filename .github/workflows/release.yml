@@ -1,0 +1,39 @@
+name: Release
+
+# Builds, signs and publishes a GitHub release when a v* tag is pushed.
+# Prerequisite repository secrets: GPG_PRIVATE_KEY (armored private key) and
+# PASSPHRASE (its passphrase). See RELEASING.md.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    if: github.repository == 'appvia/terraform-provider-wayfinder'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # goreleaser cannot use a passphrase-protected key directly, so the key
+      # is imported into the runner's gpg keyring first.
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
