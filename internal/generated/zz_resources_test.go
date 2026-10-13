@@ -220,6 +220,17 @@ var generatedCases = []generatedCase{
 }
 `,
 	},
+	{Type: "wayfinder_kube_resource", Group: "kuberesources", Kind: "KubeResource", ImportID: "example/example/example",
+		Config: `resource "wayfinder_kube_resource" "example" {
+  name = "example"
+  workspace = "example"
+  environment = "example"
+  cluster_ref = {
+  }
+  install_namespace = "example"
+}
+`,
+	},
 	{Type: "wayfinder_kube_resource_plan", Group: "kuberesources", Kind: "KubeResourcePlan", ImportID: "example/example@1.0.0",
 		Config: `resource "wayfinder_kube_resource_plan" "example" {
   name = "example"

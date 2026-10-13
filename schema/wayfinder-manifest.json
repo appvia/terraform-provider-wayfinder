@@ -4647,13 +4647,14 @@
       "group": "kuberesources",
       "version": "v3",
       "apiPath": "kuberesources",
-      "typed": false,
+      "typed": true,
       "scopes": [
         "environment"
       ],
       "versioned": false,
       "hasStatus": true,
       "waitForReady": true,
+      "terraformName": "wayfinder_kube_resource",
       "description": "KubeResource is a deployment of packaged software — a Helm chart and/or a set of Kubernetes manifests — into a namespace of a target cluster. It is normally created from a KubeResourcePlan, supplying the inputs that plan declares; the chart and manifests may also be given directly on the resource where no plan is used. Wayfinder renders the plan's templates, installs or upgrades the release in the cluster, creates any workload identity the plan asks for, and records the rendered values, applied manifests, produced outputs and rollout progress in the status.",
       "spec": {
         "type": "object",

@@ -91,6 +91,10 @@ func NewDataSource_invite() datasource.DataSource {
 	k, err := generatedKind("org", "Invite")
 	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_invite(context.Background())), err)
 }
+func NewDataSource_kube_resource() datasource.DataSource {
+	k, err := generatedKind("kuberesources", "KubeResource")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_kube_resource(context.Background())), err)
+}
 func NewDataSource_kube_resource_plan() datasource.DataSource {
 	k, err := generatedKind("kuberesources", "KubeResourcePlan")
 	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_kube_resource_plan(context.Background())), err)

@@ -11,7 +11,7 @@ Manages one Wayfinder object from a YAML or JSON manifest. Use it for kinds with
 
 The `manifest` attribute holds one Wayfinder object as YAML or JSON, in the same shape the `wf` CLI applies: `apiVersion`, `kind`, `metadata` and `spec`. Only the fields you set are managed. Fields that Wayfinder or other tools add are left alone, and labels and annotations you don't set are kept.
 
-Use `wayfinder_manifest` for kinds that have no dedicated resource, such as `KubeResource`, or when you'd rather keep an object in its YAML form. Changing `kind`, `metadata.name`, `metadata.workspace`, `metadata.environment` or `metadata.version` replaces the object.
+Use `wayfinder_manifest` for kinds that have no dedicated resource, or when you'd rather keep an object in its YAML form. Changing `kind`, `metadata.name`, `metadata.workspace`, `metadata.environment` or `metadata.version` replaces the object.
 
 Secret fields can't be set through a manifest: a manifest that sets one is rejected at plan time. Use the dedicated resource, which takes the secret through a write-only `_wo` attribute, or `wayfinder_secret`.
 

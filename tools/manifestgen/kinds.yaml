@@ -109,7 +109,7 @@ kinds:
     reason: runtime audit record of one inbound webhook delivery
   - group: kuberesources
     kind: KubeResource
-    class: manifest
+    class: typed
   - group: kuberesources
     kind: KubeResourcePlan
     class: typed

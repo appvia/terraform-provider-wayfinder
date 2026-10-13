@@ -91,6 +91,10 @@ func NewResource_invite() resource.Resource {
 	k, err := generatedKind("org", "Invite")
 	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_invite(context.Background())), err)
 }
+func NewResource_kube_resource() resource.Resource {
+	k, err := generatedKind("kuberesources", "KubeResource")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_kube_resource(context.Background())), err)
+}
 func NewResource_kube_resource_plan() resource.Resource {
 	k, err := generatedKind("kuberesources", "KubeResourcePlan")
 	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_kube_resource_plan(context.Background())), err)

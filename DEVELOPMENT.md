@@ -256,7 +256,7 @@ When a Wayfinder release adds a kind, generation fails until it's classified. To
    make test
    ```
 
-   `make test` also checks generated descriptions for wording that doesn't suit SaaS users (for example Helm advice). If a kind's Wayfinder docs trip that check, keep it `manifest`, as `KubeResource` is.
+   `make test` also checks generated descriptions for wording that doesn't suit SaaS users (for example Helm advice). If a kind's Wayfinder docs trip that check, classify it `manifest` and record the reason in `kinds.yaml`.
 
 5. Commit `kinds.yaml`, `fields.yaml` and the regenerated `schema/`, `internal/generated/`, `examples/` and `docs/` together.
 
