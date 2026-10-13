@@ -1,0 +1,307 @@
+{
+  "manifestVersion": 1,
+  "wayfinderVersion": "v3.3.2",
+  "wayfinderCommit": "3f9a1c6e2b7d4a08c5e1f3b9d2a7604e8c1b5d7f",
+  "kinds": [
+    {
+      "kind": "Blueprint",
+      "group": "core.appvia.io",
+      "version": "v3",
+      "apiPath": "/api/v3/blueprints",
+      "typed": true,
+      "scopes": [
+        "workspace"
+      ],
+      "versioned": true,
+      "hasStatus": true,
+      "waitForReady": true,
+      "terraformName": "blueprint",
+      "description": "A versioned, reusable deployment blueprint.",
+      "spec": {
+        "type": "object",
+        "description": "Desired state of one blueprint version.",
+        "properties": {
+          "source": {
+            "type": "object",
+            "description": "Where the blueprint template is fetched from.",
+            "required": true,
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "Git repository URL.",
+                "required": true,
+                "pattern": "^https://.+",
+                "format": "uri"
+              },
+              "ref": {
+                "type": "string",
+                "description": "Git ref to check out.",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "description": "Inputs the blueprint accepts.",
+            "items": {
+              "type": "object",
+              "description": "A single blueprint input.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "required": true,
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "maxLength": 63
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ],
+                  "enumDocs": [
+                    {
+                      "value": "string",
+                      "description": "UTF-8 text."
+                    },
+                    {
+                      "value": "number",
+                      "description": "Floating point number."
+                    },
+                    {
+                      "value": "boolean",
+                      "description": "True or false."
+                    }
+                  ]
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "When this version was published.",
+            "computed": true,
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    {
+      "kind": "Integration",
+      "group": "core.appvia.io",
+      "version": "v3",
+      "apiPath": "/api/v3/integrations",
+      "typed": true,
+      "scopes": [
+        "workspace",
+        "environment"
+      ],
+      "versioned": false,
+      "hasStatus": true,
+      "waitForReady": true,
+      "terraformName": "integration",
+      "description": "Connection to an external system, scoped to a workspace or environment.",
+      "spec": {
+        "type": "object",
+        "description": "Desired state of an integration.",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Base URL of the external API.",
+            "required": true,
+            "format": "uri"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "API key used to authenticate to the endpoint.",
+            "required": true,
+            "sensitive": true,
+            "minLength": 1
+          },
+          "headers": {
+            "type": "map",
+            "description": "Extra HTTP headers sent with each request. Values are secret.",
+            "sensitive": true,
+            "values": {
+              "type": "string"
+            }
+          },
+          "options": {
+            "type": "json",
+            "description": "Provider-specific options passed through verbatim."
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "description": "Per-request timeout.",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "region": {
+            "type": "string",
+            "description": "Region the integration is pinned to.",
+            "immutable": true,
+            "enum": [
+              "eu-west-1",
+              "us-east-1"
+            ]
+          },
+          "lastSyncedAt": {
+            "type": "string",
+            "description": "When the external system was last synchronised.",
+            "computed": true,
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    {
+      "kind": "Pipeline",
+      "group": "core.appvia.io",
+      "version": "v3",
+      "apiPath": "/api/v3/pipelines",
+      "typed": false,
+      "scopes": [
+        "environment"
+      ],
+      "versioned": false,
+      "hasStatus": true,
+      "waitForReady": false,
+      "description": "Manifest-only kind: manage through wayfinder_manifest.",
+      "spec": {
+        "type": "object",
+        "description": "Desired state of a pipeline.",
+        "properties": {
+          "trigger": {
+            "type": "string",
+            "description": "What starts a run.",
+            "enum": [
+              "manual",
+              "push"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "description": "Ordered steps.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "required": true
+                },
+                "command": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "Workspace",
+      "group": "core.appvia.io",
+      "version": "v3",
+      "apiPath": "/api/v3/workspaces",
+      "typed": true,
+      "scopes": [
+        "tenant"
+      ],
+      "versioned": false,
+      "hasStatus": true,
+      "waitForReady": true,
+      "terraformName": "workspace",
+      "description": "A tenant-scoped grouping of environments and members.",
+      "spec": {
+        "type": "object",
+        "description": "Desired state of a workspace.",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable name.",
+            "required": true,
+            "maxLength": 128
+          },
+          "cloudProvider": {
+            "type": "string",
+            "description": "Cloud the workspace is provisioned into.",
+            "required": true,
+            "immutable": true,
+            "enum": [
+              "aws",
+              "azure",
+              "gcp"
+            ]
+          },
+          "quota": {
+            "type": "object",
+            "description": "Resource limits for the workspace.",
+            "properties": {
+              "maxEnvironments": {
+                "type": "integer",
+                "description": "Maximum number of environments.",
+                "minimum": 0
+              },
+              "maxStorageGib": {
+                "type": "number",
+                "description": "Maximum storage in GiB.",
+                "minimum": 0
+              }
+            }
+          },
+          "members": {
+            "type": "array",
+            "description": "Principals with access to the workspace.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "principal": {
+                  "type": "string",
+                  "required": true
+                },
+                "role": {
+                  "type": "string",
+                  "required": true,
+                  "enum": [
+                    "admin",
+                    "editor",
+                    "viewer"
+                  ],
+                  "enumDocs": [
+                    {
+                      "value": "admin",
+                      "description": "Full control, including membership."
+                    },
+                    {
+                      "value": "editor",
+                      "description": "Create and change environments."
+                    },
+                    {
+                      "value": "viewer",
+                      "description": "Read-only access."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the workspace was created.",
+            "computed": true,
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ],
+  "excluded": [
+    "Run",
+    "Session"
+  ]
+}
