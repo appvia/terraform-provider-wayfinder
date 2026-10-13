@@ -303,8 +303,8 @@ func (m *Manifest) Validate() error {
 		if err := m.Kinds[i].validate(fmt.Sprintf("kinds[%d]", i)); err != nil {
 			return err
 		}
-		if i > 0 && m.Kinds[i-1].Kind >= m.Kinds[i].Kind {
-			return fmt.Errorf("kinds[%d].kind: kinds must be sorted by kind name and unique, got %q after %q",
+		if i > 0 && (m.Kinds[i-1].Group > m.Kinds[i].Group || (m.Kinds[i-1].Group == m.Kinds[i].Group && m.Kinds[i-1].Kind >= m.Kinds[i].Kind)) {
+			return fmt.Errorf("kinds[%d].kind: kinds must be sorted by group, kind and unique, got %q after %q",
 				i, m.Kinds[i].Kind, m.Kinds[i-1].Kind)
 		}
 	}
@@ -333,8 +333,8 @@ func (k *Kind) validate(path string) error {
 	if k.Version == "" {
 		return fmt.Errorf("%s.version: required", path)
 	}
-	if len(k.APIPath) == 0 || k.APIPath[0] != '/' {
-		return fmt.Errorf("%s.apiPath: must start with '/', got %q", path, k.APIPath)
+	if len(k.APIPath) == 0 {
+		return fmt.Errorf("%s.apiPath: required, got %q", path, k.APIPath)
 	}
 	if len(k.Scopes) == 0 {
 		return fmt.Errorf("%s.scopes: at least one scope required", path)

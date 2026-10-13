@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/appvia/wayfinder/hack/tfprovider-manifestgen/manifest"
 	corev3 "github.com/appvia/wayfinder/pkg/apis/core/v3"
 )
 
@@ -49,8 +50,8 @@ func run(args []string, stdout io.Writer) error {
 	if o.listKinds {
 		return listKinds(stdout, registry)
 	}
-	if o.kindsPath == "" || o.fieldsPath == "" || o.wayfinderVersion == "" {
-		return errors.New("-kinds, -fields and -wayfinder-version are required")
+	if o.kindsPath == "" || o.fieldsPath == "" || o.wayfinderVersion == "" || o.outPath == "" {
+		return errors.New("-kinds, -fields, -wayfinder-version and -o are required")
 	}
 
 	kinds, err := LoadKinds(o.kindsPath)
@@ -68,10 +69,27 @@ func run(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	// Manifest generation lands in a later change; overrides and coverage are
-	// already enforced above.
-	_, err = fmt.Fprintln(stdout, "manifestgen: overrides valid; manifest generation not implemented yet")
-	return err
+	root, err := checkoutRoot()
+	if err != nil {
+		return err
+	}
+	inventory, err := controllerInventory(root)
+	if err != nil {
+		return err
+	}
+	g := generator{registry: registry, controllers: inventory, version: o.wayfinderVersion, commit: o.wayfinderCommit}
+	m, err := g.generate(kinds, fields)
+	if err != nil {
+		return err
+	}
+	data, err := manifest.Encode(m)
+	if err != nil {
+		return fmt.Errorf("encode manifest: %w", err)
+	}
+	if err := os.WriteFile(o.outPath, data, 0o644); err != nil {
+		return fmt.Errorf("write manifest %s: %w", o.outPath, err)
+	}
+	return nil
 }
 
 func listKinds(w io.Writer, registry []RegisteredKind) error {
