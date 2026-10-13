@@ -1,0 +1,41 @@
+{
+  "manifestVersion": 1,
+  "wayfinderVersion": "v3.4.0",
+  "kinds": [
+    {
+      "kind": "Workspace",
+      "group": "core.appvia.io",
+      "version": "v3",
+      "apiPath": "workspaces",
+      "typed": true,
+      "scopes": [
+        "tenant"
+      ],
+      "versioned": false,
+      "hasStatus": true,
+      "waitForReady": false,
+      "terraformName": "workspace",
+      "spec": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "required": true
+          },
+          "summary": {
+            "type": "string",
+            "required": true
+          },
+          "quota": {
+            "type": "object",
+            "properties": {
+              "maxCpu": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

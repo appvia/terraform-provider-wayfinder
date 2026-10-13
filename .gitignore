@@ -11,6 +11,8 @@ dist/
 *.out
 # Automation artifacts
 bump-summary.md
+error.txt
+pr-body.md
 # Terraform
 .terraform/
 .terraform.lock.hcl

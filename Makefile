@@ -4,7 +4,7 @@ VERSION ?= dev
 # Allow `make WAYFINDER_GIT_URL=file:///path/to/wayfinder <target>`.
 export WAYFINDER_GIT_URL
 
-.PHONY: build test testacc generate lint docs wayfinder-src manifest manifestgen-test bump-wayfinder
+.PHONY: build test testacc generate lint docs wayfinder-src manifest manifestgen-test bump-wayfinder test-scripts
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) .
@@ -36,4 +36,8 @@ manifestgen-test:
 
 bump-wayfinder:
 	@if [ -z "$(REF)" ]; then echo "usage: make bump-wayfinder REF=vX.Y.Z" >&2; exit 2; fi
-	@echo "bump-wayfinder: implemented in bump script" >&2; exit 1
+	./scripts/bump-wayfinder.sh "$(REF)" $(BUMP_ARGS)
+
+test-scripts:
+	./scripts/test-wayfinder-checkout.sh
+	./scripts/test-bump-wayfinder.sh

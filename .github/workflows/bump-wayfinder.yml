@@ -1,0 +1,133 @@
+name: Bump Wayfinder
+
+# Opens (or updates) ONE PR moving WAYFINDER_REF to the newest stable Wayfinder
+# release, or ONE issue when regeneration fails. User input, the tag, titles
+# and error text never appear as ${{ }} expressions inside run: scripts; they
+# reach the shell only through step env and reach gh as quoted variables/files.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Wayfinder stable release tag (vX.Y.Z); empty = newest stable tag
+        required: false
+        type: string
+
+concurrency: bump-wayfinder
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  GOTOOLCHAIN: auto
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~1.11'
+          terraform_wrapper: false
+
+      - name: Resolve target tag
+        id: resolve
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+        run: |
+          tag="${INPUT_REF:-$(scripts/latest-wayfinder-tag.sh)}"
+          if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::not a stable Wayfinder release tag (vX.Y.Z)"
+            exit 1
+          fi
+          current="$(tr -d '[:space:]' < WAYFINDER_REF)"
+          if scripts/semver-gt.sh "$tag" "$current"; then
+            echo "bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pinned $current is not older than $tag; nothing to do"
+            echo "bump=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate provider
+        id: bump
+        if: steps.resolve.outputs.bump == 'true'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+        run: |
+          set +e
+          ./scripts/bump-wayfinder.sh "$TAG" 2> error.txt
+          rc=$?
+          set -e
+          cat error.txt >&2
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Open or update bump PR
+        if: steps.bump.outcome == 'success'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          GH_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_PR_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN != '' }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          branch=chore/wayfinder-bump
+          title="chore: bump Wayfinder to $TAG"
+          cp bump-summary.md pr-body.md
+          if [ "$HAS_PR_TOKEN" != "true" ]; then
+            printf '\n---\nCI does not run automatically for this PR; close and reopen it to start checks.\n' >> pr-body.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add -A -- WAYFINDER_REF schema internal/generated docs examples
+          git commit -m "$title"
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+            git push --force "https://github.com/$REPO.git" "HEAD:refs/heads/$branch"
+          pr="$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq '.[0].number')"
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --repo "$REPO" --title "$title" --body-file pr-body.md
+          else
+            gh pr create --repo "$REPO" --head "$branch" --base "$BASE" \
+              --title "$title" --body-file pr-body.md
+            pr="$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq '.[0].number')"
+          fi
+          if head -n 1 bump-summary.md | grep -q '^BREAKING'; then
+            gh label create breaking --repo "$REPO" --color B60205 --force >/dev/null
+            gh pr edit "$pr" --repo "$REPO" --add-label breaking
+          else
+            gh pr edit "$pr" --repo "$REPO" --remove-label breaking >/dev/null 2>&1 || true
+          fi
+
+      - name: Open or update failure issue
+        if: failure() && steps.bump.outcome == 'failure'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          GH_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          title="Wayfinder $TAG: provider regeneration failed"
+          [ -s error.txt ] || echo "bump-wayfinder.sh failed without error output" > error.txt
+          issue="$(gh issue list --repo "$REPO" --state open --limit 200 --json number,title \
+            | jq -r --arg t "$title" 'map(select(.title == $t)) | .[0].number // empty')"
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --repo "$REPO" --body-file error.txt
+          else
+            gh issue create --repo "$REPO" --title "$title" --body-file error.txt
+          fi

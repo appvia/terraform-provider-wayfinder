@@ -16,7 +16,11 @@ func main() {
 	input := flag.String("manifest", "schema/wayfinder-manifest.json", "manifest path relative to repository root")
 	out := flag.String("out", "internal/generated", "generated Go output directory")
 	examples := flag.String("examples", "examples", "example output directory")
+	diff := flag.Bool("diff", false, "print Terraform schema changes between two manifests: -diff <old> <new>")
 	flag.Parse()
+	if *diff {
+		os.Exit(runDiff(flag.Args()))
+	}
 	root, err := repositoryRoot()
 	if err == nil {
 		var m *manifest.Manifest
@@ -29,6 +33,20 @@ func main() {
 		fmt.Fprintln(os.Stderr, "tfgen:", err)
 		os.Exit(1)
 	}
+}
+
+func runDiff(args []string) int {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: tfgen -diff <old-manifest> <new-manifest>")
+		return 2
+	}
+	r, err := diffFiles(args[0], args[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "tfgen:", err)
+		return 1
+	}
+	r.write(os.Stdout)
+	return 0
 }
 
 func repositoryRoot() (string, error) {
