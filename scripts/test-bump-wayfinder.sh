@@ -98,6 +98,11 @@ git -C "$C" checkout -- tools/manifestgen/kinds.yaml
 check "tree clean after kinds.yaml restore" clean_tree
 
 # --- failure after generate with docs/ absent (untracked-only) ---
+# docs/ is committed in the real repo; this scenario needs a clone where it is absent.
+if git -C "$C" ls-files --error-unmatch docs >/dev/null 2>&1; then
+  git -C "$C" rm -rq docs
+  git -C "$C" commit -qm "drop tracked docs for the docs-absent scenario"
+fi
 [ ! -e "$C/docs" ] || bad "precondition: docs/ should be absent at HEAD"
 export BUMP_TEST_FAIL_AFTER_GENERATE=1
 bump v3.3.3

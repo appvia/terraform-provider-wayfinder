@@ -117,7 +117,7 @@ The provider's resources come from the Wayfinder release pinned in `WAYFINDER_RE
 
 ### Wording rules
 
-Upstream descriptions are written for everyone who reads the Wayfinder API reference, and a few phrases suit Wayfinder operators more than SaaS users. `cmd/tfgen/wording.go` holds an ordered list of regex rewrites applied to every generated description. After the rewrites, tfgen fails if a description still matches the forbidden-wording list ("VarSet", "your administrator", "this instance", `WF_*` variables, Wayfinder Helm values). When a Wayfinder bump trips the check, add a narrow rule with a comment saying why, and a test.
+Upstream descriptions are written for everyone who reads the Wayfinder API reference, and a few phrases suit Wayfinder operators more than SaaS users. `cmd/tfgen/wording.go` holds an ordered list of regex rewrites applied to every generated description. After the rewrites, tfgen fails if a description still matches the forbidden-wording list (the internal variable-store kind name, "your administrator", "this instance", `WF_*` variables, Wayfinder Helm values). When a Wayfinder bump trips the check, add a narrow rule with a comment saying why, and a test.
 
 Useful variants:
 
