@@ -1,4 +1,5 @@
-// Package provider implements the Wayfinder Terraform provider.
+// Package provider implements the Wayfinder Terraform provider: the provider block,
+// authentication, and registration of every resource and data source.
 package provider
 
 import (
@@ -7,8 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
-	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+
+	"github.com/appvia/terraform-provider-wayfinder/internal/generated"
+	"github.com/appvia/terraform-provider-wayfinder/internal/manifestresource"
+	"github.com/appvia/terraform-provider-wayfinder/internal/vars"
 )
 
 var _ provider.Provider = (*wayfinderProvider)(nil)
@@ -30,18 +34,21 @@ func (p *wayfinderProvider) Metadata(_ context.Context, _ provider.MetadataReque
 }
 
 func (p *wayfinderProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
-	resp.Schema = schema.Schema{}
+	resp.Schema = providerSchema()
 }
 
-func (p *wayfinderProvider) Configure(_ context.Context, _ provider.ConfigureRequest, _ *provider.ConfigureResponse) {
-}
-
+// Resources registers one generated resource per typed kind, wayfinder_manifest, and the
+// per-key wayfinder_variable and wayfinder_secret resources.
 func (p *wayfinderProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	out := append([]func() resource.Resource{}, generated.Resources()...)
+	out = append(out, manifestresource.NewResource)
+	return append(out, vars.Resources()...)
 }
 
+// DataSources registers one generated data source per typed kind and wayfinder_variable.
 func (p *wayfinderProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	out := append([]func() datasource.DataSource{}, generated.DataSources()...)
+	return append(out, vars.DataSources()...)
 }
 
 func (p *wayfinderProvider) Functions(_ context.Context) []func() function.Function {
