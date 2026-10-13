@@ -14,4 +14,199 @@
 #
 # Entries are sorted by group, kind, path with no duplicates; unknown keys are
 # rejected.
-fields: []
+fields:
+  - group: cloudaccess
+    kind: AzureSubscription
+    path: spec.tenantID
+    immutable: true
+  - group: cloudaccess
+    kind: GCPProject
+    path: spec.projectNumber
+    immutable: true
+  - group: inference
+    kind: AIAgent
+    path: spec.inputSchema
+    ignore: true
+    reason: deprecated alias of spec.inputs; Wayfinder moves any value to spec.inputs and clears it on every save, so a configured value could never be read back
+  - group: inference
+    kind: AIContext
+    path: spec.use
+    computed: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.aws.account
+    immutable: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.azure.subscription
+    immutable: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.azure.tenantID
+    computed: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.cloudAccountRef
+    computed: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.gcp.project
+    immutable: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.gcp.projectNumber
+    computed: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.type
+    immutable: true
+  - group: integrations
+    kind: ExternalIdentity
+    path: spec.usableBy
+    computed: true
+  - group: integrations
+    kind: Integration
+    path: spec.templateRef
+    immutable: true
+    computed: true
+  - group: integrations
+    kind: Integration
+    path: spec.type
+    immutable: true
+    computed: true
+  - group: integrations
+    kind: MCP
+    path: spec.definitionRef
+    computed: true
+  - group: integrations
+    kind: WebAPI
+    path: spec.definitionRef
+    computed: true
+  - group: integrations
+    kind: Webhook
+    path: spec.definitionRef
+    computed: true
+  - group: integrations
+    kind: Webhook
+    path: spec.ingestToken
+    ignore: true
+    reason: set by Wayfinder when the ingest URL is rotated; supplied values are ignored and the value is never returned by the API
+  - group: integrations
+    kind: Webhook
+    path: spec.ingestTokenHash
+    ignore: true
+    reason: set by Wayfinder when the ingest URL is rotated; supplied values are ignored
+  - group: kuberesources
+    kind: KubeResource
+    path: spec.workloadIdentity.cloudResourceName
+    immutable: true
+  - group: kuberesources
+    kind: KubeResourcePlan
+    path: spec.workloadIdentity.cloudResourceName
+    immutable: true
+  - group: kubernetes
+    kind: Cluster
+    path: spec.cloudResourceName
+    immutable: true
+    computed: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.clusterRef
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.clusterRoleName
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.expiration
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.namespace
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.roleBindingType
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.subject
+    immutable: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.subject.kind
+    computed: true
+  - group: kubernetes
+    kind: ClusterRoleBinding
+    path: spec.subject.name
+    computed: true
+  - group: orchestration
+    kind: Workflow
+    path: spec.enabled
+    computed: true
+  - group: org
+    kind: Environment
+    path: spec.slug
+    immutable: true
+    computed: true
+  - group: org
+    kind: Invite
+    path: spec.autoJoin
+    computed: true
+  - group: org
+    kind: Invite
+    path: spec.expiresAt
+    computed: true
+  - group: org
+    kind: Invite
+    path: spec.scope
+    computed: true
+  - group: org
+    kind: Invite
+    path: spec.tokenID
+    computed: true
+  - group: org
+    kind: ServiceAccountCredential
+    path: spec.clientID
+    computed: true
+  - group: org
+    kind: ServiceAccountCredential
+    path: spec.federated.audiences
+    computed: true
+  - group: org
+    kind: ServiceAccountCredential
+    path: spec.method
+    immutable: true
+  - group: org
+    kind: ServiceAccountCredential
+    path: spec.tokenHash
+    ignore: true
+    reason: server-managed token verifier; Wayfinder discards supplied values and blanks it from every API response
+  - group: org
+    kind: Workspace
+    path: spec.slug
+    immutable: true
+    computed: true
+  - group: org
+    kind: Workspace
+    path: spec.type
+    computed: true
+  - group: sourcecontrol
+    kind: GitHubOrg
+    path: spec.installationID
+    ignore: true
+    reason: set by Wayfinder from the GitHub install flow; supplied values are ignored
+  - group: sourcecontrol
+    kind: GitHubOrg
+    path: spec.installationRequestID
+    ignore: true
+    reason: set by Wayfinder from the GitHub install flow; supplied values are ignored
+  - group: sourcecontrol
+    kind: GitHubOrg
+    path: spec.organization
+    immutable: true
+  - group: stacks
+    kind: Stack
+    path: spec.createdFrom
+    immutable: true

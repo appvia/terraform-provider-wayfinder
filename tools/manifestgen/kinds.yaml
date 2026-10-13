@@ -213,7 +213,9 @@ kinds:
   - group: sourcecontrol
     kind: GitHubOrg
     class: typed
+    reason: status stays Pending indefinitely while the GitHub App installation awaits approval by a GitHub organization owner
     name: wayfinder_github_org
+    noWait: true
   - group: sourcecontrol
     kind: RepoTemplate
     class: typed
