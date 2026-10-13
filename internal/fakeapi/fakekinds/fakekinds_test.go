@@ -1,6 +1,7 @@
 package fakekinds
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -29,5 +30,35 @@ func TestSpec_whenKindHasNestedSensitiveFields(t *testing.T) {
 	}
 	if want := []string{"spec.headers"}; !slices.Equal(s.SensitiveMaps, want) {
 		t.Fatalf("SensitiveMaps = %v, want %v", s.SensitiveMaps, want)
+	}
+}
+
+func TestServerDefaults_whenComputedFieldsAtVariousDepths(t *testing.T) {
+	// Given computed fields at the top level, under a required object, under an optional object
+	// and inside an array, plus a computed enum and a computed list.
+	computed := func(typ string) *manifest.Field { return &manifest.Field{Type: typ, Computed: true} }
+	k := manifest.Kind{Kind: "Thing", Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
+		"slug":     computed("string"),
+		"enabled":  computed("boolean"),
+		"tier":     {Type: "string", Computed: true, Enum: []string{"gold", "silver"}},
+		"audience": {Type: "array", Computed: true, Items: &manifest.Field{Type: "string"}},
+		"subject":  {Type: "object", Required: true, Properties: map[string]*manifest.Field{"kind": computed("string")}},
+		"azure":    {Type: "object", Properties: map[string]*manifest.Field{"tenantID": computed("string")}},
+		"rules":    {Type: "array", Items: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{"id": computed("string")}}},
+	}}}
+	// When deriving the server defaults.
+	got := ServerDefaults(k)
+	// Then only fields whose parents are always present get a typed default.
+	want := map[string]any{
+		"spec.slug": "server-default", "spec.enabled": true, "spec.tier": "gold",
+		"spec.audience": []any{"server-default"}, "spec.subject.kind": "server-default",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("defaults = %v, want %v", got, want)
+	}
+	for path, v := range want {
+		if fmt.Sprint(got[path]) != fmt.Sprint(v) {
+			t.Fatalf("%s = %v, want %v", path, got[path], v)
+		}
 	}
 }

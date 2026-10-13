@@ -23,6 +23,10 @@ func (e *emitter) pkg() string {
 }
 
 func (e *emitter) kindSchema(k manifest.Kind) (string, error) {
+	description, err := reword(k.Description)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", k.Kind, err)
+	}
 	if err := safeText(k.Description); err != nil {
 		return "", err
 	}
@@ -81,7 +85,7 @@ func (e *emitter) kindSchema(k manifest.Kind) (string, error) {
 			b.WriteString("\"wait_for_ready\": rschema.BoolAttribute{Optional:true, Computed:true, Default:booldefault.StaticBool(true)},\n")
 		}
 	}
-	return fmt.Sprintf("%s.Schema{MarkdownDescription:%q, Attributes:map[string]%s.Attribute{%s}}", pkg, k.Description, pkg, b.String()), nil
+	return fmt.Sprintf("%s.Schema{MarkdownDescription:%q, Attributes:map[string]%s.Attribute{%s}}", pkg, description, pkg, b.String()), nil
 }
 
 func propertyNames(f *manifest.Field) []string {

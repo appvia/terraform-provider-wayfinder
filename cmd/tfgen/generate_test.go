@@ -46,8 +46,8 @@ func TestGenerate_whenGoldenManifest(t *testing.T) {
 			t.Errorf("private terminology in %s", name)
 		}
 	}
-	if len(files) != 13 {
-		t.Fatalf("got %d files, want 4 Go files + 9 examples", len(files))
+	if len(files) != 14 {
+		t.Fatalf("got %d files, want 4 Go files + 1 generated test + 9 examples", len(files))
 	}
 }
 

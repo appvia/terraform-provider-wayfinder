@@ -88,6 +88,11 @@ func render(m *manifest.Manifest) (map[string][]byte, error) {
 		}
 		files[name] = data
 	}
+	tests, err := renderTests(kinds)
+	if err != nil {
+		return nil, fmt.Errorf("format zz_resources_test.go: %w", err)
+	}
+	files["zz_resources_test.go"] = tests
 	return files, nil
 }
 

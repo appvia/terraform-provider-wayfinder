@@ -58,7 +58,7 @@ func TestCompiledSchemas_whenGoldenOrRealManifest(t *testing.T) {
 		}
 	}
 	for name, data := range files {
-		if !strings.HasSuffix(name, ".go") {
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
 		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {

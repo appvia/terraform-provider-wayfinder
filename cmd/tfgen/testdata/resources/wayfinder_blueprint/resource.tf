@@ -4,6 +4,6 @@ resource "wayfinder_blueprint" "example" {
   workspace = "example"
   version = "1.0.0"
   source = {
-    repository = "example"
+    repository = "https://example.com"
   }
 }

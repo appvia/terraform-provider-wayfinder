@@ -7,8 +7,8 @@ resource "wayfinder_cloud_resource_plan" "example" {
   description = "example"
   terraform = {
     files = [{
-    name = "example"
-    template = "example"
-  }]
+      name = "example.tf"
+      template = "example"
+    }]
   }
 }

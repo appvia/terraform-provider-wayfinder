@@ -6,6 +6,7 @@ package manifestresource
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/client"
 	"github.com/appvia/terraform-provider-wayfinder/internal/engine"
@@ -47,9 +48,13 @@ type model struct {
 	Status       types.Object         `tfsdk:"status"`
 }
 
+// embeddedManifest parses the compiled-in manifest once: Terraform instantiates resources on
+// every RPC, and the manifest is read-only.
+var embeddedManifest = sync.OnceValues(manifest.LoadEmbedded)
+
 // NewResource returns wayfinder_manifest bound to the manifest compiled into the provider.
 func NewResource() resource.Resource {
-	m, err := manifest.LoadEmbedded()
+	m, err := embeddedManifest()
 	return &manifestResource{manifest: m, manifestErr: err, poll: engine.DefaultPoll()}
 }
 

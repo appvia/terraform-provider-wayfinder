@@ -93,6 +93,10 @@ func (e *emitter) attribute(f *manifest.Field, path string) (string, error) {
 	if f.Sensitive {
 		description += "\n\nWrite-only: never stored in state. Requires Terraform or OpenTofu 1.11 or later."
 	}
+	description, err := reword(description)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
 	fmt.Fprintf(&b, "MarkdownDescription:%q,", description)
 	if !e.dataSource && !f.Sensitive {
 		b.WriteString(e.modifiers(modifierClass(class), f.Immutable, f.Computed))

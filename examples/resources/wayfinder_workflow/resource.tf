@@ -2,7 +2,9 @@
 resource "wayfinder_workflow" "example" {
   name = "example"
   workspace = "example"
-  tasks = { example = {
-    action = "example"
-  } }
+  tasks = {
+    example = {
+      action = "example"
+    }
+  }
 }
