@@ -3,6 +3,7 @@ package manifestresource
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/client"
@@ -67,20 +68,21 @@ func (r *manifestResource) Update(ctx context.Context, req resource.UpdateReques
 	if plan.ObjectJSON.IsUnknown() {
 		plan.ObjectJSON = jsontypes.NewNormalizedValue(js)
 	}
-	if matches(fresh, want.object) {
-		if plan.Status.IsUnknown() {
-			plan.Status = statusValue(fresh)
-		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-		return
-	}
 	var prior map[string]any
 	if !state.Manifest.IsNull() {
 		if p, err := parseManifest(r.manifest, state.Manifest.ValueString()); err == nil {
 			prior = p.object
 		}
 	}
-	obj, err := r.client.Update(ctx, ref, overlay(fresh, want.object, prior))
+	candidate := overlay(fresh, want.object, prior)
+	if reflect.DeepEqual(normalized(candidate), normalized(fresh)) {
+		if plan.Status.IsUnknown() {
+			plan.Status = statusValue(fresh)
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+		return
+	}
+	obj, err := r.client.Update(ctx, ref, candidate)
 	if err != nil {
 		apiError(&resp.Diagnostics, err, target)
 		return
