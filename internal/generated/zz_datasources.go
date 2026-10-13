@@ -7,15 +7,143 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 )
 
-func NewDataSource_blueprint() datasource.DataSource {
-	k, err := generatedKind("core.appvia.io", "Blueprint")
-	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_blueprint(context.Background())), err)
+func NewDataSource_ai_agent() datasource.DataSource {
+	k, err := generatedKind("inference", "AIAgent")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_ai_agent(context.Background())), err)
+}
+func NewDataSource_ai_context() datasource.DataSource {
+	k, err := generatedKind("inference", "AIContext")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_ai_context(context.Background())), err)
+}
+func NewDataSource_ai_provider() datasource.DataSource {
+	k, err := generatedKind("inference", "AIProvider")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_ai_provider(context.Background())), err)
+}
+func NewDataSource_ai_skill() datasource.DataSource {
+	k, err := generatedKind("inference", "AISkill")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_ai_skill(context.Background())), err)
+}
+func NewDataSource_aws_account() datasource.DataSource {
+	k, err := generatedKind("cloudaccess", "AWSAccount")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_aws_account(context.Background())), err)
+}
+func NewDataSource_azure_subscription() datasource.DataSource {
+	k, err := generatedKind("cloudaccess", "AzureSubscription")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_azure_subscription(context.Background())), err)
+}
+func NewDataSource_cloud_resource() datasource.DataSource {
+	k, err := generatedKind("cloudresources", "CloudResource")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_cloud_resource(context.Background())), err)
+}
+func NewDataSource_cloud_resource_plan() datasource.DataSource {
+	k, err := generatedKind("cloudresources", "CloudResourcePlan")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_cloud_resource_plan(context.Background())), err)
+}
+func NewDataSource_cloud_resource_state_store() datasource.DataSource {
+	k, err := generatedKind("cloudresources", "CloudResourceStateStore")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_cloud_resource_state_store(context.Background())), err)
+}
+func NewDataSource_cluster() datasource.DataSource {
+	k, err := generatedKind("kubernetes", "Cluster")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_cluster(context.Background())), err)
+}
+func NewDataSource_cluster_role_binding() datasource.DataSource {
+	k, err := generatedKind("kubernetes", "ClusterRoleBinding")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_cluster_role_binding(context.Background())), err)
+}
+func NewDataSource_code_repo() datasource.DataSource {
+	k, err := generatedKind("sourcecontrol", "CodeRepo")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_code_repo(context.Background())), err)
+}
+func NewDataSource_data_type() datasource.DataSource {
+	k, err := generatedKind("org", "DataType")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_data_type(context.Background())), err)
+}
+func NewDataSource_dns_zone() datasource.DataSource {
+	k, err := generatedKind("dns", "DNSZone")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_dns_zone(context.Background())), err)
+}
+func NewDataSource_environment() datasource.DataSource {
+	k, err := generatedKind("org", "Environment")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_environment(context.Background())), err)
+}
+func NewDataSource_external_identity() datasource.DataSource {
+	k, err := generatedKind("integrations", "ExternalIdentity")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_external_identity(context.Background())), err)
+}
+func NewDataSource_gcp_project() datasource.DataSource {
+	k, err := generatedKind("cloudaccess", "GCPProject")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_gcp_project(context.Background())), err)
+}
+func NewDataSource_github_org() datasource.DataSource {
+	k, err := generatedKind("sourcecontrol", "GitHubOrg")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_github_org(context.Background())), err)
+}
+func NewDataSource_group() datasource.DataSource {
+	k, err := generatedKind("org", "Group")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_group(context.Background())), err)
 }
 func NewDataSource_integration() datasource.DataSource {
-	k, err := generatedKind("core.appvia.io", "Integration")
+	k, err := generatedKind("integrations", "Integration")
 	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_integration(context.Background())), err)
 }
+func NewDataSource_invite() datasource.DataSource {
+	k, err := generatedKind("org", "Invite")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_invite(context.Background())), err)
+}
+func NewDataSource_kube_resource_plan() datasource.DataSource {
+	k, err := generatedKind("kuberesources", "KubeResourcePlan")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_kube_resource_plan(context.Background())), err)
+}
+func NewDataSource_label() datasource.DataSource {
+	k, err := generatedKind("org", "Label")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_label(context.Background())), err)
+}
+func NewDataSource_mcp() datasource.DataSource {
+	k, err := generatedKind("integrations", "MCP")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_mcp(context.Background())), err)
+}
+func NewDataSource_repo_template() datasource.DataSource {
+	k, err := generatedKind("sourcecontrol", "RepoTemplate")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_repo_template(context.Background())), err)
+}
+func NewDataSource_repository() datasource.DataSource {
+	k, err := generatedKind("kuberesources", "Repository")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_repository(context.Background())), err)
+}
+func NewDataSource_role_binding() datasource.DataSource {
+	k, err := generatedKind("org", "RoleBinding")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_role_binding(context.Background())), err)
+}
+func NewDataSource_schedule() datasource.DataSource {
+	k, err := generatedKind("orchestration", "Schedule")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_schedule(context.Background())), err)
+}
+func NewDataSource_service_account() datasource.DataSource {
+	k, err := generatedKind("org", "ServiceAccount")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_service_account(context.Background())), err)
+}
+func NewDataSource_service_account_credential() datasource.DataSource {
+	k, err := generatedKind("org", "ServiceAccountCredential")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_service_account_credential(context.Background())), err)
+}
+func NewDataSource_stack() datasource.DataSource {
+	k, err := generatedKind("stacks", "Stack")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_stack(context.Background())), err)
+}
+func NewDataSource_web_api() datasource.DataSource {
+	k, err := generatedKind("integrations", "WebAPI")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_web_api(context.Background())), err)
+}
+func NewDataSource_webhook() datasource.DataSource {
+	k, err := generatedKind("integrations", "Webhook")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_webhook(context.Background())), err)
+}
+func NewDataSource_workflow() datasource.DataSource {
+	k, err := generatedKind("orchestration", "Workflow")
+	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_workflow(context.Background())), err)
+}
 func NewDataSource_workspace() datasource.DataSource {
-	k, err := generatedKind("core.appvia.io", "Workspace")
+	k, err := generatedKind("org", "Workspace")
 	return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_workspace(context.Background())), err)
 }

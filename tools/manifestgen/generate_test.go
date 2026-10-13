@@ -179,3 +179,11 @@ func TestReflectSpec_rejects_snake_collision(t *testing.T) {
 	require.ErrorContains(t, err, "fooBar")
 	require.ErrorContains(t, err, "foo_bar")
 }
+
+func TestSnake_keepsPluralAcronymsWhole(t *testing.T) {
+	// Given / When / Then the spelling matches the provider's convert.SnakeCase.
+	require.Equal(t, "iam_policy_arns", snake("iamPolicyARNs"))
+	require.Equal(t, "private_zone_vpcs", snake("privateZoneVPCs"))
+	require.Equal(t, "urls_to_check", snake("URLsToCheck"))
+	require.Equal(t, "http_server_url", snake("HTTPServerURL"))
+}

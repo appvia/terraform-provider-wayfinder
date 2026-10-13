@@ -87,6 +87,26 @@ func TestGenerate_whenTerraformReservedSpecName(t *testing.T) {
 	}
 }
 
+func TestGenerate_whenEnumValueUndocumented(t *testing.T) {
+	// Given an enum whose second value has no description.
+	m, err := manifest.Load("../../internal/manifest/testdata/golden-manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Kinds[0].Spec.Properties["tier"] = &manifest.Field{Type: "string", Enum: []string{"gold", "bare"},
+		EnumDocs: []manifest.EnumDoc{{Value: "gold", Description: "Top tier."}, {Value: "bare"}}}
+	// When
+	files, err := render(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then the undocumented value is listed without a dangling separator.
+	got := files["zz_schemas.go"]
+	if !bytes.Contains(got, []byte("- `gold`: Top tier.")) || !bytes.Contains(got, []byte(`- `+"`bare`"+`"`)) || bytes.Contains(got, []byte("- `bare`:")) {
+		t.Fatal("undocumented enum value rendered with a dangling separator")
+	}
+}
+
 func TestGenerate_whenComputedParentHasSecret(t *testing.T) {
 	// Given
 	m, err := manifest.Load("../../internal/manifest/testdata/golden-manifest.json")

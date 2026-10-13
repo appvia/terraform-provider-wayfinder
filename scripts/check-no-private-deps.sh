@@ -14,9 +14,12 @@ if go list -deps ./... 2>/dev/null | grep -E "^${PRIV}(/|$)" >/dev/null; then
   err "(a) go list -deps ./... contains ${PRIV}"
 fi
 
-# (b) *.go outside tools/manifestgen must not mention the private module
+# (b) *.go outside tools/manifestgen must not import the private module (even behind a build
+# tag, which (a) cannot see). Import-shaped lines only: generated API descriptions may quote
+# the repository name as an example value.
+IMPORT_RE='^[[:space:]]*(import[[:space:]]+)?([A-Za-z_.][A-Za-z0-9_]*[[:space:]]+)?"github\.com/appvia/wayfinder(/[^"]*)?"'
 while IFS= read -r f; do
-  if grep -F "$PRIV" "$f" >/dev/null 2>&1; then
+  if grep -E "$IMPORT_RE" "$f" >/dev/null 2>&1; then
     err "(b) ${f} references ${PRIV}"
   fi
 done < <(find . \

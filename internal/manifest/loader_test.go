@@ -4,19 +4,53 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/appvia/terraform-provider-wayfinder/schema"
 )
 
-func TestLoadEmbedded_GoldenHasFourKindsThreeTyped(t *testing.T) {
+func TestLoadEmbedded_whenRealManifest_matchesPinnedRelease(t *testing.T) {
+	// Given the pinned Wayfinder tag from the repository root.
+	ref, err := os.ReadFile("../../WAYFINDER_REF")
+	if err != nil {
+		t.Fatalf("read WAYFINDER_REF: %v", err)
+	}
+	// When the embedded manifest is loaded (Parse validates it).
 	m, err := LoadEmbedded()
 	if err != nil {
 		t.Fatalf("LoadEmbedded: %v", err)
 	}
-	if got := len(m.Kinds); got != 4 {
-		t.Fatalf("kinds: got %d, want 4", got)
+	// Then it was generated from that tag at a resolved commit and covers the real API.
+	if got, want := m.WayfinderVersion, strings.TrimSpace(string(ref)); got != want {
+		t.Fatalf("wayfinderVersion = %q, want %q", got, want)
+	}
+	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(m.WayfinderCommit) {
+		t.Fatalf("wayfinderCommit = %q, want 40 lowercase hex", m.WayfinderCommit)
+	}
+	if got := len(m.TypedKinds()); got < 30 {
+		t.Fatalf("typed kinds = %d, want >= 30", got)
+	}
+	if bytes.Equal(schema.Manifest, mustRead(t, goldenPath)) {
+		t.Fatal("schema/wayfinder-manifest.json is still the golden placeholder")
+	}
+}
+
+func TestFindKind_MissingReturnsFalse(t *testing.T) {
+	m, err := Load(goldenPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := m.FindKind("core.appvia.io", "NoSuchKind"); ok {
+		t.Fatal("FindKind(NoSuchKind): want not found")
+	}
+}
+
+func TestLoad_whenGolden_hasFourKindsThreeTyped(t *testing.T) {
+	m, err := Load(goldenPath)
+	if err != nil {
+		t.Fatalf("Load golden: %v", err)
 	}
 	if got := len(m.TypedKinds()); got != 3 {
 		t.Fatalf("typed kinds: got %d, want 3", got)
@@ -27,26 +61,6 @@ func TestLoadEmbedded_GoldenHasFourKindsThreeTyped(t *testing.T) {
 	}
 	if pipeline.Typed {
 		t.Fatal("Pipeline must be manifest-only (typed=false)")
-	}
-}
-
-func TestFindKind_MissingReturnsFalse(t *testing.T) {
-	m, err := LoadEmbedded()
-	if err != nil {
-		t.Fatalf("LoadEmbedded: %v", err)
-	}
-	if _, ok := m.FindKind("core.appvia.io", "NoSuchKind"); ok {
-		t.Fatal("FindKind(NoSuchKind): want not found")
-	}
-}
-
-func TestEmbeddedMatchesGoldenFixture(t *testing.T) {
-	golden, err := os.ReadFile(goldenPath)
-	if err != nil {
-		t.Fatalf("read golden: %v", err)
-	}
-	if !bytes.Equal(schema.Manifest, golden) {
-		t.Fatal("schema/wayfinder-manifest.json drifted from testdata/golden-manifest.json")
 	}
 }
 

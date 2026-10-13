@@ -2,7 +2,4 @@
 resource "wayfinder_integration" "example" {
   name = "example"
   workspace = "example"
-  # Replace this write-only placeholder with an ephemeral secret.
-  api_key_wo = "example"
-  endpoint = "example"
 }

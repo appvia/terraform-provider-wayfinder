@@ -113,9 +113,26 @@ func checkDataSourceText(t *testing.T, attrs map[string]dschema.Attribute) {
 	}
 }
 
-func TestVersion_whenGoldenBlueprint(t *testing.T) {
+func TestRegistry_whenEmbeddedManifest_hasOneResourceAndDataSourcePerTypedKind(t *testing.T) {
+	// Given the manifest compiled into the provider.
+	m, err := manifest.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When / Then every typed kind has exactly one resource and one data source.
+	typed := len(m.TypedKinds())
+	if len(Resources()) != typed || len(ResourceTypeNames()) != typed {
+		t.Fatalf("resources = %d, type names = %d, typed kinds = %d", len(Resources()), len(ResourceTypeNames()), typed)
+	}
+	if len(DataSources()) != typed {
+		t.Fatalf("data sources = %d, typed kinds = %d", len(DataSources()), typed)
+	}
+	t.Logf("typed kinds = resources = data sources = %d", typed)
+}
+
+func TestVersion_whenVersionedKubeResourcePlan(t *testing.T) {
 	// Given
-	a := ResourceSchema_blueprint(context.Background()).Attributes["version"].(rschema.StringAttribute)
+	a := ResourceSchema_kube_resource_plan(context.Background()).Attributes["version"].(rschema.StringAttribute)
 	// When / Then
 	if !a.Required || len(a.PlanModifiers) == 0 || len(a.Validators) == 0 {
 		t.Fatal("version must be required, replacing, validated")
@@ -130,36 +147,62 @@ func TestVersion_whenGoldenBlueprint(t *testing.T) {
 	}
 }
 
-func TestWriteOnly_whenGoldenIntegration(t *testing.T) {
+func TestWriteOnly_whenExternalIdentityNestedSecrets(t *testing.T) {
 	// Given
-	s := ResourceSchema_integration(context.Background())
+	s := ResourceSchema_external_identity(context.Background())
 	// When
-	a := s.Attributes["api_key_wo"].(rschema.StringAttribute)
-	v := s.Attributes["api_key_wo_version"].(rschema.StringAttribute)
-	ds := DataSourceSchema_integration(context.Background())
+	bearer := s.Attributes["bearer_token"].(rschema.SingleNestedAttribute)
+	a := bearer.Attributes["token_wo"].(rschema.StringAttribute)
+	v := bearer.Attributes["token_wo_version"].(rschema.StringAttribute)
+	headers := s.Attributes["api_key"].(rschema.SingleNestedAttribute).Attributes["headers_wo"].(rschema.MapAttribute)
+	ds := DataSourceSchema_external_identity(context.Background()).Attributes["bearer_token"].(dschema.SingleNestedAttribute)
 	// Then
-	if !a.WriteOnly || !a.Sensitive || !a.Required || a.Computed || len(a.PlanModifiers) != 0 || !v.Optional {
+	if !a.WriteOnly || !a.Sensitive || !a.Required || a.Computed || len(a.PlanModifiers) != 0 || !v.Optional || v.WriteOnly {
 		t.Fatal("invalid write-only pair")
 	}
-	if _, ok := ds.Attributes["api_key_wo"]; ok {
+	if !headers.WriteOnly || !headers.Sensitive {
+		t.Fatal("sensitive map must be write-only")
+	}
+	if _, ok := ds.Attributes["token_wo"]; ok {
 		t.Fatal("data source secret")
 	}
-	if _, ok := ds.Attributes["api_key_wo_version"]; ok {
+	if _, ok := ds.Attributes["token_wo_version"]; ok {
 		t.Fatal("data source companion")
-	}
-	if _, ok := ResourceSchema_workspace(context.Background()).Attributes["workspace"]; ok {
-		t.Fatal("tenant-only workspace attribute")
 	}
 }
 
-func TestScopes_whenIdentityHasMultipleSupportedScopes(t *testing.T) {
-	// Given
-	s := ResourceSchema_integration(context.Background())
-	// When
-	w := s.Attributes["workspace"].(rschema.StringAttribute)
-	e := s.Attributes["environment"].(rschema.StringAttribute)
-	// Then
-	if !w.Required || !e.Optional || e.Required {
-		t.Fatal("workspace/environment scope identity must permit either scope")
+func TestScopes_whenKindScopesDiffer(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name                   string
+		schema                 rschema.Schema
+		workspace, environment string
+	}{
+		{"tenant only", ResourceSchema_workspace(ctx), "", ""},
+		{"workspace only", ResourceSchema_environment(ctx), "required", ""},
+		{"environment only", ResourceSchema_cloud_resource(ctx), "required", "required"},
+		{"tenant or workspace", ResourceSchema_integration(ctx), "optional", ""},
+		{"any scope", ResourceSchema_external_identity(ctx), "optional", "optional"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Given / When / Then
+			for attr, want := range map[string]string{"workspace": tc.workspace, "environment": tc.environment} {
+				if got := presence(tc.schema, attr); got != want {
+					t.Fatalf("%s = %q, want %q", attr, got, want)
+				}
+			}
+		})
+	}
+}
+
+func presence(s rschema.Schema, name string) string {
+	a, ok := s.Attributes[name].(rschema.StringAttribute)
+	switch {
+	case !ok:
+		return ""
+	case a.Required:
+		return "required"
+	default:
+		return "optional"
 	}
 }

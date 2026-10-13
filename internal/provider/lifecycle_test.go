@@ -14,31 +14,26 @@ import (
 
 const secretLiteral = "secret-literal-provider"
 
-func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
+func TestProvider_lifecycle_whenTenantWriteOnlyAndVersionedKinds(t *testing.T) {
 	for _, tc := range []struct {
 		name, typ, identity, create, update, importID string
+		// waits is the manifest waitForReady flag: only waiting kinds reach Success during apply.
+		waits bool
 	}{
 		{name: "tenant", typ: "workspace", identity: "", importID: "example",
-			create: `display_name = "First"
- cloud_provider = "aws"`,
-			update: `display_name = "Second"
- cloud_provider = "aws"`},
-		{name: "workspace", typ: "integration", identity: `workspace = "ws"`, importID: "ws/example",
-			create: `endpoint = "https://example.com"
- api_key_wo = "` + secretLiteral + `"
- api_key_wo_version = "1"
- headers_wo = {"X-Token" = "` + secretLiteral + `-header"}
- headers_wo_version = "1"`,
-			update: `endpoint = "https://example.com"
- timeout_seconds = 30
- api_key_wo = "` + secretLiteral + `"
- api_key_wo_version = "1"
- headers_wo = {"X-Token" = "` + secretLiteral + `-header"}
- headers_wo_version = "1"`},
-		{name: "versioned", typ: "blueprint", identity: `workspace = "ws"
-	 version = "1.2.3"`, importID: "ws/example@1.2.3",
-			create: `source = {repository = "https://example.com/repo"}`,
-			update: `source = {repository = "https://example.com/repo", ref = "main"}`},
+			create: `description = "First"`,
+			update: `description = "Second"`},
+		{name: "workspace write-only", typ: "external_identity", identity: `workspace = "ws"`, importID: "ws/example", waits: true,
+			create: `type = "BearerToken"
+ bearer_token = {token_wo = "` + secretLiteral + `", token_wo_version = "1"}`,
+			update: `type = "BearerToken"
+ description = "Rotated"
+ usable_for = ["webapi"]
+ bearer_token = {token_wo = "` + secretLiteral + `", token_wo_version = "1"}`},
+		{name: "versioned", typ: "kube_resource_plan", identity: `workspace = "ws"
+	 version = "1.2.3"`, importID: "ws/example@1.2.3", waits: true,
+			create: `helm = {chart_name = "podinfo"}`,
+			update: `helm = {chart_name = "podinfo", chart_version = "6.0.0"}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given the provider configured against the fake API.
@@ -48,6 +43,10 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 			cfg := func(spec string) string {
 				return e.providerBlock() + fmt.Sprintf("resource %q \"example\" {\n name = \"example\"\n labels = {\"wayfinder.appvia.io/managed-by-fake\" = \"true\"}\n %s\n %s\n}\n", typ, tc.identity, spec)
 			}
+			statusCheck := resource.TestCheckResourceAttrSet(addr, "status.status")
+			if tc.waits {
+				statusCheck = resource.TestCheckResourceAttr(addr, "status.status", "Success")
+			}
 			empty := resource.ConfigPlanChecks{PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
 			// When Terraform creates, re-plans, updates, imports and destroys it.
 			resource.UnitTest(t, resource.TestCase{
@@ -55,7 +54,7 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 				Steps: []resource.TestStep{
 					{Config: cfg(tc.create), ConfigPlanChecks: empty, Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttr(addr, "id", tc.importID),
-						resource.TestCheckResourceAttr(addr, "status.status", "Success"),
+						statusCheck,
 						checkSecretAbsent(t),
 					)},
 					{Config: cfg(tc.create), PlanOnly: true},
@@ -65,7 +64,7 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 					}, Check: checkSecretAbsent(t)},
 					{Config: cfg(tc.update), ResourceName: addr, ImportState: true, ImportStateId: tc.importID, ImportStateVerify: true,
 						ImportStateVerifyIgnore: []string{
-							"api_key_wo", "api_key_wo_version", "headers_wo", "headers_wo_version", "wait_for_ready", "timeouts",
+							"bearer_token.token_wo", "bearer_token.token_wo_version", "wait_for_ready", "timeouts",
 							// The fake stamps status.lastReconcile.time on every GET.
 							"status_json",
 						}},
@@ -88,8 +87,7 @@ func TestProvider_dataSource_whenObjectExists(t *testing.T) {
 	cfg := e.providerBlock() + `
 resource "wayfinder_workspace" "example" {
  name = "example"
- display_name = "Platform"
- cloud_provider = "gcp"
+ description = "Platform"
 }
 data "wayfinder_workspace" "read" {
  name = wayfinder_workspace.example.name
@@ -101,8 +99,7 @@ data "wayfinder_workspace" "read" {
 		// Then it exposes the stored attributes.
 		Check: resource.ComposeTestCheckFunc(
 			resource.TestCheckResourceAttr("data.wayfinder_workspace.read", "id", "example"),
-			resource.TestCheckResourceAttr("data.wayfinder_workspace.read", "display_name", "Platform"),
-			resource.TestCheckResourceAttr("data.wayfinder_workspace.read", "cloud_provider", "gcp"),
+			resource.TestCheckResourceAttr("data.wayfinder_workspace.read", "description", "Platform"),
 			resource.TestCheckResourceAttr("data.wayfinder_workspace.read", "status.status", "Success"),
 		),
 	}}})

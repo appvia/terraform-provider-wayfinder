@@ -85,7 +85,10 @@ func (e *emitter) attribute(f *manifest.Field, path string) (string, error) {
 		if err := safeText(doc.Value + doc.Description); err != nil {
 			return "", err
 		}
-		description += "\n\n- `" + doc.Value + "`: " + doc.Description
+		description += "\n\n- `" + doc.Value + "`"
+		if doc.Description != "" {
+			description += ": " + doc.Description
+		}
 	}
 	if f.Sensitive {
 		description += "\n\nWrite-only: never stored in state. Requires Terraform or OpenTofu 1.11 or later."

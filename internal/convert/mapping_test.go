@@ -26,6 +26,10 @@ func TestMappingNames_whenAcronymsAndReservedNamesOccur(t *testing.T) {
 		{"provider", "provider", "spec_provider"},
 		{"provisioner", "provisioner", "spec_provisioner"},
 		{"locals", "locals", "spec_locals"},
+		{"iamPolicyARNs", "iam_policy_arns", "iam_policy_arns"},
+		{"privateZoneVPCs", "private_zone_vpcs", "private_zone_vpcs"},
+		{"vnetIDs", "vnet_ids", "vnet_ids"},
+		{"URLsToCheck", "urls_to_check", "urls_to_check"},
 	} {
 		t.Run(tc.json, func(t *testing.T) {
 			// Given / When / Then

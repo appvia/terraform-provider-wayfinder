@@ -2,8 +2,8 @@ package provider
 
 import (
 	"context"
+	"regexp"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -54,18 +54,18 @@ func TestProvider_registers_whenListingTypes(t *testing.T) {
 	wantDataSources := append(generated.ResourceTypeNames(), "wayfinder_variable")
 	assertSameSet(t, "resources", resources, wantResources)
 	assertSameSet(t, "data sources", dataSources, wantDataSources)
-	// And no name or description mentions internal storage or non-SaaS settings.
+	// And no name or description mentions internal storage or Wayfinder's own installation
+	// settings. Helm charts deployed by tenants (KubeResourcePlan) are legitimate content.
 	for _, text := range texts {
-		lower := strings.ToLower(text)
-		for _, banned := range []string{"varset", "wf_", "helm"} {
-			if strings.Contains(lower, banned) {
-				t.Fatalf("%q mentions %q", text, banned)
-			}
+		if banned := bannedText.FindString(text); banned != "" {
+			t.Fatalf("%q mentions %q", text, banned)
 		}
 	}
 	t.Logf("resources: %v", resources)
 	t.Logf("data sources: %v", dataSources)
 }
+
+var bannedText = regexp.MustCompile(`(?i)varset|your administrator|this instance|\bWF_[A-Z]|wayfinder.{0,20}helm values|helm values.{0,20}wayfinder`)
 
 func assertSameSet(t *testing.T, what string, got, want []string) {
 	t.Helper()

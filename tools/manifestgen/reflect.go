@@ -26,12 +26,19 @@ func snake(name string) string {
 	for i, r := range runes {
 		if unicode.IsUpper(r) && i > 0 && runes[i-1] != '_' &&
 			(unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1]) ||
-				(i+1 < len(runes) && unicode.IsLower(runes[i+1]))) {
+				(i+1 < len(runes) && unicode.IsLower(runes[i+1]) && !pluralAcronym(runes, i))) {
 			b.WriteByte('_')
 		}
 		b.WriteRune(unicode.ToLower(r))
 	}
 	return b.String()
+}
+
+// pluralAcronym mirrors convert.SnakeCase: an acronym pluralised with a lone "s" (ARNs, IDs)
+// keeps the "s" in its word.
+func pluralAcronym(runes []rune, i int) bool {
+	return unicode.IsUpper(runes[i-1]) && runes[i+1] == 's' &&
+		(i+2 == len(runes) || !unicode.IsLower(runes[i+2]))
 }
 
 func reflectField(t reflect.Type, visiting map[reflect.Type]bool) (*manifest.Field, error) {

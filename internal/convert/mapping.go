@@ -42,12 +42,19 @@ func SnakeCase(name string) string {
 	for i, r := range runes {
 		if unicode.IsUpper(r) && i > 0 && runes[i-1] != '_' &&
 			(unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1]) ||
-				(i+1 < len(runes) && unicode.IsLower(runes[i+1]))) {
+				(i+1 < len(runes) && unicode.IsLower(runes[i+1]) && !pluralAcronym(runes, i))) {
 			out.WriteByte('_')
 		}
 		out.WriteRune(unicode.ToLower(r))
 	}
 	return out.String()
+}
+
+// pluralAcronym reports whether the upper-case rune at i ends an acronym pluralised with a
+// lone "s" (ARNs, IDs, VPCs), so the "s" stays in the acronym's word.
+func pluralAcronym(runes []rune, i int) bool {
+	return unicode.IsUpper(runes[i-1]) && runes[i+1] == 's' &&
+		(i+2 == len(runes) || !unicode.IsLower(runes[i+2]))
 }
 
 // IsReserved reports collisions with provider identity attributes and Terraform

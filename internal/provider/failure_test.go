@@ -14,8 +14,7 @@ import (
 const workspaceConfig = `
 resource "wayfinder_workspace" "example" {
  name = "example"
- display_name = %q
- cloud_provider = "aws"
+ description = %q
 }
 `
 
@@ -69,7 +68,7 @@ func TestProvider_update_whenChangedOutsideTerraform(t *testing.T) {
 		{
 			PreConfig: func() {
 				e.fake.Mutate(ref, func(obj map[string]any) {
-					obj["spec"].(map[string]any)["displayName"] = "Edited in Wayfinder"
+					obj["spec"].(map[string]any)["description"] = "Edited in Wayfinder"
 				})
 				e.fake.ResetRequests()
 			},

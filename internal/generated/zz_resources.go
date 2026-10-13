@@ -7,15 +7,143 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-func NewResource_blueprint() resource.Resource {
-	k, err := generatedKind("core.appvia.io", "Blueprint")
-	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_blueprint(context.Background())), err)
+func NewResource_ai_agent() resource.Resource {
+	k, err := generatedKind("inference", "AIAgent")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_ai_agent(context.Background())), err)
+}
+func NewResource_ai_context() resource.Resource {
+	k, err := generatedKind("inference", "AIContext")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_ai_context(context.Background())), err)
+}
+func NewResource_ai_provider() resource.Resource {
+	k, err := generatedKind("inference", "AIProvider")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_ai_provider(context.Background())), err)
+}
+func NewResource_ai_skill() resource.Resource {
+	k, err := generatedKind("inference", "AISkill")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_ai_skill(context.Background())), err)
+}
+func NewResource_aws_account() resource.Resource {
+	k, err := generatedKind("cloudaccess", "AWSAccount")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_aws_account(context.Background())), err)
+}
+func NewResource_azure_subscription() resource.Resource {
+	k, err := generatedKind("cloudaccess", "AzureSubscription")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_azure_subscription(context.Background())), err)
+}
+func NewResource_cloud_resource() resource.Resource {
+	k, err := generatedKind("cloudresources", "CloudResource")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_cloud_resource(context.Background())), err)
+}
+func NewResource_cloud_resource_plan() resource.Resource {
+	k, err := generatedKind("cloudresources", "CloudResourcePlan")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_cloud_resource_plan(context.Background())), err)
+}
+func NewResource_cloud_resource_state_store() resource.Resource {
+	k, err := generatedKind("cloudresources", "CloudResourceStateStore")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_cloud_resource_state_store(context.Background())), err)
+}
+func NewResource_cluster() resource.Resource {
+	k, err := generatedKind("kubernetes", "Cluster")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_cluster(context.Background())), err)
+}
+func NewResource_cluster_role_binding() resource.Resource {
+	k, err := generatedKind("kubernetes", "ClusterRoleBinding")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_cluster_role_binding(context.Background())), err)
+}
+func NewResource_code_repo() resource.Resource {
+	k, err := generatedKind("sourcecontrol", "CodeRepo")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_code_repo(context.Background())), err)
+}
+func NewResource_data_type() resource.Resource {
+	k, err := generatedKind("org", "DataType")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_data_type(context.Background())), err)
+}
+func NewResource_dns_zone() resource.Resource {
+	k, err := generatedKind("dns", "DNSZone")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_dns_zone(context.Background())), err)
+}
+func NewResource_environment() resource.Resource {
+	k, err := generatedKind("org", "Environment")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_environment(context.Background())), err)
+}
+func NewResource_external_identity() resource.Resource {
+	k, err := generatedKind("integrations", "ExternalIdentity")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_external_identity(context.Background())), err)
+}
+func NewResource_gcp_project() resource.Resource {
+	k, err := generatedKind("cloudaccess", "GCPProject")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_gcp_project(context.Background())), err)
+}
+func NewResource_github_org() resource.Resource {
+	k, err := generatedKind("sourcecontrol", "GitHubOrg")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_github_org(context.Background())), err)
+}
+func NewResource_group() resource.Resource {
+	k, err := generatedKind("org", "Group")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_group(context.Background())), err)
 }
 func NewResource_integration() resource.Resource {
-	k, err := generatedKind("core.appvia.io", "Integration")
+	k, err := generatedKind("integrations", "Integration")
 	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_integration(context.Background())), err)
 }
+func NewResource_invite() resource.Resource {
+	k, err := generatedKind("org", "Invite")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_invite(context.Background())), err)
+}
+func NewResource_kube_resource_plan() resource.Resource {
+	k, err := generatedKind("kuberesources", "KubeResourcePlan")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_kube_resource_plan(context.Background())), err)
+}
+func NewResource_label() resource.Resource {
+	k, err := generatedKind("org", "Label")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_label(context.Background())), err)
+}
+func NewResource_mcp() resource.Resource {
+	k, err := generatedKind("integrations", "MCP")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_mcp(context.Background())), err)
+}
+func NewResource_repo_template() resource.Resource {
+	k, err := generatedKind("sourcecontrol", "RepoTemplate")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_repo_template(context.Background())), err)
+}
+func NewResource_repository() resource.Resource {
+	k, err := generatedKind("kuberesources", "Repository")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_repository(context.Background())), err)
+}
+func NewResource_role_binding() resource.Resource {
+	k, err := generatedKind("org", "RoleBinding")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_role_binding(context.Background())), err)
+}
+func NewResource_schedule() resource.Resource {
+	k, err := generatedKind("orchestration", "Schedule")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_schedule(context.Background())), err)
+}
+func NewResource_service_account() resource.Resource {
+	k, err := generatedKind("org", "ServiceAccount")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_service_account(context.Background())), err)
+}
+func NewResource_service_account_credential() resource.Resource {
+	k, err := generatedKind("org", "ServiceAccountCredential")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_service_account_credential(context.Background())), err)
+}
+func NewResource_stack() resource.Resource {
+	k, err := generatedKind("stacks", "Stack")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_stack(context.Background())), err)
+}
+func NewResource_web_api() resource.Resource {
+	k, err := generatedKind("integrations", "WebAPI")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_web_api(context.Background())), err)
+}
+func NewResource_webhook() resource.Resource {
+	k, err := generatedKind("integrations", "Webhook")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_webhook(context.Background())), err)
+}
+func NewResource_workflow() resource.Resource {
+	k, err := generatedKind("orchestration", "Workflow")
+	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_workflow(context.Background())), err)
+}
 func NewResource_workspace() resource.Resource {
-	k, err := generatedKind("core.appvia.io", "Workspace")
+	k, err := generatedKind("org", "Workspace")
 	return resourceWithManifestError(engine.NewResource(k, ResourceSchema_workspace(context.Background())), err)
 }
