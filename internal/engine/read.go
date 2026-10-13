@@ -28,15 +28,18 @@ func (r *kindResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		r.apiDiagnostics(&resp.Diagnostics, err, i.ID())
 		return
 	}
-	state, err := convert.FromObject(r.mapping, obj, req.State.Raw)
+	baseline, d := req.Private.GetKey(ctx, "generation")
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state, err := convert.FromObjectOpts(r.mapping, obj, req.State.Raw, convert.FromOpts{PopulateAll: len(baseline) == 0})
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read resource", err.Error())
 		return
 	}
 	resp.State.Raw = state
-	baseline, d := req.Private.GetKey(ctx, "generation")
-	resp.Diagnostics.Append(d...)
-	if resp.Diagnostics.HasError() || len(baseline) != 0 {
+	if len(baseline) != 0 {
 		return
 	}
 	s, err := inspectObject(obj)

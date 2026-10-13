@@ -34,8 +34,13 @@ func (r *manifestResource) Read(ctx context.Context, req resource.ReadRequest, r
 		apiError(&resp.Diagnostics, err, errorTarget(k, i))
 		return
 	}
+	baseline, d := req.Private.GetKey(ctx, generationKey)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	view := importedView(obj)
-	if !state.Manifest.IsNull() && !state.Manifest.IsUnknown() {
+	if len(baseline) != 0 && !state.Manifest.IsNull() && !state.Manifest.IsUnknown() {
 		if want, err := parseManifest(r.manifest, state.Manifest.ValueString()); err == nil {
 			view = projectObject(obj, want.object)
 		}
@@ -47,8 +52,6 @@ func (r *manifestResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 	state.ObjectJSON, state.Status = jsontypes.NewNormalizedValue(js), statusValue(obj)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
-	baseline, d := req.Private.GetKey(ctx, generationKey)
-	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() || len(baseline) != 0 {
 		return
 	}

@@ -10,8 +10,19 @@ import (
 )
 
 type readContext struct {
-	prior    tftypes.Value
-	computed bool
+	prior                 tftypes.Value
+	computed, populateAll bool
+}
+
+// FromOpts controls resource-state hydration after import.
+type FromOpts struct {
+	PopulateAll bool
+}
+
+// FromObjectOpts optionally reads all manifest fields, without write-only pairs.
+// The four arguments mirror FromObject's stable API plus explicit read options.
+func FromObjectOpts(m *Mapping, obj map[string]any, prior tftypes.Value, opts FromOpts) (tftypes.Value, error) {
+	return fromObject(m, obj, readContext{prior: prior, populateAll: opts.PopulateAll})
 }
 
 // FromObject reads manifest fields with prior-aware drift filtering. Secrets are
@@ -50,7 +61,7 @@ func fromObject(m *Mapping, obj map[string]any, ctx readContext) (tftypes.Value,
 		out[name] = v
 	}
 	for _, name := range []string{"labels", "annotations"} {
-		if ctx.computed {
+		if ctx.computed || ctx.populateAll {
 			v, err := readScalar(m.typ.AttributeTypes[name], meta[name])
 			if err != nil {
 				return tftypes.Value{}, fmt.Errorf("metadata.%s: %w", name, err)
@@ -81,13 +92,14 @@ func fromObject(m *Mapping, obj map[string]any, ctx readContext) (tftypes.Value,
 	if err != nil {
 		return tftypes.Value{}, fmt.Errorf("spec: %w", err)
 	}
-	for name, v := range spec {
-		out[name] = v
-	}
+	maps.Copy(out, spec)
 	for _, name := range []string{"timeouts", "wait_for_ready"} {
 		if v, exists := attrs[name]; exists {
 			out[name] = v.Copy()
 		}
+	}
+	if _, exists := m.typ.AttributeTypes["wait_for_ready"]; ctx.populateAll && exists {
+		out["wait_for_ready"] = tftypes.NewValue(tftypes.Bool, true)
 	}
 	identity := Identity{}
 	identity.Name, _ = meta["name"].(string)
@@ -114,13 +126,13 @@ func (n *node) readFields(obj map[string]any, ctx readContext) (map[string]tftyp
 	for _, child := range n.children {
 		v := tftypes.NewValue(child.typ, nil)
 		if !child.sensitive {
-			v, err = child.read(obj[child.jsonName], readContext{prior: prior[child.attr], computed: ctx.computed})
+			v, err = child.read(obj[child.jsonName], readContext{prior: prior[child.attr], computed: ctx.computed, populateAll: ctx.populateAll})
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", child.attr, err)
 			}
 		} else {
 			version := tftypes.NewValue(tftypes.String, nil)
-			if p, ok := prior[child.attr+"_version"]; ok {
+			if p, ok := prior[child.attr+"_version"]; ok && !ctx.populateAll {
 				version = p.Copy()
 			}
 			out[child.attr+"_version"] = version
@@ -132,7 +144,7 @@ func (n *node) readFields(obj map[string]any, ctx readContext) (map[string]tftyp
 
 func (n *node) read(obj any, ctx readContext) (tftypes.Value, error) {
 	configured := ctx.prior.Type() != nil && !ctx.prior.IsNull()
-	if obj == nil || (!configured && !n.required && !n.computed && !ctx.computed) {
+	if obj == nil || (!configured && !n.required && !n.computed && !ctx.computed && !ctx.populateAll) {
 		return tftypes.NewValue(n.typ, nil), nil
 	}
 	switch n.kind {
@@ -158,7 +170,7 @@ func (n *node) read(obj any, ctx readContext) (tftypes.Value, error) {
 		if !ok {
 			return tftypes.Value{}, fmt.Errorf("expected JSON object: %w", ErrValue)
 		}
-		attrs, err := n.readFields(m, readContext{prior: ctx.prior, computed: ctx.computed || n.computed})
+		attrs, err := n.readFields(m, readContext{prior: ctx.prior, computed: ctx.computed || n.computed, populateAll: ctx.populateAll})
 		if err != nil {
 			return tftypes.Value{}, fmt.Errorf("decode object: %w", err)
 		}
@@ -174,7 +186,7 @@ func (n *node) read(obj any, ctx readContext) (tftypes.Value, error) {
 		}
 		attrs := map[string]tftypes.Value{}
 		for _, key := range slices.Sorted(maps.Keys(m)) {
-			v, err := n.element.read(m[key], readContext{prior: prior[key], computed: ctx.computed || n.computed})
+			v, err := n.element.read(m[key], readContext{prior: prior[key], computed: ctx.computed || n.computed, populateAll: ctx.populateAll})
 			if err != nil {
 				return tftypes.Value{}, fmt.Errorf("[%q]: %w", key, err)
 			}
@@ -198,7 +210,7 @@ func (n *node) read(obj any, ctx readContext) (tftypes.Value, error) {
 			if i < len(old) {
 				p = old[i]
 			}
-			v, err := n.element.read(obj, readContext{prior: p, computed: ctx.computed || n.computed || (configured && n.element.kind != "object")})
+			v, err := n.element.read(obj, readContext{prior: p, computed: ctx.computed || n.computed || (configured && n.element.kind != "object"), populateAll: ctx.populateAll})
 			if err != nil {
 				return tftypes.Value{}, fmt.Errorf("[%d]: %w", i, err)
 			}

@@ -17,16 +17,13 @@ const secretLiteral = "secret-literal-provider"
 func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 	for _, tc := range []struct {
 		name, typ, identity, create, update, importID string
-		// importOptional lists optional attributes that import leaves null: convert.FromObject
-		// reads optional non-computed values only where prior state configured them.
-		importOptional []string
 	}{
 		{name: "tenant", typ: "workspace", identity: "", importID: "example",
 			create: `display_name = "First"
  cloud_provider = "aws"`,
 			update: `display_name = "Second"
  cloud_provider = "aws"`},
-		{name: "workspace", typ: "integration", identity: `workspace = "ws"`, importID: "ws/example", importOptional: []string{"timeout_seconds"},
+		{name: "workspace", typ: "integration", identity: `workspace = "ws"`, importID: "ws/example",
 			create: `endpoint = "https://example.com"
  api_key_wo = "` + secretLiteral + `"
  api_key_wo_version = "1"
@@ -39,7 +36,7 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
  headers_wo = {"X-Token" = "` + secretLiteral + `-header"}
  headers_wo_version = "1"`},
 		{name: "versioned", typ: "blueprint", identity: `workspace = "ws"
- version = "1.2.3"`, importID: "ws/example@1.2.3", importOptional: []string{"source.ref"},
+	 version = "1.2.3"`, importID: "ws/example@1.2.3",
 			create: `source = {repository = "https://example.com/repo"}`,
 			update: `source = {repository = "https://example.com/repo", ref = "main"}`},
 	} {
@@ -49,7 +46,7 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 			typ := "wayfinder_" + tc.typ
 			addr := typ + ".example"
 			cfg := func(spec string) string {
-				return e.providerBlock() + fmt.Sprintf("resource %q \"example\" {\n name = \"example\"\n %s\n %s\n}\n", typ, tc.identity, spec)
+				return e.providerBlock() + fmt.Sprintf("resource %q \"example\" {\n name = \"example\"\n labels = {\"wayfinder.appvia.io/managed-by-fake\" = \"true\"}\n %s\n %s\n}\n", typ, tc.identity, spec)
 			}
 			empty := resource.ConfigPlanChecks{PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
 			// When Terraform creates, re-plans, updates, imports and destroys it.
@@ -67,11 +64,11 @@ func TestProvider_lifecycle_whenTenantWorkspaceAndVersionedKinds(t *testing.T) {
 						PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 					}, Check: checkSecretAbsent(t)},
 					{Config: cfg(tc.update), ResourceName: addr, ImportState: true, ImportStateId: tc.importID, ImportStateVerify: true,
-						ImportStateVerifyIgnore: append([]string{
+						ImportStateVerifyIgnore: []string{
 							"api_key_wo", "api_key_wo_version", "headers_wo", "headers_wo_version", "wait_for_ready", "timeouts",
 							// The fake stamps status.lastReconcile.time on every GET.
 							"status_json",
-						}, tc.importOptional...)},
+						}},
 				},
 			})
 			// Then exactly one POST, one PUT and one DELETE reached the API.
