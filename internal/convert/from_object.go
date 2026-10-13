@@ -18,6 +18,17 @@ type readContext struct {
 // always null; version companions and framework-only inputs are retained from
 // prior. Optional noncomputed values are read only where prior configured them.
 func FromObject(m *Mapping, obj map[string]any, prior tftypes.Value) (tftypes.Value, error) {
+	return fromObject(m, obj, readContext{prior: prior})
+}
+
+// FromDataSource reads all non-secret fields rather than applying resource drift
+// filtering. The prior value must have Mapping.TFType(), as for FromObject.
+func FromDataSource(m *Mapping, obj map[string]any, prior tftypes.Value) (tftypes.Value, error) {
+	return fromObject(m, obj, readContext{prior: prior, computed: true})
+}
+
+func fromObject(m *Mapping, obj map[string]any, ctx readContext) (tftypes.Value, error) {
+	prior := ctx.prior
 	attrs, err := resourceAttrs(m, prior)
 	if err != nil {
 		return tftypes.Value{}, fmt.Errorf("prior: %w", err)
@@ -39,6 +50,14 @@ func FromObject(m *Mapping, obj map[string]any, prior tftypes.Value) (tftypes.Va
 		out[name] = v
 	}
 	for _, name := range []string{"labels", "annotations"} {
+		if ctx.computed {
+			v, err := readScalar(m.typ.AttributeTypes[name], meta[name])
+			if err != nil {
+				return tftypes.Value{}, fmt.Errorf("metadata.%s: %w", name, err)
+			}
+			out[name] = v
+			continue
+		}
 		keys, err := valueMap(attrs[name])
 		if err != nil {
 			return tftypes.Value{}, fmt.Errorf("%s: %w", name, err)
@@ -58,7 +77,7 @@ func FromObject(m *Mapping, obj map[string]any, prior tftypes.Value) (tftypes.Va
 		}
 		out[name] = v
 	}
-	spec, err := m.spec.readFields(jsonMap(obj["spec"]), readContext{prior: prior})
+	spec, err := m.spec.readFields(jsonMap(obj["spec"]), ctx)
 	if err != nil {
 		return tftypes.Value{}, fmt.Errorf("spec: %w", err)
 	}
