@@ -33,7 +33,8 @@ type (
 
 // NewResource binds a manifest kind to the caller's generated framework schema.
 func NewResource(kind manifest.Kind, supplied schema.Schema) resource.Resource {
-	return newResource(kind, supplied, pollOptions{initial: 2 * time.Second, maximum: 15 * time.Second})
+	p := DefaultPoll()
+	return newResource(kind, supplied, pollOptions{initial: p.Initial, maximum: p.Maximum})
 }
 
 func newResource(kind manifest.Kind, supplied schema.Schema, poll pollOptions) *kindResource {

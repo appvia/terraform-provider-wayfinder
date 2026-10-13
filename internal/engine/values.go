@@ -64,3 +64,12 @@ func identityOf(k manifest.Kind, v tftypes.Value) (convert.Identity, error) {
 func reference(k manifest.Kind, i convert.Identity) client.Ref {
 	return client.Ref{Group: k.Group, Version: k.Version, APIPath: k.APIPath, Workspace: i.Workspace, Environment: i.Environment, Name: i.Name, ObjectVersion: i.Version, Versioned: k.Versioned}
 }
+
+// Reference builds the client reference for an identity of kind k.
+func Reference(k manifest.Kind, i convert.Identity) client.Ref { return reference(k, i) }
+
+// Generation returns metadata.generation of a server object.
+func Generation(obj map[string]any) (int64, error) {
+	s, err := inspectObject(obj)
+	return s.Metadata.Generation, err
+}
