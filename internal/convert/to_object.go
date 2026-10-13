@@ -15,14 +15,19 @@ import (
 // security.token_wo in objects, rules[0].token_wo in lists, and entries["key"].token_wo
 // in maps. Keys name the _wo attribute, never its _wo_version companion.
 // Base is never mutated. Unselected secrets retain Base verbatim.
+// Prior enables deletion of removed managed values on Update; null/unset keeps
+// overlay-only behavior. Blank write-only values keep stored secrets: removing
+// a secret is not supported by Update and requires replacement.
 type ToOpts struct {
 	IncludeWriteOnly map[string]bool
 	Base             map[string]any
+	Prior            tftypes.Value
 }
 
 type writeContext struct {
 	include map[string]bool
 	path    string
+	prior   tftypes.Value
 }
 
 // ToObject overlays known configured attributes onto Base, omitting null/unknown
@@ -38,6 +43,15 @@ func ToObject(m *Mapping, cfg tftypes.Value, opts ToOpts) (map[string]any, error
 	}
 	out := jsonMap(base)
 	meta := jsonMap(out["metadata"])
+	prior, err := valueMap(opts.Prior)
+	if err != nil {
+		return nil, fmt.Errorf("prior: %w", err)
+	}
+	for _, name := range []string{"labels", "annotations"} {
+		if err := removeMapKeys(jsonMap(meta[name]), attrs[name], prior[name]); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+	}
 	for _, name := range []string{"name", "workspace", "environment", "version", "labels", "annotations"} {
 		v, ok := attrs[name]
 		if !ok || v.IsNull() || !v.IsKnown() {
@@ -63,7 +77,7 @@ func ToObject(m *Mapping, cfg tftypes.Value, opts ToOpts) (map[string]any, error
 			meta[name] = value
 		}
 	}
-	spec, err := m.spec.writeFields(attrs, jsonMap(out["spec"]), writeContext{include: opts.IncludeWriteOnly})
+	spec, err := m.spec.writeFields(attrs, jsonMap(out["spec"]), writeContext{include: opts.IncludeWriteOnly, prior: opts.Prior})
 	if err != nil {
 		return nil, fmt.Errorf("spec: %w", err)
 	}
@@ -76,6 +90,10 @@ func ToObject(m *Mapping, cfg tftypes.Value, opts ToOpts) (map[string]any, error
 
 func (n *node) writeFields(attrs map[string]tftypes.Value, base map[string]any, ctx writeContext) (map[string]any, error) {
 	out := maps.Clone(base)
+	prior, err := valueMap(ctx.prior)
+	if err != nil {
+		return nil, fmt.Errorf("prior fields: %w", err)
+	}
 	for _, child := range n.children {
 		path := child.attr
 		if ctx.path != "" {
@@ -84,11 +102,14 @@ func (n *node) writeFields(attrs map[string]tftypes.Value, base map[string]any, 
 		if child.sensitive && !ctx.include[path] {
 			continue
 		}
-		v := attrs[child.attr]
+		v, present := attrs[child.attr]
+		if !child.required && !child.computed && !child.sensitive && removedValue(v, present, prior[child.attr]) {
+			delete(out, child.jsonName)
+		}
 		if v.IsNull() || !v.IsKnown() {
 			continue
 		}
-		value, err := child.write(v, out[child.jsonName], writeContext{include: ctx.include, path: path})
+		value, err := child.write(v, out[child.jsonName], writeContext{include: ctx.include, path: path, prior: prior[child.attr]})
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
@@ -140,11 +161,23 @@ func (n *node) write(v tftypes.Value, base any, ctx writeContext) (any, error) {
 			return n.writeFields(attrs, jsonMap(base), ctx)
 		}
 		out := map[string]any{}
+		prior, err := valueMap(ctx.prior)
+		if err != nil {
+			return nil, fmt.Errorf("prior map: %w", err)
+		}
+		if !n.sensitive && ctx.prior.Type() != nil && ctx.prior.IsKnown() {
+			out = maps.Clone(jsonMap(base))
+			if !n.computed && !n.sensitive {
+				if err := removeMapKeys(out, v, ctx.prior); err != nil {
+					return nil, err
+				}
+			}
+		}
 		for _, key := range slices.Sorted(maps.Keys(attrs)) {
 			if attrs[key].IsNull() || !attrs[key].IsKnown() {
 				continue
 			}
-			value, err := n.element.write(attrs[key], jsonMap(base)[key], writeContext{include: ctx.include, path: fmt.Sprintf("%s[%q]", ctx.path, key)})
+			value, err := n.element.write(attrs[key], jsonMap(base)[key], writeContext{include: ctx.include, path: fmt.Sprintf("%s[%q]", ctx.path, key), prior: prior[key]})
 			if err != nil {
 				return nil, fmt.Errorf("%s[%q]: %w", ctx.path, key, err)
 			}
@@ -165,6 +198,9 @@ func (n *node) write(v tftypes.Value, base any, ctx writeContext) (any, error) {
 			var prior any
 			if i < len(old) {
 				prior = old[i]
+				if ctx.prior.Type() != nil && ctx.prior.IsKnown() {
+					prior = n.element.retainedBase(prior)
+				}
 			}
 			value, err := n.element.write(elem, prior, writeContext{include: ctx.include, path: fmt.Sprintf("%s[%d]", ctx.path, i)})
 			if err != nil {

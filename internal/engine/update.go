@@ -51,7 +51,7 @@ func (r *kindResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		resp.Diagnostics.AddError("Invalid resource configuration", err.Error())
 		return
 	}
-	obj, err := convert.ToObject(r.mapping, v, convert.ToOpts{Base: fresh, IncludeWriteOnly: include})
+	obj, err := convert.ToObject(r.mapping, v, convert.ToOpts{Base: fresh, Prior: req.State.Raw, IncludeWriteOnly: include})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid resource configuration", err.Error())
 		return
