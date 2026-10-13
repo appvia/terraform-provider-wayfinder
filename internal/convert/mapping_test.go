@@ -18,6 +18,14 @@ func TestMappingNames_whenAcronymsAndReservedNamesOccur(t *testing.T) {
 		{"name", "name", "spec_name"},
 		{"statusJSON", "status_json", "spec_status_json"},
 		{"waitForReady", "wait_for_ready", "spec_wait_for_ready"},
+		{"connection", "connection", "spec_connection"},
+		{"count", "count", "spec_count"},
+		{"dependsOn", "depends_on", "spec_depends_on"},
+		{"forEach", "for_each", "spec_for_each"},
+		{"lifecycle", "lifecycle", "spec_lifecycle"},
+		{"provider", "provider", "spec_provider"},
+		{"provisioner", "provisioner", "spec_provisioner"},
+		{"locals", "locals", "spec_locals"},
 	} {
 		t.Run(tc.json, func(t *testing.T) {
 			// Given / When / Then

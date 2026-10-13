@@ -50,11 +50,14 @@ func SnakeCase(name string) string {
 	return out.String()
 }
 
-// IsReserved reports collisions with resource-level framework attributes.
+// IsReserved reports collisions with provider identity attributes and Terraform
+// resource meta-arguments (framework v1.19 ReservedResourceAttributeNames), plus
+// locals reserved by the provider's naming contract.
 func IsReserved(name string) bool {
 	switch name {
 	case "id", "name", "workspace", "environment", "version", "labels", "annotations",
-		"status", "status_json", "timeouts", "wait_for_ready":
+		"status", "status_json", "timeouts", "wait_for_ready",
+		"connection", "count", "depends_on", "for_each", "lifecycle", "provider", "provisioner", "locals":
 		return true
 	default:
 		return false
@@ -62,6 +65,7 @@ func IsReserved(name string) bool {
 }
 
 // AttrName maps a top-level spec JSON name, before adding _json or _wo suffixes.
+// Provider identity and Terraform meta-argument collisions gain a spec_ prefix.
 // Nested properties use SnakeCase instead (no resource-level collision prefix).
 func AttrName(jsonName string) string {
 	name := SnakeCase(jsonName)
