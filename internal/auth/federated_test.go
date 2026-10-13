@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/auth"
@@ -58,7 +59,9 @@ func TestToken_when_federated_url_or_actions_fallback(t *testing.T) {
 			if variant == "derived audience" {
 				audience = "https://portal.example/t/acme"
 			}
+			var oidcCalls atomic.Int32
 			oidc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				oidcCalls.Add(1)
 				if req.Method != http.MethodGet || req.URL.Query().Get("audience") != audience || req.URL.Query().Get("existing") != "1" || req.Header.Get("Authorization") != "Bearer oidc-request-token" {
 					t.Error("OIDC request differs from CLI")
 				}
@@ -82,20 +85,11 @@ func TestToken_when_federated_url_or_actions_fallback(t *testing.T) {
 				env["ACTIONS_ID_TOKEN_REQUEST_URL"], env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = oidc.URL+"?existing=1", "oidc-request-token"
 			}
 			if variant == "derived audience" {
-				cfg.FederatedTokenRequestAudience = ""
-				delete(env, "WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE")
-				proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					if req.URL.Path == "/api/v3/general/serverinfo" {
-						if _, err := w.Write([]byte(`{"ui":"https://portal.example/"}`)); err != nil {
-							t.Error(err)
-						}
-						return
-					}
-					s.ServeHTTP(w, req)
-				}))
-				t.Cleanup(proxy.Close)
-				cfg.Server = proxy.URL
-				cfg.HTTP = proxy.Client()
+				env = map[string]string{
+					"WAYFINDER_SERVER": s.URL, "WAYFINDER_SERVICE_ACCOUNT": "acme:ci:robot",
+					"ACTIONS_ID_TOKEN_REQUEST_URL": oidc.URL + "?existing=1", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "oidc-request-token",
+				}
+				cfg = auth.Config{Getenv: func(k string) string { return env[k] }}
 			}
 			r, err := auth.Resolve(cfg)
 			if err != nil {
@@ -107,12 +101,22 @@ func TestToken_when_federated_url_or_actions_fallback(t *testing.T) {
 			if err != nil || s.Mints(fakeapi.GrantTokenExchange) != 1 {
 				t.Fatalf("URL federation: %v", err)
 			}
+			if oidcCalls.Load() != 1 || s.CountRequests("", "/api/v3/general/serverinfo") != 0 {
+				t.Fatal("expected one OIDC request and no serverinfo request")
+			}
+			wantDiscovery := 0
+			if variant == "derived audience" {
+				wantDiscovery = 1
+			}
+			if got := s.CountRequests(http.MethodGet, "/apiinfo"); got != wantDiscovery {
+				t.Fatalf("apiinfo requests = %d, want %d", got, wantDiscovery)
+			}
 		})
 	}
 }
 
 func TestToken_when_federated_source_fails(t *testing.T) {
-	for _, variant := range []string{"stdin", "missing file", "missing UI", "empty OIDC", "OIDC failure"} {
+	for _, variant := range []string{"stdin", "missing file", "empty OIDC", "OIDC failure"} {
 		t.Run(variant, func(t *testing.T) {
 			// Given
 			s := fakeapi.New(t)
@@ -133,9 +137,6 @@ func TestToken_when_federated_source_fails(t *testing.T) {
 				}))
 				t.Cleanup(oidc.Close)
 				cfg.FederatedTokenRequestURL = oidc.URL
-				if variant == "missing UI" {
-					cfg.FederatedTokenRequestAudience = ""
-				}
 			}
 			r, err := auth.Resolve(cfg)
 			if err != nil {
@@ -146,6 +147,49 @@ func TestToken_when_federated_source_fails(t *testing.T) {
 			// Then
 			if err == nil || strings.Contains(err.Error(), "do-not-echo") {
 				t.Fatalf("unsafe or missing error: %v", err)
+			}
+		})
+	}
+}
+
+func TestToken_returns_audience_guidance_when_apiinfo_unavailable(t *testing.T) {
+	for _, variant := range []string{"missing UI", "non-2xx", "malformed JSON", "transport failure"} {
+		t.Run(variant, func(t *testing.T) {
+			// Given an API-info endpoint that cannot supply the UI URL.
+			var calls atomic.Int32
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				calls.Add(1)
+				if req.URL.Path != "/apiinfo" || req.Method != http.MethodGet || req.Header.Get("Authorization") != "" {
+					t.Error("discovery must GET apiinfo without Authorization")
+				}
+				body := `{"generalAPI":"/api/v3/general","resourceAPI":"/api/v3/resources"}`
+				switch variant {
+				case "non-2xx":
+					w.WriteHeader(http.StatusBadGateway)
+					body = "do-not-echo"
+				case "malformed JSON":
+					body = "do-not-echo"
+				}
+				if _, err := w.Write([]byte(body)); err != nil {
+					t.Error(err)
+				}
+			}))
+			t.Cleanup(s.Close)
+			if variant == "transport failure" {
+				s.Close()
+			}
+			r, err := auth.Resolve(auth.Config{Server: s.URL, ServiceAccount: "acme:robot", FederatedTokenRequestURL: "http://invalid.invalid", Getenv: emptyEnv})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// When
+			_, err = r.TokenSource.Token(context.Background())
+			// Then discovery failures give actionable guidance without URLs or response bodies.
+			if err == nil || !strings.Contains(err.Error(), "set federated_token_request_audience / WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE explicitly") || strings.Contains(err.Error(), s.URL) || strings.Contains(err.Error(), "do-not-echo") {
+				t.Fatalf("unsafe or missing audience guidance: %v", err)
+			}
+			if variant != "transport failure" && calls.Load() != 1 {
+				t.Fatalf("discovery calls = %d, want 1", calls.Load())
 			}
 		})
 	}

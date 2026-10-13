@@ -56,7 +56,7 @@ Every provider attribute is optional and falls back to the matching environment 
 The provider picks the first credential that's set, in this order:
 
 1. `token`: an access token, used as is.
-2. `service_account`: a fully qualified service account (`tenant:name` or `tenant:workspace:name`) that signs in with a federated identity token. The token is read from `federated_token_file`, or requested from `federated_token_request_url` with `federated_token_request_token`. Inside GitHub Actions, `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are used when no request URL is set. The audience is discovered from the server unless `federated_token_request_audience` is set.
+2. `service_account`: a fully qualified service account (`tenant:name` or `tenant:workspace:name`) that signs in with a federated identity token. The token is read from `federated_token_file`, or requested from `federated_token_request_url` with `federated_token_request_token`. Inside GitHub Actions, `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are used when no request URL is set. For token requests, the audience is the UI URL returned by the server's unauthenticated `/apiinfo` endpoint (without trailing slashes), followed by `/t/<tenant>`. Set `federated_token_request_audience` or `WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE` to override discovery, or if discovery is unavailable.
 3. `client_id` and `client_secret`: service account client credentials.
 
 When `tenant` isn't set, it's taken from `service_account` (the part before the first `:`), or else from the `client_id` prefix before the first `:`. If both `tenant` and `service_account` are set, their tenants must match.

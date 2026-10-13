@@ -107,6 +107,13 @@ const (
 func (s *Server) route(w http.ResponseWriter, r *http.Request, body []byte) {
 	path := r.URL.Path
 	switch {
+	case path == "/apiinfo" && r.Method == http.MethodGet:
+		writeJSON(w, http.StatusOK, struct {
+			GeneralAPI  string `json:"generalAPI"`
+			ResourceAPI string `json:"resourceAPI"`
+			UI          string `json:"ui"`
+		}{GeneralAPI: "/api/v3/general", ResourceAPI: "/api/v3/resources", UI: "https://portal.example/"})
+		return
 	case path == tokenPath && r.Method == http.MethodPost:
 		// Unauthenticated by design (pkg/wfclient/refresh.go:98-100 uses Unauthenticated()).
 		s.handleToken(w, r, body)

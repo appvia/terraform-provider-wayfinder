@@ -37,15 +37,15 @@ func (s *cachedSource) subjectToken(ctx context.Context) (string, error) {
 	}
 	audience := ident.audience
 	if audience == "" {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.server+"/api/v3/general/serverinfo", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.server+"/apiinfo", nil)
 		if err != nil {
-			return "", &safeError{operation: "create server info request", cause: err}
+			return "", errAudience
 		}
 		var info struct {
 			UI string `json:"ui"`
 		}
 		if err := s.decode(req, &info); err != nil {
-			return "", fmt.Errorf("get federation audience: %w", err)
+			return "", errAudience
 		}
 		if info.UI == "" {
 			return "", errAudience
