@@ -1,0 +1,23 @@
+# Wayfinder source checkout (disposable)
+.wayfinder-src/
+# Build output
+dist/
+/terraform-provider-wayfinder
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+# Automation artifacts
+bump-summary.md
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
