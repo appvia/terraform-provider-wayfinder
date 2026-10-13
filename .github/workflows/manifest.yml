@@ -40,3 +40,8 @@ jobs:
       - run: go generate ./...
       - run: make docs
       - run: git diff --exit-code
+      - name: Clean-room reproducibility check
+        if: github.event_name == 'push'
+        run: ./scripts/check-reproducible.sh
+        env:
+          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}

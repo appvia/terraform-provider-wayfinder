@@ -74,4 +74,4 @@ The provider is built from the Wayfinder release recorded in `schema/wayfinder-m
 
 ## Contributing
 
-Resources are generated from the Wayfinder release pinned in `WAYFINDER_REF`. Open issues rather than PRs that edit generated files. See [DEVELOPMENT.md](DEVELOPMENT.md) for how generation, overrides and the Wayfinder pin work.
+Resources are generated from the Wayfinder release pinned in `WAYFINDER_REF`. Open issues rather than PRs that edit generated files. See [DEVELOPMENT.md](DEVELOPMENT.md) for how generation, overrides and the Wayfinder pin work, and [RELEASING.md](RELEASING.md) for how releases are published.

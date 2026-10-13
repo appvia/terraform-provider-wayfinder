@@ -4,7 +4,7 @@ VERSION ?= dev
 # Allow `make WAYFINDER_GIT_URL=file:///path/to/wayfinder <target>`.
 export WAYFINDER_GIT_URL
 
-.PHONY: build test testacc generate lint docs wayfinder-src manifest manifestgen-test bump-wayfinder test-scripts
+.PHONY: build test testacc generate lint docs wayfinder-src manifest manifestgen-test bump-wayfinder test-scripts check-reproducible
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) .
@@ -45,3 +45,6 @@ bump-wayfinder:
 test-scripts:
 	./scripts/test-wayfinder-checkout.sh
 	./scripts/test-bump-wayfinder.sh
+
+check-reproducible:
+	./scripts/check-reproducible.sh

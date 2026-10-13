@@ -269,6 +269,18 @@ make test-scripts      # shell script scenario tests
 make manifestgen-test  # generator tests, needs Wayfinder access
 ```
 
+### Reproducibility check
+
+```sh
+make check-reproducible   # or ./scripts/check-reproducible.sh
+```
+
+Deletes `.wayfinder-src/`, refetches the pinned tag, reruns `make manifest`, `go generate ./...` and `make docs`, then fails if `git diff` or `git status --porcelain` shows any change. It refuses to run on a dirty worktree unless `CHECK_REPRODUCIBLE_ALLOW_DIRTY=1`, which compares before/after snapshots instead. CI runs it as the last step on pushes to `main`.
+
 Unit tests run against `internal/fakeapi`, an in-process fake Wayfinder API, so they need no backend.
 
 Acceptance tests live in `internal/acctest` and talk to a real Wayfinder backend. They only run with `TF_ACC=1` set, which `make testacc` does for you. Their setup is described alongside them.
+
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the signed release pipeline, required secrets and the pre-release checklist.
