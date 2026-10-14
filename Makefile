@@ -43,6 +43,7 @@ bump-wayfinder:
 	./scripts/bump-wayfinder.sh "$(REF)" $(BUMP_ARGS)
 
 test-scripts:
+	./scripts/test-ci-quiet.sh
 	./scripts/test-wayfinder-checkout.sh
 	./scripts/test-bump-wayfinder.sh
 
