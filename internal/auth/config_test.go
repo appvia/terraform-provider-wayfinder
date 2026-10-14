@@ -59,7 +59,7 @@ func TestResolve_when_tenant_or_credentials_missing(t *testing.T) {
 		cfg  auth.Config
 		want string
 	}{
-		{"missing credentials", auth.Config{}, "WAYFINDER_TOKEN"},
+		{"missing credentials", auth.Config{UseCLI: cliBool(false)}, "WAYFINDER_TOKEN"},
 		{"partial credentials", auth.Config{ClientID: "acme:robot"}, "WAYFINDER_CLIENT_SECRET"},
 		{"missing tenant", auth.Config{Token: "bearer"}, "Set tenant in the provider block or WAYFINDER_TENANT."},
 		{"mismatched tenant", auth.Config{Tenant: "other", ServiceAccount: "acme:robot"}, "they must agree"},

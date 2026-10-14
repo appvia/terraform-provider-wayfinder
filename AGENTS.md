@@ -41,7 +41,7 @@ Terraform/OpenTofu provider for Appvia Wayfinder (terraform-plugin-framework, pr
 | Expose/hide a Wayfinder kind | `tools/manifestgen/kinds.yaml` | Classes: typed / manifest / exclude |
 | `wayfinder_manifest` behaviour | `internal/manifestresource/` | Reuses engine `Waiter`, `AddAPIError`, `Reference` |
 | Variables/secrets | `internal/vars/` | Separate from engine; own CRUD |
-| Auth / env vars | `internal/auth/`, `internal/provider/configure.go` | `WAYFINDER_*` only, no wf CLI profiles |
+| Auth / env vars | `internal/auth/`, `internal/provider/configure.go` | `WAYFINDER_*` attrs/env, then the wf CLI session (`use_cli`; profiles file read-only) |
 | Doc page content | `templates/`, `examples/`, then `make docs` | `scripts/check-docs.sh` needs an example per page |
 | Manifest wire format | `internal/manifest/contract.go` | Spec in DEVELOPMENT.md "Manifest contract" |
 | Server-stamped label/annotation keys | `internal/convert/server_managed.go` | Single list; import must not adopt them |

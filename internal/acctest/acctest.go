@@ -84,12 +84,12 @@ func NewClient() (*client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := auth.Resolve(auth.Config{HTTP: httpClient})
+	resolved, err := auth.Resolve(auth.Config{HTTP: httpClient, CLIHTTP: provider.CLIHTTPClient})
 	if err != nil {
 		return nil, fmt.Errorf("resolving Wayfinder credentials: %w", err)
 	}
 	return &client.Client{
 		BaseURL: resolved.Server, Tenant: resolved.Tenant, TokenSource: resolved.TokenSource,
-		HTTP: httpClient, UserAgent: client.UserAgent("acc"),
+		HTTP: resolved.HTTP, UserAgent: client.UserAgent("acc"),
 	}, nil
 }

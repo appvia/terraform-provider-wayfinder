@@ -21,6 +21,7 @@ var authEnv = []string{
 	"WAYFINDER_SERVICE_ACCOUNT", "WAYFINDER_FEDERATED_TOKEN_FILE", "WAYFINDER_FEDERATED_TOKEN_REQUEST_URL",
 	"WAYFINDER_FEDERATED_TOKEN_REQUEST_TOKEN", "WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE",
 	"ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+	"WAYFINDER_USE_CLI", "WAYFINDER_CLI_PROFILE", "WAYFINDER_CONFIG",
 }
 
 // testEnv is the real provider served in-process against a fake API that knows every kind of
@@ -36,6 +37,8 @@ func newTestEnv(t *testing.T) testEnv {
 	for _, k := range authEnv {
 		t.Setenv(k, "")
 	}
+	// Never fall back to the developer's real wf CLI session.
+	t.Setenv("WAYFINDER_USE_CLI", "false")
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		t.Fatal(err)

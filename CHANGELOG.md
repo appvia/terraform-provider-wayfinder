@@ -12,6 +12,11 @@ Built from Wayfinder release `<tag>`.
 
 ### Added
 
+- `use_cli` and `cli_profile` provider attributes: authenticate with the signed-in `wf` CLI session, with automatic token refresh.
+
 ### Changed
+
+- With no credentials configured, the provider now uses the `wf` CLI session (`use_cli` defaults to `true`); set `use_cli = false` to keep the previous behaviour.
+- `token` / `WAYFINDER_TOKEN` accepts `wf` refresh tokens and refreshes them.
 
 ### Fixed

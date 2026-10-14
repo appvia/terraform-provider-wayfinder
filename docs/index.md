@@ -66,6 +66,14 @@ provider "wayfinder" {
   client_id     = var.wayfinder_client_id
   client_secret = var.wayfinder_client_secret
 }
+
+# Or, on your own machine, use the signed-in wf CLI session (wf login).
+# This is the default when no credentials are set; cli_profile picks a
+# profile other than the CLI's current one.
+provider "wayfinder" {
+  alias       = "cli"
+  cli_profile = "my-profile"
+}
 ```
 
 ## Authentication
@@ -84,18 +92,40 @@ Every provider attribute is optional and falls back to the matching environment 
 | `federated_token_request_url` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_URL` |
 | `federated_token_request_token` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_TOKEN` |
 | `federated_token_request_audience` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE` |
+| `use_cli` | `WAYFINDER_USE_CLI` |
+| `cli_profile` | `WAYFINDER_CLI_PROFILE` |
 
 `server` defaults to `https://api.on.wayfinder.run`.
 
 The provider picks the first credential that's set, in this order:
 
-1. `token`: an access token, used as is.
+1. `token`: an access token, used as is, or a `wf` refresh token, which is exchanged for access tokens as needed.
 2. `service_account`: a fully qualified service account (`tenant:name` or `tenant:workspace:name`) that signs in with a federated identity token. The token is read from `federated_token_file`, or requested from `federated_token_request_url` with `federated_token_request_token`. Inside GitHub Actions, `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are used when no request URL is set. For token requests, the audience is the UI URL returned by the server's unauthenticated `/apiinfo` endpoint (without trailing slashes), followed by `/t/<tenant>`. Set `federated_token_request_audience` or `WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE` to override discovery, or if discovery is unavailable.
 3. `client_id` and `client_secret`: service account client credentials.
+4. The signed-in `wf` CLI session (`use_cli`, on by default), used only when none of the above is set. The provider reads the stored credentials of `cli_profile` (or the CLI's current profile) from `~/.wayfinder/profiles` (or `WAYFINDER_CONFIG`), checks them by requesting an access token, and refreshes access tokens itself. It doesn't need `wf` on the PATH and never changes the `wf` configuration. The profile's server, tenant and CA certificate are used unless `server` or `tenant` is set; a `server` that differs from the profile's is an error. Set `use_cli = false` to turn this off.
 
 When `tenant` isn't set, it's taken from `service_account` (the part before the first `:`), or else from the `client_id` prefix before the first `:`. If both `tenant` and `service_account` are set, their tenants must match.
 
-The provider doesn't read `wf` CLI profiles from `~/.wayfinder`. `WAYFINDER_WORKSPACE` and `WAYFINDER_ENVIRONMENT` aren't used as defaults either: set `workspace` and `environment` on each resource.
+`WAYFINDER_WORKSPACE` and `WAYFINDER_ENVIRONMENT` aren't used as defaults, and neither are the CLI profile's workspace and environment: set `workspace` and `environment` on each resource.
+
+### Local use with the wf CLI
+
+Sign in once with the CLI, then run Terraform with no credentials configured:
+
+```shell
+wf login
+terraform plan
+```
+
+To use a profile other than the CLI's current one, name it (`wf profiles list` shows them):
+
+```terraform
+provider "wayfinder" {
+  cli_profile = "my-profile"
+}
+```
+
+Access tokens are refreshed for as long as the `wf` session lasts. When it ends, sign in again with `wf login`.
 
 ### GitHub Actions with OIDC
 
@@ -186,6 +216,7 @@ To discard the outside change, do the same and let the next apply write your con
 
 ### Optional
 
+- `cli_profile` (String) `wf` CLI profile to use with `use_cli`. Defaults to the CLI's current profile (`wf use profile`). The profile's server, tenant and CA certificate are used unless `server` or `tenant` is set. Can also be set with the `WAYFINDER_CLI_PROFILE` environment variable.
 - `client_id` (String) Service account client ID, used with `client_secret`. Can also be set with the `WAYFINDER_CLIENT_ID` environment variable.
 - `client_secret` (String, Sensitive) Service account client secret, used with `client_id`. Can also be set with the `WAYFINDER_CLIENT_SECRET` environment variable.
 - `federated_token_file` (String) Path to a file holding the federated identity token exchanged for `service_account`. Can also be set with the `WAYFINDER_FEDERATED_TOKEN_FILE` environment variable.
@@ -195,4 +226,5 @@ To discard the outside change, do the same and let the next apply write your con
 - `server` (String) Wayfinder API endpoint. Defaults to `https://api.on.wayfinder.run`. Can also be set with the `WAYFINDER_SERVER` environment variable.
 - `service_account` (String) Fully qualified service account (`tenant:name` or `tenant:workspace:name`) to authenticate as with a federated identity token. Takes precedence over client credentials. Can also be set with the `WAYFINDER_SERVICE_ACCOUNT` environment variable.
 - `tenant` (String) Wayfinder tenant to manage. When unset, it is derived from `service_account` (`tenant:[workspace:]name`) or from the `client_id` prefix before the first `:`. Can also be set with the `WAYFINDER_TENANT` environment variable.
-- `token` (String, Sensitive) Wayfinder access token. Takes precedence over `service_account` and client credentials. Can also be set with the `WAYFINDER_TOKEN` environment variable.
+- `token` (String, Sensitive) Wayfinder access token, or a `wf` refresh token, which the provider exchanges for access tokens as needed. Takes precedence over `service_account`, client credentials and the `wf` CLI session. Can also be set with the `WAYFINDER_TOKEN` environment variable.
+- `use_cli` (Boolean) Use the signed-in `wf` CLI session when no `token`, `service_account` or client credentials are set. Defaults to `true`. The provider reads the profile's stored credentials from the `wf` profiles file, checks them by requesting an access token, and refreshes access tokens itself; it never runs `wf` or changes its configuration. Set to `false` to never use the CLI. Can also be set with the `WAYFINDER_USE_CLI` environment variable.

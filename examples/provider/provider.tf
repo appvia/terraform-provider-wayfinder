@@ -31,3 +31,11 @@ provider "wayfinder" {
   client_id     = var.wayfinder_client_id
   client_secret = var.wayfinder_client_secret
 }
+
+# Or, on your own machine, use the signed-in wf CLI session (wf login).
+# This is the default when no credentials are set; cli_profile picks a
+# profile other than the CLI's current one.
+provider "wayfinder" {
+  alias       = "cli"
+  cli_profile = "my-profile"
+}

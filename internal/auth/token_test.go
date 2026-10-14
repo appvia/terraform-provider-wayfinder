@@ -176,6 +176,64 @@ func TestToken_when_exchange_scoped_token(t *testing.T) {
 	}
 }
 
+func refreshScopedToken(t *testing.T) string {
+	t.Helper()
+	payload, err := json.Marshal(struct {
+		Scopes []string `json:"scopes"`
+	}{[]string{"wayfinder:auth:refresh"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "eyJhbGciOiJub25lIn0." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+}
+
+func TestToken_whenRefreshScopedTokenExpires(t *testing.T) {
+	// Given
+	s := fakeapi.New(t)
+	refresh := refreshScopedToken(t)
+	s.AddRefreshToken(refresh)
+	s.SetTokenTTL(5 * time.Minute)
+	now := time.Now()
+	r, err := auth.Resolve(auth.Config{Server: s.URL, Tenant: "acme", Token: refresh, Getenv: emptyEnv, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := r.TokenSource.Token(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When: cross expiry without sleeps.
+	s.ExpireMintedTokens()
+	now = now.Add(6 * time.Minute)
+	second, err := r.TokenSource.Token(context.Background())
+	// Then
+	if err != nil || first == refresh || second == refresh || second == first || s.Mints(fakeapi.GrantRefreshToken) != 2 {
+		t.Fatalf("refresh-scoped token not re-minted: err=%v mints=%d", err, s.Mints(fakeapi.GrantRefreshToken))
+	}
+}
+
+func TestToken_whenAPIScopedToken(t *testing.T) {
+	// Given
+	s := fakeapi.New(t)
+	payload, err := json.Marshal(struct {
+		Scopes []string `json:"scopes"`
+	}{[]string{"wayfinder:api"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := "eyJhbGciOiJub25lIn0." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+	r, err := auth.Resolve(auth.Config{Server: s.URL, Tenant: "acme", Token: token, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When
+	got, err := r.TokenSource.Token(context.Background())
+	// Then
+	if err != nil || got != token || s.Mints(fakeapi.GrantRefreshToken) != 0 {
+		t.Fatalf("api-scoped token should be a plain bearer: err=%v", err)
+	}
+}
+
 func TestToken_when_client_credentials_posts_cli_json(t *testing.T) {
 	// Given
 	s := fakeapi.New(t)
