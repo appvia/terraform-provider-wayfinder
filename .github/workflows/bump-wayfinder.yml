@@ -71,11 +71,25 @@ jobs:
           TAG: ${{ steps.resolve.outputs.tag }}
           WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
         run: |
+          # The script's stderr can quote private Wayfinder source; keep it out
+          # of the log, issues, artifacts and summaries. Only a sanitized
+          # error.txt (fixed step name, run link, reproduce command) is published.
           set +e
-          ./scripts/bump-wayfinder.sh "$TAG" 2> error.txt
+          ./scripts/bump-wayfinder.sh "$TAG" 2> "$RUNNER_TEMP/bump-stderr.txt"
           rc=$?
           set -e
-          cat error.txt >&2
+          rm -f error.txt
+          if [ "$rc" -ne 0 ]; then
+            step_line="$(grep -m1 -oE 'failed at step: .+$' "$RUNNER_TEMP/bump-stderr.txt" || true)"
+            if [ -n "$step_line" ]; then
+              detail=": ${step_line#failed at step: }"
+            else
+              detail=" before regeneration started"
+            fi
+            printf 'Bump to %s failed%s.\n\nDiagnostic output is withheld because it can quote private Wayfinder source.\nRun: %s/%s/actions/runs/%s\nReproduce locally (needs Wayfinder read access): make bump-wayfinder REF=%s\n' \
+              "$TAG" "$detail" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$TAG" > error.txt
+            cat error.txt
+          fi
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           exit "$rc"
 
@@ -131,7 +145,10 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           title="Wayfinder $TAG: provider regeneration failed"
-          [ -s error.txt ] || echo "bump-wayfinder.sh failed without error output" > error.txt
+          if [ ! -s error.txt ]; then
+            printf 'Bump to %s failed: unknown.\n\nDiagnostic output is withheld because it can quote private Wayfinder source.\nRun: %s/%s/actions/runs/%s\nReproduce locally (needs Wayfinder read access): make bump-wayfinder REF=%s\n' \
+              "$TAG" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$TAG" > error.txt
+          fi
           issue="$(gh issue list --repo "$REPO" --state open --limit 200 --json number,title \
             | jq -r --arg t "$title" 'map(select(.title == $t)) | .[0].number // empty')"
           if [ -n "$issue" ]; then

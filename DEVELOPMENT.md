@@ -151,11 +151,11 @@ make bump-wayfinder REF=v3.3.1 BUMP_ARGS=--allow-downgrade   # deliberate downgr
 The scheduled workflow `.github/workflows/bump-wayfinder.yml` runs daily and on manual dispatch (optional `ref` input). It finds the newest stable tag with `scripts/latest-wayfinder-tag.sh`, compares it with `scripts/semver-gt.sh`, and runs the bump script. Then:
 
 - On success it force-pushes branch `chore/wayfinder-bump` and opens or updates one PR titled `chore: bump Wayfinder to <tag>`, with `bump-summary.md` as the body. A `BREAKING` summary adds the `breaking` label.
-- On failure it opens or updates one issue titled `Wayfinder <tag>: provider regeneration failed`, with the error output as the body.
+- On failure it opens or updates one issue titled `Wayfinder <tag>: provider regeneration failed`, with the failing step name, a link to the run and the local reproduce command as the body; diagnostic output is withheld because it can quote private Wayfinder source.
 
 When a bump fails:
 
-1. Read the issue. It names the failing step and includes the last 200 lines of output.
+1. Read the issue. It names the failing step.
 2. Reproduce locally with `make bump-wayfinder REF=<tag>`.
 3. Typical causes are a new or removed kind (fix `kinds.yaml`), a renamed or removed field (fix `fields.yaml`), or a schema shape `cmd/tfgen` can't map yet (fix the generator). Commit the fix together with the bump.
 
