@@ -11,6 +11,10 @@ permissions:
 env:
   GOTOOLCHAIN: auto
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 jobs:
   manifest:
     # Fork and Dependabot PRs get no secrets; the public generated-code drift
@@ -18,14 +22,14 @@ jobs:
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
       - name: Fetch pinned Wayfinder source
         run: make wayfinder-src
         env:
           WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache-dependency-path: .wayfinder-src/go.sum

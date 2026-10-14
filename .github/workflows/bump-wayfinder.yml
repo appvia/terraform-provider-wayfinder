@@ -25,17 +25,21 @@ permissions:
 env:
   GOTOOLCHAIN: auto
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: '~1.11'
           terraform_wrapper: false
@@ -108,12 +112,16 @@ jobs:
               --title "$title" --body-file pr-body.md
             pr="$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq '.[0].number')"
           fi
-          if head -n 1 bump-summary.md | grep -q '^BREAKING'; then
-            gh label create breaking --repo "$REPO" --color B60205 --force >/dev/null
-            gh pr edit "$pr" --repo "$REPO" --add-label breaking
-          else
-            gh pr edit "$pr" --repo "$REPO" --remove-label breaking >/dev/null 2>&1 || true
-          fi
+          first_line=""; IFS= read -r first_line < bump-summary.md || true
+          case "$first_line" in
+            BREAKING*)
+              gh label create breaking --repo "$REPO" --color B60205 --force >/dev/null
+              gh pr edit "$pr" --repo "$REPO" --add-label breaking
+              ;;
+            *)
+              gh pr edit "$pr" --repo "$REPO" --remove-label breaking >/dev/null 2>&1 || true
+              ;;
+          esac
 
       - name: Open or update failure issue
         if: failure() && steps.bump.outcome == 'failure'
