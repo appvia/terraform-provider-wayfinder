@@ -609,3 +609,124 @@ func TestWithoutWriteOnly_whenSourceNotMutated(t *testing.T) {
 		t.Fatalf("prior mutated: %#v", prior)
 	}
 }
+
+func noWOLiteral(t *testing.T, problems []woProblem) {
+	t.Helper()
+	for _, p := range problems {
+		if strings.Contains(p.attr+p.summary+p.detail, woLiteral) {
+			t.Fatalf("problem echoes the write-only literal: %+v", p)
+		}
+	}
+}
+
+func TestVersionsWithoutWO_whenWOMissing(t *testing.T) {
+	// Given versions set while manifest_wo is null.
+	// When checking.
+	got := versionsWithoutWO(true, map[string]string{"spec.apiKey": "1"}, true)
+	// Then exactly one manifest_wo_version problem is reported.
+	if len(got) != 1 || got[0].attr != "manifest_wo_version" || got[0].summary != "Missing manifest_wo" {
+		t.Fatalf("unexpected problems: %+v", got)
+	}
+}
+
+func TestVersionsWithoutWO_whenNothingToReport(t *testing.T) {
+	// Given the other combinations of null, empty, unknown and set.
+	for name, got := range map[string][]woProblem{
+		"wo present":      versionsWithoutWO(false, map[string]string{"spec.apiKey": "1"}, true),
+		"versions empty":  versionsWithoutWO(true, map[string]string{}, true),
+		"versions unset":  versionsWithoutWO(true, map[string]string{"spec.apiKey": "1"}, false),
+		"versions absent": versionsWithoutWO(true, nil, true),
+	} {
+		// Then no problem is reported.
+		if got != nil {
+			t.Fatalf("%s: unexpected problems: %+v", name, got)
+		}
+	}
+}
+
+func TestValidateWriteOnly_whenAllGood(t *testing.T) {
+	// Given a valid manifest and manifest_wo with a versioned key.
+	k := findKind(t, testManifest(t), "Integration")
+	want := &desired{kind: k, object: map[string]any{"spec": map[string]any{"endpoint": "https://e"}}}
+	// When validating.
+	wo, problems := validateWriteOnly(want, "spec:\n  apiKey: "+woLiteral+"\n", map[string]string{"spec.apiKey": "1"}, true)
+	// Then there are no problems and the parsed document is returned.
+	if len(problems) != 0 {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	if want := map[string]any{"spec": map[string]any{"apiKey": woLiteral}}; !reflect.DeepEqual(wo, want) {
+		t.Fatalf("got %#v, want %#v", wo, want)
+	}
+}
+
+func TestValidateWriteOnly_whenUnknownVersionKey(t *testing.T) {
+	// Given a version key that does not resolve in manifest_wo.
+	k := findKind(t, testManifest(t), "Integration")
+	want := &desired{kind: k, object: map[string]any{"spec": map[string]any{"endpoint": "https://e"}}}
+	// When validating.
+	_, problems := validateWriteOnly(want, "spec: {apiKey: "+woLiteral+"}\n", map[string]string{"spec.nope": "1"}, true)
+	// Then exactly one manifest_wo_version problem names the key, not the existing keys.
+	if len(problems) != 1 || problems[0].attr != "manifest_wo_version" || problems[0].detail != "spec.nope does not match a value in manifest_wo." {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	noWOLiteral(t, problems)
+}
+
+func TestValidateWriteOnly_whenDuplicateCanonicalKeys(t *testing.T) {
+	// Given two spellings of the same path.
+	// When validating.
+	_, problems := validateWriteOnly(nil, "spec: {apiKey: "+woLiteral+"}\n", map[string]string{"spec.apiKey": "1", "[\"spec\"].apiKey": "1"}, true)
+	// Then exactly one duplicate problem is reported.
+	if len(problems) != 1 || problems[0].summary != "Duplicate manifest_wo_version key" || problems[0].detail != "spec.apiKey and [\"spec\"].apiKey name the same manifest_wo path." {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	noWOLiteral(t, problems)
+}
+
+func TestValidateWriteOnly_whenInvalidVersionKey(t *testing.T) {
+	// Given a malformed version key.
+	// When validating.
+	_, problems := validateWriteOnly(nil, "spec: {apiKey: "+woLiteral+"}\n", map[string]string{"spec[": "1"}, true)
+	// Then exactly one invalid-key problem is reported.
+	if len(problems) != 1 || problems[0].summary != "Invalid manifest_wo_version key" {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	noWOLiteral(t, problems)
+}
+
+func TestValidateWriteOnly_whenIndexesAbsentList(t *testing.T) {
+	// Given an index key into a list that manifest does not have.
+	k := findKind(t, testManifest(t), "Integration")
+	want := &desired{kind: k, object: map[string]any{"spec": map[string]any{"endpoint": "https://e"}}}
+	// When validating.
+	_, problems := validateWriteOnly(want, "spec: {rules: [{token: "+woLiteral+"}]}\n", map[string]string{"spec.rules[0].token": "1"}, true)
+	// Then exactly one problem asks for the whole list to be versioned.
+	if len(problems) != 1 || !strings.HasPrefix(problems[0].detail, "spec.rules[0].token indexes a list that manifest does not have") {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	noWOLiteral(t, problems)
+}
+
+func TestValidateWriteOnly_whenMergeConflicts(t *testing.T) {
+	// Given a non-secret value set in both manifest and manifest_wo.
+	k := findKind(t, testManifest(t), "Integration")
+	want := &desired{kind: k, object: map[string]any{"spec": map[string]any{"endpoint": "https://e"}}}
+	// When validating without versions.
+	_, problems := validateWriteOnly(want, "spec: {endpoint: "+woLiteral+"}\n", nil, false)
+	// Then the merge conflict is propagated.
+	if len(problems) != 1 || problems[0].summary != "Conflicting manifest_wo value" {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	noWOLiteral(t, problems)
+}
+
+func TestValidateWriteOnly_whenWOUnparseable(t *testing.T) {
+	// Given malformed manifest_wo text.
+	// When validating.
+	wo, problems := validateWriteOnly(nil, "spec: {token: "+woLiteral, map[string]string{"spec.token": "1"}, true)
+	// Then only the parse problem is reported and no document is returned.
+	if wo != nil || len(problems) != 1 || problems[0].summary != "Invalid manifest_wo" {
+		t.Fatalf("got %#v, %+v", wo, problems)
+	}
+	noWOLiteral(t, problems)
+}

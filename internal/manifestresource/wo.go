@@ -218,6 +218,67 @@ func putAt(cur, src any, p woPath, v any) any {
 	return m
 }
 
+// versionsWithoutWO reports versions set while manifest_wo is null.
+func versionsWithoutWO(woNull bool, versions map[string]string, versionsSet bool) []woProblem {
+	if woNull && versionsSet && len(versions) > 0 {
+		return []woProblem{{
+			attr:    "manifest_wo_version",
+			summary: "Missing manifest_wo",
+			detail:  "manifest_wo_version is set but manifest_wo is not.",
+		}}
+	}
+	return nil
+}
+
+// validateWriteOnly checks manifest_wo, its version keys, and the merge into want. want is nil when
+// manifest is unknown or invalid. Problems name paths and keys the user wrote, never values.
+func validateWriteOnly(want *desired, woText string, versions map[string]string, versionsSet bool) (map[string]any, []woProblem) {
+	wo, problems := parseWriteOnly(woText)
+	if len(problems) > 0 {
+		return nil, problems
+	}
+	if versionsSet {
+		seen := map[string]string{}
+		for _, key := range slices.Sorted(maps.Keys(versions)) {
+			p, err := parseWOPath(key)
+			if err != nil {
+				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Invalid manifest_wo_version key", detail: err.Error()})
+				continue
+			}
+			canon := p.String()
+			if other, dup := seen[canon]; dup {
+				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Duplicate manifest_wo_version key", detail: fmt.Sprintf("%s and %s name the same manifest_wo path.", key, other)})
+				continue
+			}
+			seen[canon] = key
+			if _, ok := lookup(wo, p); !ok {
+				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Unknown manifest_wo_version key", detail: fmt.Sprintf("%s does not match a value in manifest_wo.", key)})
+				continue
+			}
+			if want != nil && indexesMissingList(want.object, p) {
+				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Unknown manifest_wo_version key", detail: fmt.Sprintf("%s indexes a list that manifest does not have; version the whole list instead.", key)})
+			}
+		}
+	}
+	if want != nil {
+		_, mergeProblems := mergeWriteOnly(want.kind, want.object, wo)
+		problems = append(problems, mergeProblems...)
+	}
+	return wo, problems
+}
+
+// indexesMissingList reports whether an index segment of p has no list in doc at its prefix.
+func indexesMissingList(doc map[string]any, p woPath) bool {
+	for i, seg := range p {
+		if seg.isIndex {
+			if _, ok := lookup(doc, p[:i]); !ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // withoutWriteOnly returns a deep copy of prior with every key present in wo removed. When both
 // values are maps, it recurses instead of removing. A map that pruning empties is dropped too, so
 // overlay does not delete it as a field the user moved to manifest_wo (GAP-9).
