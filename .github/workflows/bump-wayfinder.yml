@@ -32,6 +32,8 @@ defaults:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    env:
+      HAS_BUMP_APP: ${{ secrets.BUMP_APP_CLIENT_ID != '' && secrets.BUMP_APP_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,11 +46,23 @@ jobs:
           terraform_version: '~1.11'
           terraform_wrapper: false
 
+      # Short-lived, read-only token for the private Wayfinder source, minted
+      # from the org GitHub App; no long-lived personal token is involved.
+      - name: Mint Wayfinder read token
+        id: wf-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.ORG_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.ORG_ACTIONS_APP_SECRET }}
+          owner: ${{ github.repository_owner }}
+          repositories: wayfinder
+          permission-contents: read
+
       - name: Resolve target tag
         id: resolve
         env:
           INPUT_REF: ${{ inputs.ref }}
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
         run: |
           tag="${INPUT_REF:-$(scripts/latest-wayfinder-tag.sh)}"
           if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -69,7 +83,7 @@ jobs:
         if: steps.resolve.outputs.bump == 'true'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
         run: |
           # The script's stderr can quote private Wayfinder source; keep it out
           # of the log, issues, artifacts and summaries. Only a sanitized
@@ -93,12 +107,26 @@ jobs:
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           exit "$rc"
 
+      # Minted after regeneration so the 1h token is fresh for the push, PR
+      # and failure issue. App-authored pushes and PRs trigger CI; with no app
+      # configured the steps below fall back to GITHUB_TOKEN.
+      - name: Mint bump PR token
+        id: pr-token
+        if: ${{ !cancelled() && steps.resolve.outputs.bump == 'true' && env.HAS_BUMP_APP == 'true' }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.BUMP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Open or update bump PR
         if: steps.bump.outcome == 'success'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-          GH_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN || secrets.GITHUB_TOKEN }}
-          HAS_PR_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN != '' }}
+          GH_TOKEN: ${{ steps.pr-token.outputs.token || secrets.GITHUB_TOKEN }}
+          HAS_PR_TOKEN: ${{ steps.pr-token.outputs.token != '' }}
           REPO: ${{ github.repository }}
           BASE: ${{ github.event.repository.default_branch }}
         run: |
@@ -141,7 +169,7 @@ jobs:
         if: failure() && steps.bump.outcome == 'failure'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-          GH_TOKEN: ${{ secrets.PROVIDER_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.pr-token.outputs.token || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           title="Wayfinder $TAG: provider regeneration failed"

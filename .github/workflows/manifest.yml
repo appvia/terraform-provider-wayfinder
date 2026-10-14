@@ -25,10 +25,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Short-lived, read-only token for the private Wayfinder source, minted
+      # from the org GitHub App; no long-lived personal token is involved.
+      - name: Mint Wayfinder read token
+        id: wf-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.ORG_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.ORG_ACTIONS_APP_SECRET }}
+          owner: ${{ github.repository_owner }}
+          repositories: wayfinder
+          permission-contents: read
       - name: Fetch pinned Wayfinder source
         run: make wayfinder-src
         env:
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -36,11 +47,11 @@ jobs:
       - name: Generator tests
         run: ./scripts/ci-quiet.sh "make manifestgen-test" make manifestgen-test
         env:
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
       - name: Regenerate manifest
         run: ./scripts/ci-quiet.sh "make manifest" make manifest
         env:
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
       - run: go generate ./...
       - run: make docs
       - run: git diff --exit-code
@@ -49,7 +60,7 @@ jobs:
         if: github.event_name == 'push'
         run: ./scripts/ci-quiet.sh "make check-reproducible" ./scripts/check-reproducible.sh
         env:
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
       - name: Show reproducibility drift (public files only)
         if: failure() && steps.repro.outcome == 'failure'
         run: |
