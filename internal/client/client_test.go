@@ -277,6 +277,27 @@ func TestHeaders_user_agent_and_bearer_token_sent(t *testing.T) {
 	}
 }
 
+func TestGet_whenCalled_sendsNoBody(t *testing.T) {
+	type seen struct {
+		body        string
+		contentType string
+	}
+	got := make(chan seen, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got <- seen{string(b), r.Header.Get("Content-Type")}
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	t.Cleanup(srv.Close)
+	c := &client.Client{BaseURL: srv.URL, Tenant: "acme", TokenSource: staticToken("t"), HTTP: srv.Client()}
+	if _, err := c.Get(t.Context(), envRef("dev")); err != nil {
+		t.Fatal(err)
+	}
+	if s := <-got; s.body != "" || s.contentType != "" {
+		t.Errorf("GET sent body %q with Content-Type %q; want neither", s.body, s.contentType)
+	}
+}
+
 func TestToken_fetched_per_request(t *testing.T) {
 	h := newHarness(t)
 	h.fake.Seed(fakeEnvRef("dev"), envObject("dev"))

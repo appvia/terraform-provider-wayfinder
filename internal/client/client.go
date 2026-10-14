@@ -94,8 +94,14 @@ func (c *Client) Delete(ctx context.Context, ref Ref) error {
 }
 
 func (c *Client) object(ctx context.Context, method, path string, obj map[string]any) (map[string]any, error) {
+	// A nil map in an interface is non-nil to DoJSON and would be sent as a "null" body;
+	// CDNs in front of Wayfinder reject a GET that carries a body.
+	var body any
+	if obj != nil {
+		body = obj
+	}
 	out := map[string]any{}
-	if err := c.DoJSON(ctx, method, path, obj, &out); err != nil {
+	if err := c.DoJSON(ctx, method, path, body, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
