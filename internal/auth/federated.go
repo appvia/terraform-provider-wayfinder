@@ -39,16 +39,16 @@ func (s *cachedSource) subjectToken(ctx context.Context) (string, error) {
 	if audience == "" {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.server+"/apiinfo", nil)
 		if err != nil {
-			return "", errAudience
+			return "", fmt.Errorf("%w: %w", errAudience, &safeError{operation: "create API info request", cause: err})
 		}
 		var info struct {
 			UI string `json:"ui"`
 		}
 		if err := s.decode(req, &info); err != nil {
-			return "", errAudience
+			return "", fmt.Errorf("%w: %w", errAudience, err)
 		}
 		if info.UI == "" {
-			return "", errAudience
+			return "", fmt.Errorf("%w: server API info has no ui URL", errAudience)
 		}
 		audience = strings.TrimRight(info.UI, "/") + "/t/" + ident.tenant
 	}

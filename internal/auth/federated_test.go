@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -153,7 +154,14 @@ func TestToken_when_federated_source_fails(t *testing.T) {
 }
 
 func TestToken_returns_audience_guidance_when_apiinfo_unavailable(t *testing.T) {
-	for _, variant := range []string{"missing UI", "non-2xx", "malformed JSON", "transport failure"} {
+	causes := map[string]string{
+		"missing UI":        "server API info has no ui URL",
+		"non-2xx":           "HTTP 502 Bad Gateway",
+		"malformed JSON":    "decode authentication response failed",
+		"transport failure": "authentication HTTP request failed",
+		"oversized":         "exceeds",
+	}
+	for _, variant := range []string{"missing UI", "non-2xx", "malformed JSON", "transport failure", "oversized"} {
 		t.Run(variant, func(t *testing.T) {
 			// Given an API-info endpoint that cannot supply the UI URL.
 			var calls atomic.Int32
@@ -169,8 +177,12 @@ func TestToken_returns_audience_guidance_when_apiinfo_unavailable(t *testing.T) 
 					body = "do-not-echo"
 				case "malformed JSON":
 					body = "do-not-echo"
+				case "oversized":
+					body = `{"ui":"` + strings.Repeat("a", 2<<20) + `"}`
 				}
-				if _, err := w.Write([]byte(body)); err != nil {
+				// The provider stops reading once the 1 MiB cap is hit, so writing the
+				// oversized body can legitimately fail with EPIPE. That is not a test failure.
+				if _, err := w.Write([]byte(body)); err != nil && variant != "oversized" {
 					t.Error(err)
 				}
 			}))
@@ -187,6 +199,15 @@ func TestToken_returns_audience_guidance_when_apiinfo_unavailable(t *testing.T) 
 			// Then discovery failures give actionable guidance without URLs or response bodies.
 			if err == nil || !strings.Contains(err.Error(), "set federated_token_request_audience / WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE explicitly") || strings.Contains(err.Error(), s.URL) || strings.Contains(err.Error(), "do-not-echo") {
 				t.Fatalf("unsafe or missing audience guidance: %v", err)
+			}
+			if !strings.Contains(err.Error(), causes[variant]) {
+				t.Fatalf("missing cause %q: %v", causes[variant], err)
+			}
+			if variant == "non-2xx" {
+				var status *auth.HTTPStatusError
+				if !errors.As(err, &status) || status.StatusCode != http.StatusBadGateway {
+					t.Fatalf("want *auth.HTTPStatusError 502, got: %v", err)
+				}
 			}
 			if variant != "transport failure" && calls.Load() != 1 {
 				t.Fatalf("discovery calls = %d, want 1", calls.Load())
