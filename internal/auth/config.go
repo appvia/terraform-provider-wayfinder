@@ -73,7 +73,7 @@ func Resolve(cfg Config) (*Resolved, error) {
 	switch {
 	case token != "":
 		claims, _ := parseClaims(token)
-		if claims.exchangeScoped() {
+		if claims.refreshable() {
 			source.request = tokenRequest{GrantType: grantRefresh, RefreshToken: token}
 			selected = source
 		} else {

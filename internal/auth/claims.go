@@ -19,8 +19,8 @@ type tokenClaims struct {
 var errTokenClaims = errors.New("invalid token claims")
 var errBearerExpired = errors.New("the bearer token has expired; supply a new token, client credentials or a federated service account")
 
-// Claims are read only to select the CLI exchange grant and cache expiry, not to
-// authenticate a JWT. Signature verification remains the Wayfinder server's job.
+// Claims select the refresh grant (CLI exchange or refresh scope) and cache expiry;
+// they never authenticate a JWT. Signature verification remains the Wayfinder server's job.
 func parseClaims(token string) (tokenClaims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -37,8 +37,8 @@ func parseClaims(token string) (tokenClaims, error) {
 	return claims, nil
 }
 
-func (c tokenClaims) exchangeScoped() bool {
-	return slices.Contains(c.Scopes, "wayfinder:auth:exchange")
+func (c tokenClaims) refreshable() bool {
+	return slices.Contains(c.Scopes, "wayfinder:auth:exchange") || slices.Contains(c.Scopes, "wayfinder:auth:refresh")
 }
 
 type bearerSource struct {
