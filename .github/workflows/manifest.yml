@@ -34,18 +34,24 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: .wayfinder-src/go.sum
       - name: Generator tests
-        run: make manifestgen-test
+        run: ./scripts/ci-quiet.sh "make manifestgen-test" make manifestgen-test
         env:
           WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
       - name: Regenerate manifest
-        run: make manifest
+        run: ./scripts/ci-quiet.sh "make manifest" make manifest
         env:
           WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
       - run: go generate ./...
       - run: make docs
       - run: git diff --exit-code
       - name: Clean-room reproducibility check
+        id: repro
         if: github.event_name == 'push'
-        run: ./scripts/check-reproducible.sh
+        run: ./scripts/ci-quiet.sh "make check-reproducible" ./scripts/check-reproducible.sh
         env:
           WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+      - name: Show reproducibility drift (public files only)
+        if: failure() && steps.repro.outcome == 'failure'
+        run: |
+          git status --short
+          git diff -- WAYFINDER_REF schema internal/generated docs examples
