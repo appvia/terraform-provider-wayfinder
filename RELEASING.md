@@ -16,7 +16,7 @@ pushed. The Terraform Registry and the OpenTofu registry then pick it up.
    |---|---|---|
    | `GPG_PRIVATE_KEY` | `release.yml` | ASCII-armored private key (`gpg --armor --export-secret-keys <fingerprint>`) |
    | `PASSPHRASE` | `release.yml` | Passphrase of that key |
-   | `WAYFINDER_READ_TOKEN` | `bump-wayfinder.yml` / `manifest.yml` | Read access to the Wayfinder source repository |
+   | `ORG_ACTIONS_APP_ID`, `ORG_ACTIONS_APP_SECRET` (organisation secrets) | `bump-wayfinder.yml` / `manifest.yml` | Client ID and private key of the appvia org GitHub App; each run mints a short-lived, contents-read token for `appvia/wayfinder`. The app must be installed on that repository |
    | `PROVIDER_PR_TOKEN` | `bump-wayfinder.yml` | Token allowed to open the automated Wayfinder bump pull request |
    | `ACC_WAYFINDER_SERVER`, `ACC_WAYFINDER_TENANT`, `ACC_WAYFINDER_CLIENT_ID`, `ACC_WAYFINDER_CLIENT_SECRET` | `acceptance.yml` | Service account credential for the test tenant |
 

@@ -44,11 +44,23 @@ jobs:
           terraform_version: '~1.11'
           terraform_wrapper: false
 
+      # Short-lived, read-only token for the private Wayfinder source, minted
+      # from the org GitHub App; no long-lived personal token is involved.
+      - name: Mint Wayfinder read token
+        id: wf-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.ORG_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.ORG_ACTIONS_APP_SECRET }}
+          owner: ${{ github.repository_owner }}
+          repositories: wayfinder
+          permission-contents: read
+
       - name: Resolve target tag
         id: resolve
         env:
           INPUT_REF: ${{ inputs.ref }}
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
         run: |
           tag="${INPUT_REF:-$(scripts/latest-wayfinder-tag.sh)}"
           if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -69,7 +81,7 @@ jobs:
         if: steps.resolve.outputs.bump == 'true'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-          WAYFINDER_READ_TOKEN: ${{ secrets.WAYFINDER_READ_TOKEN }}
+          WAYFINDER_READ_TOKEN: ${{ steps.wf-token.outputs.token }}
         run: |
           # The script's stderr can quote private Wayfinder source; keep it out
           # of the log, issues, artifacts and summaries. Only a sanitized
