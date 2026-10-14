@@ -45,6 +45,7 @@ type bearerSource struct {
 	token   string
 	expires int64
 	now     func() time.Time
+	expired error
 }
 
 func (s bearerSource) Token(ctx context.Context) (string, error) {
@@ -52,6 +53,9 @@ func (s bearerSource) Token(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("get bearer token: %w", err)
 	}
 	if s.expires > 0 && !s.now().Before(time.Unix(s.expires, 0)) {
+		if s.expired != nil {
+			return "", s.expired
+		}
 		return "", errBearerExpired
 	}
 	return s.token, nil

@@ -1,4 +1,5 @@
-// Package auth resolves provider authentication without reading local CLI profiles.
+// Package auth resolves provider authentication, using the wf CLI session as a last resort.
+// CLI profiles are read only; the provider never runs wf or writes its configuration.
 package auth
 
 import (
@@ -7,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +22,10 @@ type Config struct {
 	Getenv                                                        func(string) string
 	HTTP                                                          *http.Client
 	Now                                                           func() time.Time
+	Context                                                       context.Context
+	UseCLI                                                        *bool
+	CLIProfile                                                    string
+	CLIHTTP                                                       func(caPEM []byte) (*http.Client, error)
 }
 
 // TokenSource is structurally compatible with the REST client's token-source contract.
@@ -31,15 +37,18 @@ type TokenSource interface {
 type Resolved struct {
 	Server, Tenant string
 	TokenSource    TokenSource
+	HTTP           *http.Client
 }
 
 var (
-	errCredentials = errors.New("set token, service_account with a federated token source, or client_id and client_secret in the provider block; alternatively set WAYFINDER_TOKEN, WAYFINDER_SERVICE_ACCOUNT, or WAYFINDER_CLIENT_ID and WAYFINDER_CLIENT_SECRET")
-	errTenant      = &configurationError{message: "Set tenant in the provider block or WAYFINDER_TENANT."}
+	errCredentials      = errors.New("set token, service_account with a federated token source, or client_id and client_secret in the provider block; alternatively set WAYFINDER_TOKEN, WAYFINDER_SERVICE_ACCOUNT, or WAYFINDER_CLIENT_ID and WAYFINDER_CLIENT_SECRET")
+	errCredentialsOrCLI = errors.New(errCredentials.Error() + `, or sign in with the wf CLI ("wf login") to use its session`)
+	errTenant           = &configurationError{message: "Set tenant in the provider block or WAYFINDER_TENANT."}
 )
 
-// Resolve mirrors pinned pkg/wfclient/config/helper.go:353-435. Resource workspace
-// and environment are deliberately not inferred; CLI profiles are never read.
+// Resolve uses explicit credentials before falling back to the wf CLI session.
+// It only reads the profiles file, never runs wf or writes its configuration, and
+// deliberately does not infer resource workspace or environment.
 func Resolve(cfg Config) (*Resolved, error) {
 	getenv := cfg.Getenv
 	if getenv == nil {
@@ -51,7 +60,8 @@ func Resolve(cfg Config) (*Resolved, error) {
 		}
 		return getenv(name)
 	}
-	server := value(cfg.Server, "WAYFINDER_SERVER")
+	explicitServer := value(cfg.Server, "WAYFINDER_SERVER")
+	server := explicitServer
 	if server == "" {
 		server = "https://api.on.wayfinder.run"
 	}
@@ -60,6 +70,17 @@ func Resolve(cfg Config) (*Resolved, error) {
 	clientID := value(cfg.ClientID, "WAYFINDER_CLIENT_ID")
 	secret := value(cfg.ClientSecret, "WAYFINDER_CLIENT_SECRET")
 	account := value(cfg.ServiceAccount, "WAYFINDER_SERVICE_ACCOUNT")
+	useCLI, explicitCLI := true, false
+	if cfg.UseCLI != nil {
+		useCLI, explicitCLI = *cfg.UseCLI, true
+	} else if v := getenv("WAYFINDER_USE_CLI"); v != "" {
+		var err error
+		useCLI, err = strconv.ParseBool(v)
+		if err != nil {
+			return nil, &configurationError{message: "WAYFINDER_USE_CLI must be true or false"}
+		}
+		explicitCLI = true
+	}
 	httpClient := cfg.HTTP
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
@@ -111,12 +132,15 @@ func Resolve(cfg Config) (*Resolved, error) {
 		source.request = tokenRequest{GrantType: grantClient, ClientID: clientID, ClientSecret: secret}
 		selected = source
 	default:
+		if token == "" && account == "" && clientID == "" && secret == "" && useCLI {
+			return resolveCLI(cfg, getenv, explicitServer, tenant, httpClient, now, explicitCLI)
+		}
 		return nil, errCredentials
 	}
 	if tenant == "" {
 		return nil, errTenant
 	}
-	return &Resolved{Server: server, Tenant: tenant, TokenSource: selected}, nil
+	return &Resolved{Server: server, Tenant: tenant, TokenSource: selected, HTTP: httpClient}, nil
 }
 
 type configurationError struct{ message string }
