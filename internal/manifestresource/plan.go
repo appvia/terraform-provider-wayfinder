@@ -121,6 +121,9 @@ func (r *manifestResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		case err == nil && matches(prior, want.object):
 			plan.Status = state.Status
 		}
+		if !plan.ManifestWOVersion.Equal(state.ManifestWOVersion) {
+			plan.Status = types.ObjectUnknown(statusTypes)
+		}
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
 }

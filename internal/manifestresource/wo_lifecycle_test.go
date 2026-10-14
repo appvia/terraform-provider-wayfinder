@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
 // configWO renders wayfinder_manifest.this with manifest, an optional manifest_wo heredoc and
@@ -103,4 +105,22 @@ func TestPlan_whenManifestWOValid(t *testing.T) {
 	if n := len(e.fake.Requests()); n != 0 {
 		t.Fatalf("requests = %d", n)
 	}
+}
+
+func TestPlan_whenOnlyVersionChanges(t *testing.T) {
+	// Given an applied Integration whose apiKey comes from manifest_wo at version 1.
+	e := newTestEnv(t)
+	text := "apiVersion: core/v3\nkind: Integration\nmetadata: {name: i, workspace: w}\nspec:\n  endpoint: https://e\n"
+	wo := "spec:\n  apiKey: " + woPlanLiteral + "\n"
+	// When only the manifest_wo_version changes to 2 and the manifest stays identical.
+	resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: e.factories, Steps: []resource.TestStep{
+		{Config: configWO(text, wo, map[string]string{"spec.apiKey": "1"})},
+		{Config: configWO(text, wo, map[string]string{"spec.apiKey": "2"}), ConfigPlanChecks: resource.ConfigPlanChecks{
+			PreApply: []plancheck.PlanCheck{
+				plancheck.ExpectResourceAction("wayfinder_manifest.this", plancheck.ResourceActionUpdate),
+				plancheck.ExpectUnknownValue("wayfinder_manifest.this", tfjsonpath.New("status")),
+			},
+			PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+		}},
+	}})
 }
