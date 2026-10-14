@@ -46,9 +46,16 @@ func TestProvider_manifestUpdate_whenOnlyManagedKeysRemoved(t *testing.T) {
 						if !exists {
 							return fmt.Errorf("updated Workspace missing")
 						}
-						labels := obj["metadata"].(map[string]any)["labels"].(map[string]any)
+						labels, err := nestedMap(obj, "metadata", "labels")
+						if err != nil {
+							return err
+						}
+						spec, err := nestedMap(obj, "spec")
+						if err != nil {
+							return err
+						}
 						_, hasB := labels["b"]
-						_, hasDescription := obj["spec"].(map[string]any)["description"]
+						_, hasDescription := spec["description"]
 						puts := e.fake.CountRequests(http.MethodPut, "")
 						if hasB != (text == specRemoved) || hasDescription != (text == labelRemoved) || puts != 1 {
 							return fmt.Errorf("removal-only edit: label b present=%t, description present=%t, PUT count=%d; want label b=%t, description=%t, PUT=1", hasB, hasDescription, puts, text == specRemoved, text == labelRemoved)

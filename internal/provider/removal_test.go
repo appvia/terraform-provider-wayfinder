@@ -20,12 +20,18 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
  annotations = {a = "1", b = "2"}`, after: `labels = {a = "1"}
  annotations = {a = "1"}`,
 			check: func(obj map[string]any) error {
-				if _, exists := obj["spec"].(map[string]any)["description"]; exists {
+				spec, err := nestedMap(obj, "spec")
+				if err != nil {
+					return err
+				}
+				if _, exists := spec["description"]; exists {
 					return fmt.Errorf("removed description still stored")
 				}
-				meta := obj["metadata"].(map[string]any)
 				for _, name := range []string{"labels", "annotations"} {
-					keys := meta[name].(map[string]any)
+					keys, err := nestedMap(obj, "metadata", name)
+					if err != nil {
+						return err
+					}
 					if _, exists := keys["b"]; exists {
 						return fmt.Errorf("removed %s key b still stored", name)
 					}
@@ -33,7 +39,11 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 						return fmt.Errorf("retained %s key a lost", name)
 					}
 				}
-				if meta["labels"].(map[string]any)["wayfinder.appvia.io/managed-by-fake"] != "true" {
+				labels, err := nestedMap(obj, "metadata", "labels")
+				if err != nil {
+					return err
+				}
+				if labels["wayfinder.appvia.io/managed-by-fake"] != "true" {
 					return fmt.Errorf("server-added label lost")
 				}
 				return nil
@@ -46,12 +56,28 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 			after: `helm = {chart_name = "chart"}
  inputs = [{name = "input", ref_type = {kind = "Workspace", filter = {a = "1"}}}]`,
 			check: func(obj map[string]any) error {
-				spec := obj["spec"].(map[string]any)
-				if _, exists := spec["helm"].(map[string]any)["releaseName"]; exists {
+				helm, err := nestedMap(obj, "spec", "helm")
+				if err != nil {
+					return err
+				}
+				if _, exists := helm["releaseName"]; exists {
 					return fmt.Errorf("removed nested releaseName still stored")
 				}
-				input := spec["inputs"].([]any)[0].(map[string]any)
-				filter := input["refType"].(map[string]any)["filter"].(map[string]any)
+				inputs, err := nestedSlice(obj, "spec", "inputs")
+				if err != nil {
+					return err
+				}
+				if len(inputs) == 0 {
+					return fmt.Errorf("spec.inputs is empty")
+				}
+				input, ok := inputs[0].(map[string]any)
+				if !ok {
+					return fmt.Errorf("spec.inputs[0]: want map, got %T", inputs[0])
+				}
+				filter, err := nestedMap(input, "refType", "filter")
+				if err != nil {
+					return err
+				}
 				if len(filter) != 1 || filter["a"] != "1" {
 					return fmt.Errorf("removed nested map entry still stored: %#v", filter)
 				}

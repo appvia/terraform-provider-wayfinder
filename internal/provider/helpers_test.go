@@ -67,3 +67,69 @@ func (e testEnv) kind(t *testing.T, suffix string) manifest.Kind {
 func (e testEnv) ref(k manifest.Kind, workspace, name string) fakeapi.Ref {
 	return fakeapi.Ref{Tenant: testTenant, Workspace: workspace, Group: k.Group, Version: k.Version, APIPath: k.APIPath, Name: name}
 }
+
+func nestedMap(obj map[string]any, keys ...string) (map[string]any, error) {
+	cur := obj
+	for i, k := range keys {
+		v := cur[k]
+		next, ok := v.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s: want map, got %T", strings.Join(keys[:i+1], "."), v)
+		}
+		cur = next
+	}
+	return cur, nil
+}
+
+func nestedSlice(obj map[string]any, keys ...string) ([]any, error) {
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("nestedSlice: no keys given")
+	}
+	parent, err := nestedMap(obj, keys[:len(keys)-1]...)
+	if err != nil {
+		return nil, err
+	}
+	last := keys[len(keys)-1]
+	v := parent[last]
+	s, ok := v.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s: want slice, got %T", strings.Join(keys, "."), v)
+	}
+	return s, nil
+}
+
+func TestNestedMap_whenShapeWrong(t *testing.T) {
+	obj := map[string]any{
+		"metadata": map[string]any{"labels": "not-a-map"},
+		"spec":     map[string]any{"helm": map[string]any{"chart": "x"}},
+	}
+	for _, tc := range []struct {
+		name     string
+		keys     []string
+		wantErr  string
+		wantKeys string
+	}{
+		{name: "missing key", keys: []string{"spec", "absent"}, wantErr: "spec.absent: want map, got <nil>"},
+		{name: "non-map value", keys: []string{"metadata", "labels"}, wantErr: "metadata.labels: want map, got string"},
+		{name: "success", keys: []string{"spec", "helm"}, wantKeys: "chart"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Given: an object with a missing key, a non-map value, and a valid nested map.
+			// When: nestedMap walks the key path.
+			got, err := nestedMap(obj, tc.keys...)
+			// Then: wrong shapes return the path in the error; the right shape returns the map.
+			if tc.wantErr != "" {
+				if err == nil || err.Error() != tc.wantErr {
+					t.Fatalf("nestedMap(%v) error = %v; want %q", tc.keys, err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("nestedMap(%v) unexpected error: %v", tc.keys, err)
+			}
+			if _, ok := got[tc.wantKeys]; !ok {
+				t.Fatalf("nestedMap(%v) = %#v; want key %q", tc.keys, got, tc.wantKeys)
+			}
+		})
+	}
+}
