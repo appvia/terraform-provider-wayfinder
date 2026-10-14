@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -377,5 +380,69 @@ func TestUserAgent_default_when_unset(t *testing.T) {
 	_ = c.DoJSON(t.Context(), http.MethodGet, "/api/v3/general/serverinfo", nil, nil)
 	if ua := h.requests()[0].Header.Get("User-Agent"); ua != "terraform-provider-wayfinder/dev" {
 		t.Fatalf("User-Agent = %q", ua)
+	}
+}
+
+// zeros is an endless reader of 'a' bytes used to stream oversized bodies.
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 'a'
+	}
+	return len(p), nil
+}
+
+const responseLimit = 32 << 20
+
+func newBodyServer(t *testing.T, hits *atomic.Int32, body func(w io.Writer) error) *client.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = body(w)
+	}))
+	t.Cleanup(srv.Close)
+	return &client.Client{BaseURL: srv.URL, Tenant: tenant, TokenSource: staticToken(fakeapi.DefaultToken), HTTP: srv.Client(), RetryBaseDelay: time.Millisecond}
+}
+
+func TestDoJSON_whenResponseExceedsLimit(t *testing.T) {
+	var hits atomic.Int32
+	c := newBodyServer(t, &hits, func(w io.Writer) error {
+		_, err := io.CopyN(w, zeros{}, responseLimit+1)
+		return err
+	})
+	var out map[string]any
+	err := c.DoJSON(t.Context(), http.MethodGet, "/api/v3/general/serverinfo", nil, &out)
+	if err == nil || !strings.Contains(err.Error(), "exceeds 33554432 bytes") {
+		t.Fatalf("err = %v, want size-limit error", err)
+	}
+	if len(err.Error()) >= 512 {
+		t.Fatalf("error too long (%d bytes)", len(err.Error()))
+	}
+	if n := hits.Load(); n != 1 {
+		t.Fatalf("handler hits = %d, want 1 (no retry)", n)
+	}
+}
+
+func TestDoJSON_whenResponseAtLimit(t *testing.T) {
+	var hits atomic.Int32
+	c := newBodyServer(t, &hits, func(w io.Writer) error {
+		if _, err := io.WriteString(w, `"`); err != nil {
+			return err
+		}
+		if _, err := io.CopyN(w, zeros{}, responseLimit-2); err != nil {
+			return err
+		}
+		_, err := io.WriteString(w, `"`)
+		return err
+	})
+	var out string
+	if err := c.DoJSON(t.Context(), http.MethodGet, "/api/v3/general/serverinfo", nil, &out); err != nil {
+		t.Fatalf("DoJSON at limit: %v", err)
+	}
+	if len(out) != responseLimit-2 {
+		t.Fatalf("decoded length = %d", len(out))
 	}
 }

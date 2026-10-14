@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +26,11 @@ const (
 	DefaultRetryBaseDelay = 500 * time.Millisecond
 	maxBackoff            = 30 * time.Second
 	userAgentProduct      = "terraform-provider-wayfinder"
+	// maxResponseBytes caps every response body read.
+	maxResponseBytes = 32 << 20
 )
+
+var errResponseTooLarge = errors.New("response too large")
 
 // TokenSource supplies the bearer token for each request.
 type TokenSource interface {
@@ -156,12 +161,24 @@ func (c *Client) send(ctx context.Context, method, path string, payload []byte) 
 		return nil, nil, fmt.Errorf("wayfinder API %s %s: %w", method, path, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := readLimited(resp.Body, maxResponseBytes)
 	tflog.Debug(ctx, "wayfinder API request", map[string]any{"method": method, "path": path, "status": resp.StatusCode})
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading %s %s response: %w", method, path, err)
 	}
 	return resp, respBody, nil
+}
+
+// readLimited reads at most max bytes from r; a longer body yields errResponseTooLarge.
+func readLimited(r io.Reader, max int64) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > max {
+		return nil, fmt.Errorf("%w: exceeds %d bytes", errResponseTooLarge, max)
+	}
+	return b, nil
 }
 
 func (c *Client) httpClient() *http.Client {
