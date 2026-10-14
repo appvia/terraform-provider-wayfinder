@@ -32,7 +32,7 @@ Everything in `manifest_wo` is sent when the object is created or replaced. Afte
 
 Removing a value from `manifest_wo` doesn't delete it in Wayfinder.
 
-Secret fields the provider knows about are rejected at plan time when they're set in `manifest`. Any other value you'd rather keep out of state can go in `manifest_wo` too.
+Secret fields the provider knows about are rejected at plan time when they're set in `manifest`. Any other value you'd rather keep out of state can go in `manifest_wo` too. If Wayfinder itself repeats a value you sent, for example in a status message, that text is stored in state like any other status, and the provider can't filter it out.
 
 ## Example Usage
 
