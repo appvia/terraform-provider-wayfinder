@@ -1,2 +1,4 @@
 [tools]
 golangci-lint = "latest"
+opentofu = "latest"
+terraform = "latest"
