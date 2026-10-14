@@ -33,7 +33,7 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     env:
-      HAS_BUMP_APP: ${{ secrets.BUMP_APP_CLIENT_ID != '' }}
+      HAS_BUMP_APP: ${{ secrets.BUMP_APP_CLIENT_ID != '' && secrets.BUMP_APP_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
