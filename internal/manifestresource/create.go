@@ -32,10 +32,28 @@ func (r *manifestResource) Create(ctx context.Context, req resource.CreateReques
 	}
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
-	ref := engine.Reference(want.kind, want.identity)
-	obj, err := r.client.Create(ctx, ref, want.object)
+	js, err := encodeJSON(want.object)
 	if err != nil {
-		apiError(&resp.Diagnostics, err, errorTarget(want.kind, want.identity), nil)
+		resp.Diagnostics.AddError("Invalid manifest", err.Error())
+		return
+	}
+	wo, _, ok := r.writeOnlyFrom(ctx, req.Config, want, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+	send := want.object
+	if wo != nil {
+		var problems []woProblem
+		send, problems = mergeWriteOnly(want.kind, want.object, wo)
+		addProblems(&resp.Diagnostics, problems)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	ref := engine.Reference(want.kind, want.identity)
+	obj, err := r.client.Create(ctx, ref, send)
+	if err != nil {
+		apiError(&resp.Diagnostics, err, errorTarget(want.kind, want.identity), wo)
 		return
 	}
 	setGeneration(ctx, resp.Private, obj, &resp.Diagnostics)
@@ -44,11 +62,6 @@ func (r *manifestResource) Create(ctx context.Context, req resource.CreateReques
 	}
 	plan.ID = types.StringValue(want.importID())
 	if plan.ObjectJSON.IsUnknown() {
-		js, err := encodeJSON(want.object)
-		if err != nil {
-			resp.Diagnostics.AddError("Invalid manifest", err.Error())
-			return
-		}
 		plan.ObjectJSON = jsontypes.NewNormalizedValue(js)
 	}
 	plan.Status = statusValue(obj)

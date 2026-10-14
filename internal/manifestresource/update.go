@@ -68,13 +68,41 @@ func (r *manifestResource) Update(ctx context.Context, req resource.UpdateReques
 	if plan.ObjectJSON.IsUnknown() {
 		plan.ObjectJSON = jsontypes.NewNormalizedValue(js)
 	}
+	wo, planned, ok := r.writeOnlyFrom(ctx, req.Config, want, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+	stored, _ := versionsOf(state.ManifestWOVersion)
+	selected, paths := selectWriteOnly(wo, planned, stored)
+	var merged map[string]any
+	send := want.object
+	if selected != nil {
+		var problems []woProblem
+		merged, problems = mergeWriteOnly(want.kind, want.object, selected)
+		addProblems(&resp.Diagnostics, problems)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		send = merged
+	}
 	var prior map[string]any
 	if !state.Manifest.IsNull() {
 		if p, err := parseManifest(r.manifest, state.Manifest.ValueString()); err == nil {
 			prior = p.object
 		}
 	}
-	candidate := overlay(fresh, want.object, prior)
+	if wo != nil {
+		prior = withoutWriteOnly(prior, wo)
+	}
+	candidate := overlay(fresh, send, prior)
+	if len(paths) > 0 {
+		candidate = deepCopy(candidate).(map[string]any)
+		for _, p := range paths {
+			if v, ok := lookup(merged, p); ok {
+				setAt(candidate, p, deepCopy(v))
+			}
+		}
+	}
 	if reflect.DeepEqual(normalized(candidate), normalized(fresh)) {
 		if plan.Status.IsUnknown() {
 			plan.Status = statusValue(fresh)
@@ -84,7 +112,7 @@ func (r *manifestResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 	obj, err := r.client.Update(ctx, ref, candidate)
 	if err != nil {
-		apiError(&resp.Diagnostics, err, target, nil)
+		apiError(&resp.Diagnostics, err, target, wo)
 		return
 	}
 	setGeneration(ctx, resp.Private, obj, &resp.Diagnostics)

@@ -9,8 +9,28 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// writeOnlyFrom reads apply-time write-only values from configuration, never plan or state.
+func (r *manifestResource) writeOnlyFrom(ctx context.Context, config tfsdk.Config, want desired, d *diag.Diagnostics) (wo map[string]any, versions map[string]string, ok bool) {
+	var text types.String
+	var versionMap types.Map
+	d.Append(config.GetAttribute(ctx, path.Root("manifest_wo"), &text)...)
+	d.Append(config.GetAttribute(ctx, path.Root("manifest_wo_version"), &versionMap)...)
+	if d.HasError() {
+		return nil, nil, false
+	}
+	versions, _ = versionsOf(versionMap)
+	addProblems(d, versionsWithoutWO(text.IsNull(), versions, !versionMap.IsNull()))
+	if !text.IsNull() {
+		var problems []woProblem
+		wo, problems = validateWriteOnly(&want, text.ValueString(), versions, !versionMap.IsNull())
+		addProblems(d, problems)
+	}
+	return wo, versions, !d.HasError()
+}
 
 func (r *manifestResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var text, wo types.String
