@@ -15,9 +15,24 @@ The text can come from `file()` or `templatefile()`. To write an object inline, 
 
 Use `wayfinder_manifest` for kinds that have no dedicated resource, or when you'd rather keep an object in its YAML form. Changing `kind`, `metadata.name`, `metadata.workspace`, `metadata.environment` or `metadata.version` replaces the object.
 
-Secret fields can't be set through a manifest: a manifest that sets one is rejected at plan time. Use the dedicated resource, which takes the secret through a write-only `_wo` attribute, or `wayfinder_secret`.
-
 Kinds that record activity (runs, invocations and conversations) or that Wayfinder manages itself (tenants, users and identities, for example) can't be managed by Terraform, and a manifest for one is rejected at plan time. Use `wayfinder_variable` and `wayfinder_secret` for variables and secrets.
+
+## Secrets
+
+Put secret fields in `manifest_wo`. It's a write-only attribute that takes YAML or JSON and is merged into `manifest` before the object is sent. Its value is never stored in the plan or in state. Write-only attributes need Terraform or OpenTofu 1.11 or later. Pass secret values in through variables, ideally ephemeral ones, rather than writing them as literals in your configuration, because Terraform can show the related configuration lines in error output.
+
+The merge works like this:
+
+- Objects merge by key.
+- Lists merge item by item. The list in `manifest_wo` must have the same length as the one in `manifest`, with `null` for items it doesn't change.
+- `manifest_wo` can't set `apiVersion`, `kind`, `metadata` or `status`.
+- A field can appear in both attributes only when it's a secret field and `manifest` holds a blank placeholder for it.
+
+Everything in `manifest_wo` is sent when the object is created or replaced. After that, Terraform can't see changes to `manifest_wo`, so changing it alone sends nothing. To send a value again, add or change its entry in `manifest_wo_version`, a map from field path to a version string, as in the example below. Only the paths whose version changed are sent.
+
+Removing a value from `manifest_wo` doesn't delete it in Wayfinder.
+
+Secret fields the provider knows about are rejected at plan time when they're set in `manifest`. Any other value you'd rather keep out of state can go in `manifest_wo` too.
 
 ## Example Usage
 
@@ -32,3 +47,5 @@ The import ID is `<group>/<Kind>/[workspace/[environment/]]name[@version]`, wher
 {{ codefile "shell" .ImportFile }}
 
 After importing, set `manifest` to the fields you want Terraform to manage.
+
+After importing, set manifest_wo and manifest_wo_version; secrets are sent on the next apply for each version key you add.
