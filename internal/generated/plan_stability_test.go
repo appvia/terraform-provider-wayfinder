@@ -48,10 +48,15 @@ func TestMain(m *testing.M) {
 		"WAYFINDER_SERVICE_ACCOUNT", "WAYFINDER_FEDERATED_TOKEN_FILE", "WAYFINDER_FEDERATED_TOKEN_REQUEST_URL",
 		"WAYFINDER_FEDERATED_TOKEN_REQUEST_TOKEN", "WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE",
 		"ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+		"WAYFINDER_USE_CLI", "WAYFINDER_CLI_PROFILE", "WAYFINDER_CONFIG",
 	} {
 		if err := os.Unsetenv(k); err != nil {
 			panic(err)
 		}
+	}
+	// Never fall back to the developer's real wf CLI session.
+	if err := os.Setenv("WAYFINDER_USE_CLI", "false"); err != nil {
+		panic(err)
 	}
 	os.Exit(m.Run())
 }
