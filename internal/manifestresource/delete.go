@@ -39,7 +39,7 @@ func (r *manifestResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 	if err != nil {
-		apiError(&resp.Diagnostics, err, errorTarget(k, i))
+		apiError(&resp.Diagnostics, err, errorTarget(k, i), nil)
 		return
 	}
 	resp.Diagnostics.Append(r.waiter(k, i).Gone(ctx, ref)...)

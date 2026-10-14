@@ -40,12 +40,14 @@ type manifestResource struct {
 
 // model is the Terraform state of wayfinder_manifest.
 type model struct {
-	ID           types.String         `tfsdk:"id"`
-	Manifest     types.String         `tfsdk:"manifest"`
-	WaitForReady types.Bool           `tfsdk:"wait_for_ready"`
-	Timeouts     timeouts.Value       `tfsdk:"timeouts"`
-	ObjectJSON   jsontypes.Normalized `tfsdk:"object_json"`
-	Status       types.Object         `tfsdk:"status"`
+	ID                types.String         `tfsdk:"id"`
+	Manifest          types.String         `tfsdk:"manifest"`
+	ManifestWO        types.String         `tfsdk:"manifest_wo"`
+	ManifestWOVersion types.Map            `tfsdk:"manifest_wo_version"`
+	WaitForReady      types.Bool           `tfsdk:"wait_for_ready"`
+	Timeouts          timeouts.Value       `tfsdk:"timeouts"`
+	ObjectJSON        jsontypes.Normalized `tfsdk:"object_json"`
+	Status            types.Object         `tfsdk:"status"`
 }
 
 // embeddedManifest parses the compiled-in manifest once: Terraform instantiates resources on
@@ -73,12 +75,23 @@ func (r *manifestResource) Metadata(_ context.Context, req resource.MetadataRequ
 
 func (r *manifestResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages one Wayfinder object from a YAML or JSON manifest. Use it for kinds without a dedicated resource. Only the fields set in the manifest are managed; secrets cannot be set here.",
+		Description: "Manages one Wayfinder object from a YAML or JSON manifest. Use it for kinds without a dedicated resource. Only the fields set in the manifest are managed. Secret fields are set through the write-only manifest_wo attribute and are never stored in state.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{Computed: true, Description: "Import ID: <group>/<Kind>/[workspace/[environment/]]name[@version], for example org/Workspace/plat."},
 			"manifest": schema.StringAttribute{
 				Required:    true,
-				Description: "YAML or JSON of one Wayfinder object with apiVersion, kind and metadata (name, and workspace, environment or version where the kind needs them). Changing the kind or any of those metadata fields replaces the object. Secret fields must be left blank.",
+				Description: "YAML or JSON of one Wayfinder object with apiVersion, kind and metadata (name, and workspace, environment or version where the kind needs them). Changing the kind or any of those metadata fields replaces the object. Leave secret fields out or blank and set them in manifest_wo.",
+			},
+			"manifest_wo": schema.StringAttribute{
+				Optional:    true,
+				WriteOnly:   true,
+				Sensitive:   true,
+				Description: "Write-only YAML or JSON with fields to send to Wayfinder without storing them in plan or state, usually secret fields, for example yamlencode({ spec = { security = { secret = var.webhook_secret } } }). It is merged into manifest: objects merge key by key, lists merge item by item and must have the same length as in manifest (use null for items with nothing to add), and a field may be set in both only when manifest has a blank placeholder for a secret field. It must not set apiVersion, kind, metadata or status. All of it is sent when the object is created or replaced; after that, only paths listed in manifest_wo_version are sent, when their version is added or changed. Changing manifest_wo alone updates nothing. Requires Terraform or OpenTofu 1.11 or later.",
+			},
+			"manifest_wo_version": schema.MapAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Description: "Versions of paths in manifest_wo. Each key is a path such as spec.security.secret, spec.rules[0].token or spec.headers[\"X-Api-Key\"]; a path to an object or list covers everything beneath it. When a key is added or its value changes, the value at that path is sent on the next apply. Removing a key or a value from manifest_wo does not delete it in Wayfinder.",
 			},
 			"wait_for_ready": schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true), Description: "Wait for Wayfinder to finish reconciling the object after each change. Defaults to true."},
 			"timeouts":       timeouts.Attributes(ctx, timeouts.Opts{Create: true, Update: true, Delete: true}),

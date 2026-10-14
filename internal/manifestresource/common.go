@@ -35,13 +35,20 @@ func errorTarget(k manifest.Kind, i convert.Identity) engine.ErrorTarget {
 	return engine.ErrorTarget{Kind: k.Kind, ID: formatID(k, i), Address: "wayfinder_manifest.<name>"}
 }
 
-// apiError reports field validation errors on manifest, naming the server field; every other
-// error is reported exactly as the engine does.
-func apiError(d *diag.Diagnostics, err error, t engine.ErrorTarget) {
+// apiError reports field validation errors on manifest_wo when the server field is a value in
+// wo, otherwise on manifest, naming the server field; every other error is reported exactly as
+// the engine does.
+func apiError(d *diag.Diagnostics, err error, t engine.ErrorTarget, wo map[string]any) {
 	var validation *client.ValidationError
 	if errors.As(err, &validation) && len(validation.Fields) > 0 {
 		for _, f := range validation.Fields {
-			d.AddAttributeError(path.Root("manifest"), "Wayfinder validation failed", f.Field+": "+f.Message)
+			attr := path.Root("manifest")
+			if p, perr := parseWOPath(f.Field); perr == nil {
+				if _, found := lookup(wo, p); found {
+					attr = path.Root("manifest_wo")
+				}
+			}
+			d.AddAttributeError(attr, "Wayfinder validation failed", f.Field+": "+f.Message)
 		}
 		return
 	}

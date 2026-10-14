@@ -13,12 +13,53 @@ import (
 )
 
 func (r *manifestResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var text types.String
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("manifest"), &text)...)
-	if resp.Diagnostics.HasError() || text.IsNull() || text.IsUnknown() || !r.ready(&resp.Diagnostics, false) {
+	var text, wo types.String
+	var versionMap types.Map
+	d := &resp.Diagnostics
+	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest"), &text)...)
+	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest_wo"), &wo)...)
+	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest_wo_version"), &versionMap)...)
+	if d.HasError() {
 		return
 	}
-	r.desiredFrom(text, &resp.Diagnostics)
+	versions, versionsKnown := versionsOf(versionMap)
+	if versionsKnown && wo.IsNull() {
+		addProblems(d, versionsWithoutWO(true, versions, true))
+	}
+	var want *desired
+	if !text.IsNull() && !text.IsUnknown() && r.ready(d, false) {
+		if w, ok := r.desiredFrom(text, d); ok {
+			want = &w
+		}
+	}
+	if !wo.IsNull() && !wo.IsUnknown() {
+		_, problems := validateWriteOnly(want, wo.ValueString(), versions, versionsKnown && !versionMap.IsNull())
+		addProblems(d, problems)
+	}
+}
+
+// addProblems reports write-only problems on the attribute each one names.
+func addProblems(d *diag.Diagnostics, ps []woProblem) {
+	for _, p := range ps {
+		d.AddAttributeError(path.Root(p.attr), p.summary, p.detail)
+	}
+}
+
+// versionsOf returns the manifest_wo_version keys and values: nil, true when null; nil, false
+// when unknown; an unknown element value maps to "".
+func versionsOf(m types.Map) (map[string]string, bool) {
+	if m.IsNull() {
+		return nil, true
+	}
+	if m.IsUnknown() {
+		return nil, false
+	}
+	out := make(map[string]string, len(m.Elements()))
+	for k, v := range m.Elements() {
+		s, _ := v.(types.String)
+		out[k] = s.ValueString()
+	}
+	return out, true
 }
 
 // desiredFrom parses a known manifest and rejects secrets, reporting problems on manifest.

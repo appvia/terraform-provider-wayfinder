@@ -43,7 +43,7 @@ func (r *manifestResource) Update(ctx context.Context, req resource.UpdateReques
 	ref, target := engine.Reference(want.kind, want.identity), errorTarget(want.kind, want.identity)
 	fresh, err := r.client.Get(ctx, ref)
 	if err != nil {
-		apiError(&resp.Diagnostics, err, target)
+		apiError(&resp.Diagnostics, err, target, nil)
 		return
 	}
 	generation, err := engine.Generation(fresh)
@@ -84,7 +84,7 @@ func (r *manifestResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 	obj, err := r.client.Update(ctx, ref, candidate)
 	if err != nil {
-		apiError(&resp.Diagnostics, err, target)
+		apiError(&resp.Diagnostics, err, target, nil)
 		return
 	}
 	setGeneration(ctx, resp.Private, obj, &resp.Diagnostics)

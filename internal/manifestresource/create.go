@@ -35,7 +35,7 @@ func (r *manifestResource) Create(ctx context.Context, req resource.CreateReques
 	ref := engine.Reference(want.kind, want.identity)
 	obj, err := r.client.Create(ctx, ref, want.object)
 	if err != nil {
-		apiError(&resp.Diagnostics, err, errorTarget(want.kind, want.identity))
+		apiError(&resp.Diagnostics, err, errorTarget(want.kind, want.identity), nil)
 		return
 	}
 	setGeneration(ctx, resp.Private, obj, &resp.Diagnostics)

@@ -31,7 +31,7 @@ func (r *manifestResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 	if err != nil {
-		apiError(&resp.Diagnostics, err, errorTarget(k, i))
+		apiError(&resp.Diagnostics, err, errorTarget(k, i), nil)
 		return
 	}
 	baseline, d := req.Private.GetKey(ctx, generationKey)
