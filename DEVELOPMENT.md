@@ -201,7 +201,7 @@ The internal kind that stores the variable and secret hierarchy is excluded. Var
 
 `path` is a dotted JSON path from the object root and must start with `spec.`. Array items are addressed by the array field name, so `spec.rules.verbs` means `verbs` inside each item of `spec.rules`.
 
-Entries are sorted by group, kind, path. Generation fails on duplicates, unsorted entries, unknown keys, a kind that is excluded or missing from `kinds.yaml`, or a path that doesn't exist in the reflected spec. That last check catches stale overrides after a bump: when Wayfinder renames or removes a field, fix or delete its entry.
+Entries are sorted by group, kind, path. Generation fails on duplicates, unsorted entries, unknown keys, a kind that is excluded or missing from `kinds.yaml`, or a path that doesn't exist in the reflected spec. That last check catches stale overrides after a bump: when Wayfinder renames or removes a field, fix or delete its entry. Every entry is also pinned by `internal/generated/fields_pin_test.go`, which fails when an entry is added, removed or changed until its pin table is updated deliberately. The same test checks that each entry lands in the embedded manifest and the generated resource schema.
 
 ## How `+encrypted` fields become write-only `_wo` attributes
 
@@ -231,7 +231,7 @@ The Wayfinder repository is private. Regenerating the manifest, running `make ma
 - In CI, `WAYFINDER_READ_TOKEN` grants read access. `scripts/wayfinder-git.sh` passes it to git only through `GIT_CONFIG_*` environment variables as an HTTP auth header. It never goes on the command line, in the URL, in `.wayfinder-src/.git/config` or in logs.
 - `PROVIDER_PR_TOKEN` is optional. The bump workflow uses it to push and open the PR, so that CI runs on the PR. Without it the workflow falls back to `GITHUB_TOKEN`, and you must close and reopen the PR to start checks.
 
-`.github/workflows/manifest.yml` regenerates and checks for drift only on pushes and same-repository PRs. Fork and Dependabot PRs get no secrets, so they skip regeneration. `.github/workflows/test.yml` builds, tests and checks `go generate` drift from the committed files for everyone.
+`.github/workflows/manifest.yml` regenerates and checks for drift only on pushes and same-repository PRs. Fork and Dependabot PRs get no secrets, so they skip regeneration. `.github/workflows/test.yml` builds, tests and checks `go generate` drift from the committed files for everyone. Steps that build or run code inside the private Wayfinder checkout run through `scripts/ci-quiet.sh`, which withholds their output from the public log; reproduce a failure locally with the command named in the error. A failed reproducibility check is followed by a step that prints `git status` and the diff of the committed generated paths.
 
 ## Adding a new kind
 

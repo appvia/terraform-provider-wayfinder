@@ -69,6 +69,8 @@ Generated code = thin glue: schemas are static Go, but each resource still resol
 - Examples use `yamlencode(...)`/`jsonencode(...)`, not heredocs.
 - Commits: Conventional Commits with package scope (`fix(engine): …`, `feat(generate): …`).
 - Lint: golangci v2 — errcheck, govet, ineffassign, staticcheck, unused, misspell, unconvert; gofmt + goimports.
+- `fields.yaml` entries are pinned in `internal/generated/fields_pin_test.go`; update the pin table in the same commit as any `fields.yaml` change.
+- Workflow `run:` steps use strict bash (`-euo pipefail`); actions are SHA-pinned (Dependabot updates them); output from code run inside the private Wayfinder checkout goes through `scripts/ci-quiet.sh`.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - Hand-editing `schema/wayfinder-manifest.json`, `internal/generated/zz_*`, `docs/`, generated `examples/`. CI diffs all of them.
