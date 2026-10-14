@@ -3,6 +3,7 @@ package manifestresource
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -159,4 +160,84 @@ func isSecretPath(k manifest.Kind, p woPath) bool {
 		}
 	}
 	return field.Sensitive
+}
+
+// selectWriteOnly returns the manifest_wo subtrees whose planned version changed since stored,
+// as a new document, plus their canonical paths. Keys that fail to parse or do not resolve in wo
+// are skipped; validation reports them.
+func selectWriteOnly(wo map[string]any, planned, stored map[string]string) (map[string]any, []woPath) {
+	out := map[string]any{}
+	var paths []woPath
+	for _, key := range slices.Sorted(maps.Keys(planned)) {
+		if sv, ok := stored[key]; ok && sv == planned[key] {
+			continue
+		}
+		p, err := parseWOPath(key)
+		if err != nil {
+			continue
+		}
+		value, ok := lookup(wo, p)
+		if !ok {
+			continue
+		}
+		out = putAt(out, wo, p, deepCopy(value)).(map[string]any)
+		paths = append(paths, p)
+	}
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	return out, paths
+}
+
+// putAt writes v at p under cur, creating maps for key segments and nil-padded lists, sized from
+// the same level of src, for index segments. p must already resolve in src.
+func putAt(cur, src any, p woPath, v any) any {
+	if len(p) == 0 {
+		return v
+	}
+	seg := p[0]
+	if seg.isIndex {
+		srcList, _ := src.([]any)
+		list, _ := cur.([]any)
+		if list == nil {
+			list = make([]any, len(srcList))
+		}
+		var srcNext any
+		if seg.index < len(srcList) {
+			srcNext = srcList[seg.index]
+		}
+		list[seg.index] = putAt(list[seg.index], srcNext, p[1:], v)
+		return list
+	}
+	m, _ := cur.(map[string]any)
+	if m == nil {
+		m = map[string]any{}
+	}
+	srcMap, _ := src.(map[string]any)
+	m[seg.key] = putAt(m[seg.key], srcMap[seg.key], p[1:], v)
+	return m
+}
+
+// withoutWriteOnly returns a deep copy of prior with every key present in wo removed. When both
+// values are maps, it recurses instead of removing. A map that pruning empties is dropped too, so
+// overlay does not delete it as a field the user moved to manifest_wo (GAP-9).
+func withoutWriteOnly(prior, wo map[string]any) map[string]any {
+	out := make(map[string]any, len(prior))
+	for k, v := range prior {
+		wv, inWO := wo[k]
+		if !inWO {
+			out[k] = deepCopy(v)
+			continue
+		}
+		pm, pOK := v.(map[string]any)
+		wm, wOK := wv.(map[string]any)
+		if pOK && wOK {
+			pruned := withoutWriteOnly(pm, wm)
+			if len(pruned) == 0 && len(pm) > 0 {
+				continue
+			}
+			out[k] = pruned
+		}
+	}
+	return out
 }

@@ -396,3 +396,216 @@ func TestIsSecretPath_whenWalkingFields(t *testing.T) {
 		})
 	}
 }
+
+func pathStrings(ps []woPath) []string {
+	out := make([]string, 0, len(ps))
+	for _, p := range ps {
+		out = append(out, p.String())
+	}
+	return out
+}
+
+func TestSelectWriteOnly_whenNewKey(t *testing.T) {
+	// Given a key planned but absent from stored.
+	wo := map[string]any{"spec": map[string]any{"token": "a", "other": "b"}}
+	// When selecting.
+	got, paths := selectWriteOnly(wo, map[string]string{"spec.token": "v1"}, map[string]string{})
+	// Then only that value is returned.
+	if want := map[string]any{"spec": map[string]any{"token": "a"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	if want := []string{"spec.token"}; !reflect.DeepEqual(pathStrings(paths), want) {
+		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
+	}
+}
+
+func TestSelectWriteOnly_whenValueChanged(t *testing.T) {
+	// Given a stored version that differs from the planned one.
+	wo := map[string]any{"spec": map[string]any{"token": "new"}}
+	// When selecting.
+	got, paths := selectWriteOnly(wo, map[string]string{"spec.token": "v2"}, map[string]string{"spec.token": "v1"})
+	// Then the changed key is selected.
+	if want := map[string]any{"spec": map[string]any{"token": "new"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	if len(paths) != 1 {
+		t.Fatalf("paths %v, want one", pathStrings(paths))
+	}
+}
+
+func TestSelectWriteOnly_whenUnchanged(t *testing.T) {
+	// Given planned versions equal to stored versions.
+	wo := map[string]any{"spec": map[string]any{"token": "a"}}
+	// When selecting.
+	got, paths := selectWriteOnly(wo, map[string]string{"spec.token": "v1"}, map[string]string{"spec.token": "v1"})
+	// Then nothing is selected.
+	if got != nil || paths != nil {
+		t.Fatalf("got %#v, %v; want nil, nil", got, pathStrings(paths))
+	}
+}
+
+func TestSelectWriteOnly_whenKeyRemovedFromPlanned(t *testing.T) {
+	// Given a key stored but no longer planned.
+	wo := map[string]any{"spec": map[string]any{"token": "a"}}
+	// When selecting with an empty plan.
+	got, paths := selectWriteOnly(wo, map[string]string{}, map[string]string{"spec.token": "v1"})
+	// Then nothing is selected.
+	if got != nil || paths != nil {
+		t.Fatalf("got %#v, %v; want nil, nil", got, pathStrings(paths))
+	}
+}
+
+func TestSelectWriteOnly_whenPrefixKeySelectsSubtree(t *testing.T) {
+	// Given a prefix key whose subtree changed.
+	wo := map[string]any{"spec": map[string]any{"security": map[string]any{"a": 1, "b": 2}, "other": 3}}
+	// When selecting.
+	got, _ := selectWriteOnly(wo, map[string]string{"spec.security": "v2"}, map[string]string{})
+	// Then only that subtree is returned.
+	if want := map[string]any{"spec": map[string]any{"security": map[string]any{"a": 1, "b": 2}}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestSelectWriteOnly_whenIndexPathBuildsNilPaddedList(t *testing.T) {
+	// Given an index path into a two-item list.
+	wo := map[string]any{"spec": map[string]any{"rules": []any{map[string]any{"x": 1}, map[string]any{"token": "t"}}}}
+	// When selecting the second item.
+	got, paths := selectWriteOnly(wo, map[string]string{"spec.rules[1].token": "v"}, map[string]string{})
+	// Then the list keeps its length with nil placeholders.
+	if want := map[string]any{"spec": map[string]any{"rules": []any{nil, map[string]any{"token": "t"}}}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	if want := []string{"spec.rules[1].token"}; !reflect.DeepEqual(pathStrings(paths), want) {
+		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
+	}
+}
+
+func TestSelectWriteOnly_whenMapKeyPath(t *testing.T) {
+	// Given a map-key path with a dash in the key.
+	wo := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-A": "1", "X-B": "2"}}}
+	// When selecting it.
+	got, paths := selectWriteOnly(wo, map[string]string{`spec.headers["X-A"]`: "v"}, map[string]string{})
+	// Then only that header is returned, under its canonical path.
+	if want := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-A": "1"}}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	if want := []string{`spec.headers.X-A`}; !reflect.DeepEqual(pathStrings(paths), want) {
+		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
+	}
+}
+
+func TestSelectWriteOnly_whenPlannedNil(t *testing.T) {
+	// Given no planned versions.
+	wo := map[string]any{"spec": map[string]any{"token": "a"}}
+	// When selecting with a nil plan.
+	got, paths := selectWriteOnly(wo, nil, nil)
+	// Then nothing is selected.
+	if got != nil || paths != nil {
+		t.Fatalf("got %#v, %v; want nil, nil", got, pathStrings(paths))
+	}
+}
+
+func TestSelectWriteOnly_whenMalformedOrMissingKeySkipped(t *testing.T) {
+	// Given planned keys that are malformed or do not resolve in wo.
+	wo := map[string]any{"spec": map[string]any{"token": "a"}}
+	planned := map[string]string{"spec.[": "v", "spec.missing": "v", "": "v"}
+	// When selecting.
+	got, paths := selectWriteOnly(wo, planned, map[string]string{})
+	// Then they are skipped and nothing is selected.
+	if got != nil || paths != nil {
+		t.Fatalf("got %#v, %v; want nil, nil", got, pathStrings(paths))
+	}
+}
+
+func TestWithoutWriteOnly_whenNestedKeyMovedToWriteOnly(t *testing.T) {
+	// Given a prior overlay with a nested key that now lives in manifest_wo.
+	prior := map[string]any{"spec": map[string]any{"security": map[string]any{"token": "a", "keep": 1}}, "metadata": map[string]any{"name": "n"}}
+	wo := map[string]any{"spec": map[string]any{"security": map[string]any{"token": "x"}}}
+	// When pruning.
+	got := withoutWriteOnly(prior, wo)
+	// Then the moved key is removed and its siblings remain.
+	want := map[string]any{"spec": map[string]any{"security": map[string]any{"keep": 1}}, "metadata": map[string]any{"name": "n"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestWithoutWriteOnly_whenSiblingKept(t *testing.T) {
+	// Given a prior overlay with two sibling keys, one moved to manifest_wo.
+	prior := map[string]any{"spec": map[string]any{"a": 1, "b": 2}}
+	wo := map[string]any{"spec": map[string]any{"a": 0}}
+	// When pruning.
+	got := withoutWriteOnly(prior, wo)
+	// Then only the moved sibling is removed.
+	if want := map[string]any{"spec": map[string]any{"b": 2}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestWithoutWriteOnly_whenWholeMapMoved(t *testing.T) {
+	// Given a prior overlay whose only header moved to manifest_wo.
+	prior := map[string]any{"spec": map[string]any{"endpoint": "https://e", "headers": map[string]any{"X-A": ""}}}
+	wo := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-A": "a1"}}}
+	// When pruning.
+	got := withoutWriteOnly(prior, wo)
+	// Then the emptied headers map is gone and spec keeps its other key.
+	want := map[string]any{"spec": map[string]any{"endpoint": "https://e"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestWithoutWriteOnly_whenNestedEmptiedUpward(t *testing.T) {
+	// Given a prior overlay where the only nested key moved to manifest_wo.
+	prior := map[string]any{"spec": map[string]any{"security": map[string]any{"headers": map[string]any{"X-A": ""}}}, "metadata": map[string]any{"name": "n"}}
+	wo := map[string]any{"spec": map[string]any{"security": map[string]any{"headers": map[string]any{"X-A": "a"}}}}
+	// When pruning.
+	got := withoutWriteOnly(prior, wo)
+	// Then every container emptied by pruning is removed, and unrelated keys remain.
+	want := map[string]any{"metadata": map[string]any{"name": "n"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestWithoutWriteOnly_whenUntouchedEmptyMapKept(t *testing.T) {
+	// Given a prior overlay with an empty map that manifest_wo does not touch.
+	prior := map[string]any{"spec": map[string]any{"endpoint": "https://e", "labels": map[string]any{}}, "metadata": map[string]any{}}
+	wo := map[string]any{"spec": map[string]any{"token": "t"}}
+	// When pruning.
+	got := withoutWriteOnly(prior, wo)
+	// Then the untouched empty maps are preserved.
+	want := map[string]any{"spec": map[string]any{"endpoint": "https://e", "labels": map[string]any{}}, "metadata": map[string]any{}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestOverlay_whenSecretMapMovedToWriteOnly(t *testing.T) {
+	// Given the server still holds the secret map, and the prior overlay was pruned for manifest_wo.
+	fresh := map[string]any{"spec": map[string]any{"endpoint": "https://e", "headers": map[string]any{"X-A": "stored"}}}
+	priorRaw := map[string]any{"spec": map[string]any{"endpoint": "https://e", "headers": map[string]any{"X-A": ""}}}
+	wo := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-A": "a1"}}}
+	prior := withoutWriteOnly(priorRaw, wo)
+	want := map[string]any{"spec": map[string]any{"endpoint": "https://e"}}
+	// When overlaying the configured shape.
+	got := overlay(fresh, want, prior)
+	// Then the stored secret map is kept rather than deleted.
+	wantOut := map[string]any{"spec": map[string]any{"endpoint": "https://e", "headers": map[string]any{"X-A": "stored"}}}
+	if !reflect.DeepEqual(got, wantOut) {
+		t.Fatalf("got %#v, want %#v", got, wantOut)
+	}
+}
+
+func TestWithoutWriteOnly_whenSourceNotMutated(t *testing.T) {
+	// Given a prior overlay and a manifest_wo that overlap.
+	prior := map[string]any{"spec": map[string]any{"token": "a", "list": []any{map[string]any{"k": 1}}}}
+	wo := map[string]any{"spec": map[string]any{"token": "x"}}
+	before := deepCopy(prior)
+	// When pruning.
+	_ = withoutWriteOnly(prior, wo)
+	// Then the prior document is unchanged.
+	if !reflect.DeepEqual(prior, before) {
+		t.Fatalf("prior mutated: %#v", prior)
+	}
+}
