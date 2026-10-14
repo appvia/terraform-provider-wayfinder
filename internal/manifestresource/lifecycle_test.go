@@ -126,7 +126,7 @@ func TestPlan_whenManifestRejected(t *testing.T) {
 		{"excluded kind", "apiVersion: core/v3\nkind: Run\nmetadata: {name: r}\n", `Kind Run cannot be managed with Terraform\.`},
 		{"unknown kind", "apiVersion: core/v3\nkind: Gadget\nmetadata: {name: g}\n", `Kind Gadget is not supported by this provider version; upgrade the\s+provider\.`},
 		{"bearer token", "apiVersion: integrations/v3\nkind: ExternalIdentity\nmetadata: {name: mcp}\nspec:\n  type: BearerToken\n  bearerToken:\n    token: x\n",
-			`spec\.bearerToken\.token is a secret\. Set it with the\s+wayfinder_external_identity\.bearer_token\.token_wo attribute so it is never\s+stored in state\.`},
+			`spec\.bearerToken\.token is a secret\. Set it with the\s+wayfinder_external_identity\.bearer_token\.token_wo attribute,\s+or in\s+manifest_wo, so it is never\s+stored in state\.`},
 		{"secret map", "apiVersion: core/v3\nkind: Integration\nmetadata: {name: i, workspace: w}\nspec:\n  endpoint: https://e\n  headers: {Authorization: secret-literal}\n",
 			`spec\.headers is a secret\. Set it with the wayfinder_integration\.headers_wo\s+attribute`},
 	} {

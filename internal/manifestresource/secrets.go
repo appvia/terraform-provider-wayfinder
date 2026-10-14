@@ -104,7 +104,7 @@ func isSet(v any) bool {
 // secretMessage tells the user where the secret belongs instead.
 func secretMessage(k manifest.Kind, s secretValue) string {
 	if k.Typed && k.TerraformName != "" {
-		return fmt.Sprintf("%s is a secret. Set it with the wayfinder_%s.%s attribute so it is never stored in state.", s.path, k.TerraformName, s.attr)
+		return fmt.Sprintf("%s is a secret. Set it with the wayfinder_%s.%s attribute, or in manifest_wo, so it is never stored in state.", s.path, k.TerraformName, s.attr)
 	}
-	return fmt.Sprintf("%s is a secret, and wayfinder_manifest never stores secrets in state. Leave it blank (\"\") to keep the value stored in Wayfinder, and set it with the Wayfinder CLI or UI.", s.path)
+	return fmt.Sprintf("%s is a secret, and wayfinder_manifest never stores secrets in state. Set it in manifest_wo instead, leaving it out of manifest or blank (\"\").", s.path)
 }

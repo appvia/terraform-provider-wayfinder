@@ -109,7 +109,7 @@ func TestSecretValues_whenSensitivePathsSet(t *testing.T) {
 	m := testManifest(t)
 	for _, tc := range []struct{ kind, text, want string }{
 		{"ExternalIdentity", "apiVersion: integrations/v3\nkind: ExternalIdentity\nmetadata: {name: mcp}\nspec: {bearerToken: {token: x}}\n",
-			"spec.bearerToken.token is a secret. Set it with the wayfinder_external_identity.bearer_token.token_wo attribute so it is never stored in state."},
+			"spec.bearerToken.token is a secret. Set it with the wayfinder_external_identity.bearer_token.token_wo attribute, or in manifest_wo, so it is never stored in state."},
 		{"Integration", "apiVersion: core/v3\nkind: Integration\nmetadata: {name: i, workspace: w}\nspec: {headers: {a: v}}\n",
 			"spec.headers is a secret. Set it with the wayfinder_integration.headers_wo attribute"},
 	} {
@@ -141,7 +141,7 @@ func TestSecretValues_whenBlankOrManifestOnly(t *testing.T) {
 	}
 	// And a manifest-only kind's secret message does not point at a nonexistent resource.
 	k := findKind(t, m, "Pipeline")
-	if msg := secretMessage(k, secretValue{path: "spec.x"}); strings.Contains(msg, "_wo") || !strings.Contains(msg, "never stores secrets in state") {
+	if msg := secretMessage(k, secretValue{path: "spec.x"}); strings.Contains(msg, "attribute") || !strings.Contains(msg, "never stores secrets in state") {
 		t.Fatalf("message = %s", msg)
 	}
 }
