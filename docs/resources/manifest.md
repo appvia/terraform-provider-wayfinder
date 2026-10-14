@@ -30,7 +30,7 @@ The merge works like this:
 
 Everything in `manifest_wo` is sent when the object is created or replaced. After that, Terraform can't see changes to `manifest_wo`, so changing it alone sends nothing. To send a value again, add or change its entry in `manifest_wo_version`, a map from field path to a version string, as in the example below. Only the paths whose version changed are sent.
 
-Removing a value from `manifest_wo` doesn't delete it in Wayfinder.
+Removing a value from `manifest_wo` doesn't delete it in Wayfinder, unless you change the version of a path that contains it. A changed version sends that path's current value as a whole, so keys you removed from a map are removed.
 
 Secret fields the provider knows about are rejected at plan time when they're set in `manifest`. Any other value you'd rather keep out of state can go in `manifest_wo` too. If Wayfinder itself repeats a value you sent, for example in a status message, that text is stored in state like any other status, and the provider can't filter it out.
 
@@ -93,7 +93,7 @@ resource "wayfinder_manifest" "github_webhook" {
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `manifest_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only YAML or JSON with fields to send to Wayfinder without storing them in plan or state, usually secret fields, for example yamlencode({ spec = { security = { secret = var.webhook_secret } } }). It is merged into manifest: objects merge key by key, lists merge item by item and must have the same length as in manifest (use null for items with nothing to add), and a field may be set in both only when manifest has a blank placeholder for a secret field. It must not set apiVersion, kind, metadata or status. All of it is sent when the object is created or replaced; after that, only paths listed in manifest_wo_version are sent, when their version is added or changed. Changing manifest_wo alone updates nothing. Requires Terraform or OpenTofu 1.11 or later.
-- `manifest_wo_version` (Map of String) Versions of paths in manifest_wo. Each key is a path such as spec.security.secret, spec.rules[0].token or spec.headers["X-Api-Key"]; a path to an object or list covers everything beneath it. When a key is added or its value changes, the value at that path is sent on the next apply. Removing a key or a value from manifest_wo does not delete it in Wayfinder.
+- `manifest_wo_version` (Map of String) Versions of paths in manifest_wo. Each key is a path such as spec.security.secret, spec.rules[0].token or spec.headers["X-Api-Key"]; a path to an object or list covers everything beneath it. When a key is added or its value changes, the value at that path is sent on the next apply. Removing a value from manifest_wo doesn't delete it in Wayfinder, unless you change the version of a path that contains it: a changed version sends that path's current value as a whole, so keys you removed from a map are removed.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `wait_for_ready` (Boolean) Wait for Wayfinder to finish reconciling the object after each change. Defaults to true.
 

@@ -91,7 +91,7 @@ func (r *manifestResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 			"manifest_wo_version": schema.MapAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
-				Description: "Versions of paths in manifest_wo. Each key is a path such as spec.security.secret, spec.rules[0].token or spec.headers[\"X-Api-Key\"]; a path to an object or list covers everything beneath it. When a key is added or its value changes, the value at that path is sent on the next apply. Removing a key or a value from manifest_wo does not delete it in Wayfinder.",
+				Description: "Versions of paths in manifest_wo. Each key is a path such as spec.security.secret, spec.rules[0].token or spec.headers[\"X-Api-Key\"]; a path to an object or list covers everything beneath it. When a key is added or its value changes, the value at that path is sent on the next apply. Removing a value from manifest_wo doesn't delete it in Wayfinder, unless you change the version of a path that contains it: a changed version sends that path's current value as a whole, so keys you removed from a map are removed.",
 			},
 			"wait_for_ready": schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true), Description: "Wait for Wayfinder to finish reconciling the object after each change. Defaults to true."},
 			"timeouts":       timeouts.Attributes(ctx, timeouts.Opts{Create: true, Update: true, Delete: true}),
