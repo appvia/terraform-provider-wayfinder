@@ -281,6 +281,48 @@ Unit tests run against `internal/fakeapi`, an in-process fake Wayfinder API, so 
 
 Acceptance tests live in `internal/acctest` and talk to a real Wayfinder backend. They only run with `TF_ACC=1` set, which `make testacc` does for you. Their setup is described alongside them.
 
+### Running a local build against a real Wayfinder
+
+To try a local build with Terraform against a real backend (for example staging), point Terraform at the built binary with `dev_overrides`. Put the override in a separate CLI config file and select it with `TF_CLI_CONFIG_FILE`, so `~/.terraformrc` stays untouched:
+
+```hcl
+# /tmp/wf-dev/dev.tfrc
+provider_installation {
+  dev_overrides {
+    "appvia/wayfinder" = "/path/to/terraform-provider-wayfinder" # directory holding the binary
+  }
+  direct {}
+}
+```
+
+`make build` writes `./terraform-provider-wayfinder` at the repo root, so the override points at the repo root. With dev overrides, `terraform plan` and `apply` work without `terraform init`. Terraform prints a warning that overrides are in effect, which is expected. Rerun `make build` after each change; Terraform picks up the new binary on the next command.
+
+The provider never reads `wf` CLI profiles. It authenticates only from provider attributes or `WAYFINDER_*` environment variables. A `wf login` session stores two tokens in `~/.wayfinder/profiles`:
+
+- `token` is a short-lived (about an hour) API access token. It works as `WAYFINDER_TOKEN`.
+- `refresh-token` does **not** work. The provider only exchanges tokens scoped `wayfinder:auth:exchange`, while the CLI refresh token is scoped `wayfinder:auth:refresh`. The provider sends it as a bearer and the API rejects it.
+
+So for a quick local loop, refresh the CLI session and export its access token:
+
+```sh
+# /tmp/wf-dev/env.sh: source it, and source it again whenever the token expires
+P=staging.wayfinder.run                      # the wf profile name (wf profiles list)
+wf --profile "$P" whoami >/dev/null          # makes wf refresh its access token if needed
+export TF_CLI_CONFIG_FILE=/tmp/wf-dev/dev.tfrc
+export WAYFINDER_SERVER=https://api.staging.wayfinder.run
+export WAYFINDER_TENANT=my-tenant
+export WAYFINDER_TOKEN=$(yq -r ".users[\"$P\"].identity.token" ~/.wayfinder/profiles)
+```
+
+```sh
+make build
+cd /tmp/wf-dev && source env.sh && terraform plan
+```
+
+Keep the scratch configuration outside the repository. Clean up with `terraform destroy`. Prefix sample object names with `tfacc-` so that, if a run is abandoned, `go test ./internal/acctest/... -sweep=ci` removes them. The sweepers only find tenant-scoped objects and objects inside `tfacc-` workspaces; anything in another workspace must be destroyed by hand. Before relying on a result, check that a second `terraform plan` after `apply` reports no changes, and that write-only values do not appear in `terraform.tfstate`.
+
+The access token expires mid-run, so for longer sessions such as `make testacc` use a service account credential instead (`wf create serviceaccount NAME --issue-credential`, then `WAYFINDER_CLIENT_ID` and `WAYFINDER_CLIENT_SECRET`).
+
 ## Releasing
 
 See [RELEASING.md](RELEASING.md) for the signed release pipeline, required secrets and the pre-release checklist.
