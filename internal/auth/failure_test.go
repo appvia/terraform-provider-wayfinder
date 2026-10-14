@@ -57,7 +57,7 @@ func TestToken_when_context_cancelled(t *testing.T) {
 }
 
 func TestToken_when_response_is_untrusted(t *testing.T) {
-	for _, variant := range []string{"rejected", "malformed", "empty"} {
+	for _, variant := range []string{"rejected", "malformed", "empty", "oversized"} {
 		t.Run(variant, func(t *testing.T) {
 			// Given
 			const secret = "never-echo-response-secret"
@@ -76,6 +76,10 @@ func TestToken_when_response_is_untrusted(t *testing.T) {
 					if _, err := w.Write([]byte(`{}`)); err != nil {
 						t.Error(err)
 					}
+				case "oversized":
+					// The client stops reading at its size cap, so a write error here is expected, not a failure.
+					body := `{"access_token":"` + strings.Repeat("a", 1<<20+1) + `"}`
+					_, _ = w.Write([]byte(body))
 				}
 			}))
 			t.Cleanup(s.Close)
@@ -88,6 +92,9 @@ func TestToken_when_response_is_untrusted(t *testing.T) {
 			// Then
 			if err == nil || strings.Contains(err.Error(), secret) {
 				t.Fatalf("unsafe response error: %v", err)
+			}
+			if variant == "oversized" && (!strings.Contains(err.Error(), "exceeds 1048576 bytes") || strings.Contains(err.Error(), "aaaaaaaa")) {
+				t.Fatalf("oversized response error: %v", err)
 			}
 			if variant == "rejected" {
 				var status *auth.HTTPStatusError
@@ -135,6 +142,26 @@ func TestToken_when_refresh_response_rotates_token(t *testing.T) {
 	}
 	if !strings.Contains(string(s.Requests()[0].Body), `"refresh_token":"rotated"`) {
 		t.Fatal("refresh token rotation lost")
+	}
+}
+
+func TestToken_when_response_has_trailing_whitespace(t *testing.T) {
+	// Given a token endpoint whose body carries a trailing newline after the JSON object.
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write([]byte("{\"access_token\":\"issued\",\"expires_in\":3600}\n")); err != nil {
+			t.Error(err)
+		}
+	}))
+	t.Cleanup(s.Close)
+	r, err := auth.Resolve(auth.Config{Server: s.URL, ClientID: "acme:robot", ClientSecret: "secret", Getenv: emptyEnv, HTTP: s.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When
+	got, err := r.TokenSource.Token(context.Background())
+	// Then
+	if err != nil || got != "issued" {
+		t.Fatalf("token = %q, err = %v", got, err)
 	}
 }
 

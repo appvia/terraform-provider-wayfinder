@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -123,9 +124,23 @@ func (s *cachedSource) issue(ctx context.Context, payload tokenRequest) (tokenRe
 }
 
 const (
-	maxRateLimitRetries = 6
-	rateLimitBaseDelay  = 250 * time.Millisecond
+	maxRateLimitRetries  = 6
+	rateLimitBaseDelay   = 250 * time.Millisecond
+	maxAuthResponseBytes = 1 << 20
 )
+
+var errResponseTooLarge = errors.New("response too large")
+
+func readLimited(r io.Reader, max int64) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > max {
+		return nil, fmt.Errorf("%w: exceeds %d bytes", errResponseTooLarge, max)
+	}
+	return b, nil
+}
 
 func wait(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
@@ -179,7 +194,14 @@ func (s *cachedSource) decode(req *http.Request, out any) (err error) {
 	if resp.StatusCode != http.StatusOK {
 		return &HTTPStatusError{StatusCode: resp.StatusCode, RetryAfter: retryAfterHeader(resp.Header.Get("Retry-After"))}
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	body, err := readLimited(resp.Body, maxAuthResponseBytes)
+	if errors.Is(err, errResponseTooLarge) {
+		return &safeError{operation: fmt.Sprintf("read authentication response (exceeds %d bytes)", maxAuthResponseBytes), cause: err}
+	}
+	if err != nil {
+		return &safeError{operation: "read authentication response", cause: err}
+	}
+	if err := json.Unmarshal(body, out); err != nil {
 		return &safeError{operation: "decode authentication response", cause: err}
 	}
 	return nil
