@@ -23,3 +23,6 @@ crash.log
 .idea/
 .vscode/
 .DS_Store
+
+# tfgen smoke test scratch (cmd/tfgen/compile_test.go)
+/internal/generated_smoke_*/
