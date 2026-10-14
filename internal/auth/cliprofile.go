@@ -140,9 +140,12 @@ func loadCLIProfile(path, name string) (cliProfile, error) {
 				parts = append(parts, ref.Workspace)
 			}
 			parts = append(parts, ref.Name)
-			resolved.Federated = &cliFederated{
-				ServiceAccount: strings.Join(parts, ":"), SubjectTokenFile: federated.SubjectTokenFile,
-				TokenServer: federated.TokenServer, TokenServerToken: federated.TokenServerToken, Audience: federated.Audience,
+			// An empty federated-identity block carries no service account, so it is not a credential.
+			if ref.Tenant != "" || ref.Workspace != "" || ref.Name != "" {
+				resolved.Federated = &cliFederated{
+					ServiceAccount: strings.Join(parts, ":"), SubjectTokenFile: federated.SubjectTokenFile,
+					TokenServer: federated.TokenServer, TokenServerToken: federated.TokenServerToken, Audience: federated.Audience,
+				}
 			}
 		}
 	}

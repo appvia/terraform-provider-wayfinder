@@ -518,7 +518,6 @@ func TestCLIAuth_whenSessionRejected(t *testing.T) {
 					t.Fatalf("lost authentication status: %v", err)
 				}
 			}
-			t.Log(err)
 		})
 	}
 }
@@ -676,6 +675,58 @@ func TestCLIAuth_whenBareTokenExpires(t *testing.T) {
 			} else if !strings.Contains(err.Error(), `the access token stored in wf CLI profile "test" has expired and cannot be renewed`) ||
 				!strings.Contains(err.Error(), `wf login --profile test`) {
 				t.Fatalf("profile-specific expiry error lost: %v", err)
+			}
+		})
+	}
+}
+
+func TestCLIAuth_whenExpiredBareTokenAtConfigure(t *testing.T) {
+	t.Parallel()
+	// Given
+	token := "eyJhbGciOiJub25lIn0." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":200}`)) + ".signature"
+	cfg, _ := cliFixture(t, "https://api.example", "acme", map[string]any{"identity": map[string]string{"token": token}})
+	cfg.Now = func() time.Time { return time.Unix(200, 0) }
+	// When
+	_, err := auth.Resolve(cfg)
+	// Then
+	want := `the access token stored in wf CLI profile "test" has expired and cannot be renewed - sign in again with "wf login --profile test"`
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want exactly %q", err, want)
+	}
+}
+
+func TestCLIAuth_whenEmptyFederatedIdentityIsOnlyCredential(t *testing.T) {
+	t.Parallel()
+	// Given
+	s := fakeapi.New(t)
+	cfg, _ := cliFixture(t, s.URL, "acme", map[string]any{"identity": map[string]any{"federated-identity": map[string]any{}}})
+	// When
+	_, err := auth.Resolve(cfg)
+	// Then
+	want := `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`
+	if err == nil || err.Error() != want || len(s.Requests()) != 0 {
+		t.Fatalf("error = %v, want exactly %q; requests=%d", err, want, len(s.Requests()))
+	}
+}
+
+func TestCLIAuth_whenFederatedProfileInvalid(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ name, tenant, serviceTenant, serviceName, want string }{
+		{"invalid service account", "", "acme", "", `invalid service account stored in wf CLI profile "test": `},
+		{"tenant mismatch", "other", "acme", "robot", `tenant "other" does not match the tenant of the service account stored in wf CLI profile "test" ("acme")`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Given
+			s := fakeapi.New(t)
+			federated := map[string]any{"service-account": map[string]string{"tenant": tc.serviceTenant, "name": tc.serviceName}}
+			cfg, _ := cliFixture(t, s.URL, tc.tenant, map[string]any{"identity": map[string]any{"federated-identity": federated}})
+			// When
+			_, err := auth.Resolve(cfg)
+			// Then
+			if err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), "WAYFINDER_SERVICE_ACCOUNT") ||
+				strings.Contains(err.Error(), "service_account /") || len(s.Requests()) != 0 {
+				t.Fatalf("error = %v, want to contain %q; requests=%d", err, tc.want, len(s.Requests()))
 			}
 		})
 	}

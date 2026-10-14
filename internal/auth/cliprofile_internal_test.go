@@ -138,6 +138,7 @@ func TestCLIProfile_whenConfigurationInvalid(t *testing.T) {
 		{"missing user", "current-profile: test\nprofiles: {test: {server: api, user: absent}}\nservers: {api: {server: https://api.example}}", "", `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`, false},
 		{"null user", "current-profile: test\nprofiles: {test: {server: api, user: alice}}\nservers: {api: {server: https://api.example}}\nusers: {alice: null}", "", `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`, false},
 		{"empty static token", "current-profile: test\nprofiles: {test: {server: api, user: alice}}\nservers: {api: {server: https://api.example}}\nusers: {alice: {token: ''}}", "", `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`, false},
+		{"empty federated identity", "current-profile: test\nprofiles: {test: {server: api, user: alice}}\nservers: {api: {server: https://api.example}}\nusers: {alice: {identity: {federated-identity: {}}}}", "", `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`, false},
 		{"partial client credentials", "current-profile: test\nprofiles: {test: {server: api, user: alice}}\nservers: {api: {server: https://api.example}}\nusers: {alice: {identity: {client-secret: " + secret + "}}}", "", `wf CLI profile "test" has no stored credentials - run "wf login --profile test"`, false},
 		{"null selected profile", "current-profile: test\nprofiles: {test: null}", "", `wf CLI profile "test" not found in %s (available: test)`, false},
 	} {

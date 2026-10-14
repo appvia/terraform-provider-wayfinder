@@ -40,6 +40,7 @@ func resolveCLI(cfg Config, getenv func(string) string, explicitServer, tenant s
 	}
 	source := &cachedSource{server: strings.TrimRight(profile.Server, "/"), http: httpClient, now: now}
 	var selected TokenSource
+	var expired error
 	switch {
 	case profile.RefreshToken != "":
 		source.request = tokenRequest{GrantType: grantRefresh, RefreshToken: profile.RefreshToken}
@@ -54,10 +55,10 @@ func resolveCLI(cfg Config, getenv func(string) string, explicitServer, tenant s
 		identity := profile.Federated
 		refTenant, err := parseServiceAccountTenant(identity.ServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("invalid service_account / WAYFINDER_SERVICE_ACCOUNT: %w", err)
+			return nil, fmt.Errorf("invalid service account stored in wf CLI profile %q: %w", profile.Name, err)
 		}
 		if tenant != "" && tenant != refTenant {
-			return nil, &configurationError{message: fmt.Sprintf("tenant / WAYFINDER_TENANT (%q) does not match the tenant in service_account / WAYFINDER_SERVICE_ACCOUNT (%q) - they must agree, or leave tenant / WAYFINDER_TENANT unset", tenant, refTenant)}
+			return nil, &configurationError{message: fmt.Sprintf("tenant %q does not match the tenant of the service account stored in wf CLI profile %q (%q) - they must agree, or leave tenant / WAYFINDER_TENANT unset", tenant, profile.Name, refTenant)}
 		}
 		tenant = refTenant
 		source.identity = &federatedIdentity{
@@ -72,10 +73,8 @@ func resolveCLI(cfg Config, getenv func(string) string, explicitServer, tenant s
 			source.request = tokenRequest{GrantType: grantRefresh, RefreshToken: profile.Token}
 			selected = source
 		} else {
-			selected = bearerSource{
-				token: profile.Token, expires: claims.Exp, now: now,
-				expired: &configurationError{message: fmt.Sprintf(`the access token stored in wf CLI profile %q has expired and cannot be renewed - sign in again with "wf login --profile %s"`, profile.Name, profile.Name)},
-			}
+			expired = &configurationError{message: fmt.Sprintf(`the access token stored in wf CLI profile %q has expired and cannot be renewed - sign in again with "wf login --profile %s"`, profile.Name, profile.Name)}
+			selected = bearerSource{token: profile.Token, expires: claims.Exp, now: now, expired: expired}
 		}
 	}
 	if tenant == "" {
@@ -88,6 +87,9 @@ func resolveCLI(cfg Config, getenv func(string) string, explicitServer, tenant s
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	if _, err := selected.Token(ctx); err != nil {
+		if expired != nil && err == expired {
+			return nil, err
+		}
 		return nil, fmt.Errorf(`could not authenticate with wf CLI profile %q: %w - check the profile's server is reachable, or sign in again with "wf login --profile %s"`, profile.Name, err, profile.Name)
 	}
 	return &Resolved{Server: profile.Server, Tenant: tenant, TokenSource: selected, HTTP: httpClient}, nil
