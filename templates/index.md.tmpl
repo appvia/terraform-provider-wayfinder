@@ -50,18 +50,40 @@ Every provider attribute is optional and falls back to the matching environment 
 | `federated_token_request_url` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_URL` |
 | `federated_token_request_token` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_TOKEN` |
 | `federated_token_request_audience` | `WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE` |
+| `use_cli` | `WAYFINDER_USE_CLI` |
+| `cli_profile` | `WAYFINDER_CLI_PROFILE` |
 
 `server` defaults to `https://api.on.wayfinder.run`.
 
 The provider picks the first credential that's set, in this order:
 
-1. `token`: an access token, used as is.
+1. `token`: an access token, used as is, or a `wf` refresh token, which is exchanged for access tokens as needed.
 2. `service_account`: a fully qualified service account (`tenant:name` or `tenant:workspace:name`) that signs in with a federated identity token. The token is read from `federated_token_file`, or requested from `federated_token_request_url` with `federated_token_request_token`. Inside GitHub Actions, `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are used when no request URL is set. For token requests, the audience is the UI URL returned by the server's unauthenticated `/apiinfo` endpoint (without trailing slashes), followed by `/t/<tenant>`. Set `federated_token_request_audience` or `WAYFINDER_FEDERATED_TOKEN_REQUEST_AUDIENCE` to override discovery, or if discovery is unavailable.
 3. `client_id` and `client_secret`: service account client credentials.
+4. The signed-in `wf` CLI session (`use_cli`, on by default), used only when none of the above is set. The provider reads the stored credentials of `cli_profile` (or the CLI's current profile) from `~/.wayfinder/profiles` (or `WAYFINDER_CONFIG`), checks them by requesting an access token, and refreshes access tokens itself. It doesn't need `wf` on the PATH and never changes the `wf` configuration. The profile's server, tenant and CA certificate are used unless `server` or `tenant` is set; a `server` that differs from the profile's is an error. Set `use_cli = false` to turn this off.
 
 When `tenant` isn't set, it's taken from `service_account` (the part before the first `:`), or else from the `client_id` prefix before the first `:`. If both `tenant` and `service_account` are set, their tenants must match.
 
-The provider doesn't read `wf` CLI profiles from `~/.wayfinder`. `WAYFINDER_WORKSPACE` and `WAYFINDER_ENVIRONMENT` aren't used as defaults either: set `workspace` and `environment` on each resource.
+`WAYFINDER_WORKSPACE` and `WAYFINDER_ENVIRONMENT` aren't used as defaults, and neither are the CLI profile's workspace and environment: set `workspace` and `environment` on each resource.
+
+### Local use with the wf CLI
+
+Sign in once with the CLI, then run Terraform with no credentials configured:
+
+```shell
+wf login
+terraform plan
+```
+
+To use a profile other than the CLI's current one, name it (`wf profiles list` shows them):
+
+```terraform
+provider "wayfinder" {
+  cli_profile = "my-profile"
+}
+```
+
+Access tokens are refreshed for as long as the `wf` session lasts. When it ends, sign in again with `wf login`.
 
 ### GitHub Actions with OIDC
 
