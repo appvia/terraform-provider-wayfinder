@@ -2,9 +2,11 @@ package manifest
 
 import (
 	"bytes"
+	"errors"
 	"go/parser"
 	"go/token"
 	"os"
+	"regexp/syntax"
 	"strconv"
 	"strings"
 	"testing"
@@ -206,6 +208,23 @@ func baseManifest() *Manifest {
 func TestValidateBaseManifestPasses(t *testing.T) {
 	if err := baseManifest().Validate(); err != nil {
 		t.Fatalf("base manifest should be valid: %v", err)
+	}
+}
+
+func TestValidate_whenPatternInvalid_wrapsRegexpError(t *testing.T) {
+	m := baseManifest()
+	m.Kinds[2].Spec.Properties["foo"].Pattern = "("
+
+	err := m.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want invalid pattern error")
+	}
+	if !strings.Contains(err.Error(), "foo") || !strings.Contains(err.Error(), "pattern: invalid regular expression") {
+		t.Fatalf("Validate() error = %q, want field path and pattern message", err)
+	}
+	var synErr *syntax.Error
+	if !errors.As(err, &synErr) {
+		t.Fatalf("Validate() error = %v, want it to wrap *syntax.Error", err)
 	}
 }
 

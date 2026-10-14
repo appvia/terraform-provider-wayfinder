@@ -458,7 +458,7 @@ func (f *Field) validateConstraints(path string) error {
 	}
 	if f.Pattern != "" {
 		if _, err := regexp.Compile(f.Pattern); err != nil {
-			return fmt.Errorf("%s.pattern: invalid regular expression: %v", path, err)
+			return fmt.Errorf("%s.pattern: invalid regular expression: %w", path, err)
 		}
 	}
 	inEnum := make(map[string]struct{}, len(f.Enum))
