@@ -17,7 +17,7 @@ pushed. The Terraform Registry and the OpenTofu registry then pick it up.
    | `GPG_PRIVATE_KEY` | `release.yml` | ASCII-armored private key (`gpg --armor --export-secret-keys <fingerprint>`) |
    | `PASSPHRASE` | `release.yml` | Passphrase of that key |
    | `ORG_ACTIONS_APP_ID`, `ORG_ACTIONS_APP_SECRET` (organisation secrets) | `bump-wayfinder.yml` / `manifest.yml` | Client ID and private key of the appvia org GitHub App; each run mints a short-lived, contents-read token for `appvia/wayfinder`. The app must be installed on that repository |
-   | `PROVIDER_PR_TOKEN` | `bump-wayfinder.yml` | Token allowed to open the automated Wayfinder bump pull request |
+   | `BUMP_APP_CLIENT_ID`, `BUMP_APP_PRIVATE_KEY` | `bump-wayfinder.yml` | Client ID and private key of a dedicated GitHub App installed only on this repository, with Contents, Pull requests and Issues read/write. It pushes the bump branch and opens the bump pull request or failure issue, so CI runs on the pull request |
    | `ACC_WAYFINDER_SERVER`, `ACC_WAYFINDER_TENANT`, `ACC_WAYFINDER_CLIENT_ID`, `ACC_WAYFINDER_CLIENT_SECRET` | `acceptance.yml` | Service account credential for the test tenant |
 
    `GITHUB_TOKEN` is provided by GitHub. GoReleaser cannot use a passphrase-protected key
