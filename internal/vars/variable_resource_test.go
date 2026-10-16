@@ -30,6 +30,11 @@ func expectVariable(e env, s fakeapi.VarScope, want string) resource.TestCheckFu
 	}
 }
 
+// TestVariable_lifecycle_at_every_scope covers every scope, including instance. IS-8: adding
+// the Optional instance attribute without a schema version bump means Terraform core decodes
+// prior state with instance = null, so the tenant, workspace and environment cases running
+// unchanged with their empty-plan steps prove existing configurations plan with no diff; no
+// state upgrader is added.
 func TestVariable_lifecycle_at_every_scope(t *testing.T) {
 	for name, scope := range testScopes {
 		t.Run(name, func(t *testing.T) {

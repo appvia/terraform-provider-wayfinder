@@ -30,10 +30,13 @@ type variableModel struct {
 	Key         types.String         `tfsdk:"key"`
 	Workspace   types.String         `tfsdk:"workspace"`
 	Environment types.String         `tfsdk:"environment"`
+	Instance    types.String         `tfsdk:"instance"`
 	Value       jsontypes.Normalized `tfsdk:"value"`
 }
 
-func (m variableModel) scoped() scopedKey { return keyOf(m.Key, m.Workspace, m.Environment) }
+func (m variableModel) scoped() scopedKey {
+	return keyOf(m.Key, m.Workspace, m.Environment, m.Instance)
+}
 
 func (r *variableResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_variable"
@@ -54,7 +57,7 @@ func (r *variableResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	})
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages one variable in Wayfinder's variable and secret hierarchy, at tenant, " +
-			"workspace or environment scope. Variable values are not secret and are stored in Terraform " +
+			"workspace, environment or stack instance scope. Variable values are not secret and are stored in Terraform " +
 			"state; use `wayfinder_secret` for sensitive values.\n\n" +
 			"Creating a variable whose key already exists at the same scope fails with an import hint " +
 			"instead of overwriting it.",
@@ -140,7 +143,7 @@ func (r *variableResource) ImportState(ctx context.Context, req resource.ImportS
 	importScope(ctx, req, resp)
 }
 
-// importScope sets id, key, workspace and environment from an import ID; Read fills the rest.
+// importScope sets id, key, workspace, environment and instance from an import ID; Read fills the rest.
 func importScope(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	k, err := parseID(req.ID)
 	if err != nil {
@@ -152,6 +155,7 @@ func importScope(ctx context.Context, req resource.ImportStateRequest, resp *res
 		"key":         types.StringValue(k.Key),
 		"workspace":   optional(k.Workspace),
 		"environment": optional(k.Environment),
+		"instance":    optional(k.Instance),
 	} {
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attr), v)...)
 	}
