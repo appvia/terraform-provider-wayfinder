@@ -25,6 +25,7 @@ The golden fixture `internal/manifest/testdata/golden-manifest.json` is the shar
 | `wayfinderCommit` | `WayfinderCommit` | string | Optional. If set, 40 lowercase hex characters: the peeled commit SHA. |
 | `kinds` | `Kinds` | array of `Kind` | Sorted by `kind`, unique. |
 | `excluded` | `Excluded` | array of string | Optional. Sorted, unique, and disjoint from `kinds`. These are kinds classified as excluded: the provider can report "cannot be managed" for them instead of "upgrade the provider". |
+| `varScopes` | `VarScopes` | array of string | Optional. Sorted, unique, lowercase (matches `^[a-z][a-z0-9]*$`). The variable and secret scopes Wayfinder serves that the provider supports, classified in `tools/manifestgen/kinds.yaml`. Not restricted to a fixed set. |
 
 ### Kind
 
@@ -85,6 +86,8 @@ kinds[2].spec.properties.foo.type: unknown type "x"
 - `Pipeline`: manifest-only (`typed` is `false`).
 
 `excluded` lists `Run` and `Session`.
+
+`varScopes` lists the four variable and secret scopes: `environment`, `instance`, `tenant`, `workspace`.
 
 <!-- Add further sections below this one. Keep the "Manifest contract" heading as is. -->
 

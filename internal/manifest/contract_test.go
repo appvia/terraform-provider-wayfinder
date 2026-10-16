@@ -277,3 +277,60 @@ func TestValidateNegativeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestVarScopes_roundTripsThroughEncodeDecode(t *testing.T) {
+	m := baseManifest()
+	m.VarScopes = []string{"instance", "tenant"}
+
+	raw, err := Encode(m)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	got, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if strings.Join(got.VarScopes, ",") != "instance,tenant" {
+		t.Fatalf("VarScopes = %v, want [instance tenant]", got.VarScopes)
+	}
+}
+
+func TestVarScopes_absentFieldIsValid(t *testing.T) {
+	m := baseManifest()
+	raw, err := Encode(m)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if bytes.Contains(raw, []byte("varScopes")) {
+		t.Fatalf("absent VarScopes must not be emitted, got %s", raw)
+	}
+	if _, err := Parse(raw); err != nil {
+		t.Fatalf("manifest without varScopes should parse: %v", err)
+	}
+}
+
+func TestVarScopes_rejectsInvalidLists(t *testing.T) {
+	cases := []struct {
+		name    string
+		scopes  []string
+		wantErr string
+	}{
+		{name: "unsorted", scopes: []string{"workspace", "tenant"}, wantErr: "varScopes[1]: must be sorted and unique"},
+		{name: "duplicate", scopes: []string{"tenant", "tenant"}, wantErr: "varScopes[1]: must be sorted and unique"},
+		{name: "uppercase", scopes: []string{"Bad"}, wantErr: `varScopes[0]: invalid scope "Bad"`},
+		{name: "empty", scopes: []string{""}, wantErr: `varScopes[0]: invalid scope ""`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := baseManifest()
+			m.VarScopes = tc.scopes
+			err := m.Validate()
+			if err == nil {
+				t.Fatalf("Validate() = nil, want error containing %q", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Validate() error = %q, want it to contain %q", err, tc.wantErr)
+			}
+		})
+	}
+}
