@@ -89,6 +89,7 @@ func checkVarsDestroyed(s *terraform.State) error {
 		return err
 	}
 	kinds := map[string]string{"wayfinder_variable": "variables", "wayfinder_secret": "secrets"}
+	checked := 0
 	for _, rs := range s.RootModule().Resources {
 		kind, ok := kinds[rs.Type]
 		if !ok || rs.Primary == nil || rs.Primary.Attributes["instance"] == "" {
@@ -101,6 +102,10 @@ func checkVarsDestroyed(s *terraform.State) error {
 		if err := c.DoJSON(context.Background(), http.MethodGet, p, nil, nil); !errors.Is(err, client.ErrNotFound) {
 			return fmt.Errorf("%s %s still exists after destroy (err=%v)", rs.Type, rs.Primary.ID, err)
 		}
+		checked++
+	}
+	if checked == 0 {
+		return fmt.Errorf("checkVarsDestroyed: no instance-scoped variable or secret found in state")
 	}
 	return nil
 }
