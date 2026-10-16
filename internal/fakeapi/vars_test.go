@@ -10,9 +10,10 @@ import (
 
 func TestVars_per_key_api_at_every_scope_masks_secrets(t *testing.T) {
 	scopes := map[string]fakeapi.VarScope{
-		"/api/v3/general/tenants/acme/vars":                         {Tenant: "acme"},
-		"/api/v3/general/tenants/acme/workspaces/ws1/vars":          {Tenant: "acme", Workspace: "ws1"},
-		"/api/v3/general/tenants/acme/workspaces/ws1/envs/dev/vars": {Tenant: "acme", Workspace: "ws1", Environment: "dev"},
+		"/api/v3/general/tenants/acme/vars":                                      {Tenant: "acme"},
+		"/api/v3/general/tenants/acme/workspaces/ws1/vars":                       {Tenant: "acme", Workspace: "ws1"},
+		"/api/v3/general/tenants/acme/workspaces/ws1/envs/dev/vars":              {Tenant: "acme", Workspace: "ws1", Environment: "dev"},
+		"/api/v3/general/tenants/acme/workspaces/ws1/envs/dev/instancevars/app1": {Tenant: "acme", Workspace: "ws1", Environment: "dev", Instance: "app1"},
 	}
 	for base, scope := range scopes {
 		t.Run(base, func(t *testing.T) {
