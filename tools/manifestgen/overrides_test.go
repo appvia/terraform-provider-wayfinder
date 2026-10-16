@@ -86,6 +86,48 @@ func TestParseKinds_rejects_invalid_files(t *testing.T) {
 	}
 }
 
+func TestParseKinds_whenVarScopesValid(t *testing.T) {
+	// Given sorted scope classifications, including an excluded scope.
+	data := []byte(`varScopes:
+  - {scope: instance, class: exclude, reason: unsupported}
+  - {scope: tenant, class: typed}
+`)
+	// When parsed.
+	kinds, err := ParseKinds(data)
+	// Then the classifications and reason are retained.
+	require.NoError(t, err)
+	assert.Equal(t, []VarScopeEntry{
+		{Scope: "instance", Class: ClassExclude, Reason: "unsupported"},
+		{Scope: "tenant", Class: ClassTyped},
+	}, kinds.VarScopes)
+}
+
+func TestParseKinds_whenVarScopesInvalid(t *testing.T) {
+	// Given malformed scope classifications.
+	cases := map[string]struct {
+		yaml string
+		want string
+	}{
+		"missing scope":  {"- {class: typed}", "scope is required"},
+		"exclude reason": {"- {scope: tenant, class: exclude}", "class exclude requires a reason"},
+		"blank reason":   {"- {scope: tenant, class: exclude, reason: ' '}", "class exclude requires a reason"},
+		"manifest class": {"- {scope: tenant, class: manifest}", `invalid class "manifest"`},
+		"unknown class":  {"- {scope: tenant, class: other}", `invalid class "other"`},
+		"missing class":  {"- {scope: tenant}", `invalid class ""`},
+		"unsorted":       {"- {scope: tenant, class: typed}\n- {scope: instance, class: typed}", "entries must be sorted"},
+		"duplicate":      {"- {scope: tenant, class: typed}\n- {scope: tenant, class: typed}", "duplicate entry"},
+		"unknown key":    {"- {scope: tenant, class: typed, extra: true}", `unknown field "extra"`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			// When parsed.
+			_, err := ParseKinds([]byte("varScopes:\n" + tc.yaml + "\n"))
+			// Then malformed input fails at the boundary.
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
 func TestParseFields_accepts_valid_file(t *testing.T) {
 	data := []byte(`fields:
   - {group: a, kind: A, path: spec.x, immutable: true, computed: true}

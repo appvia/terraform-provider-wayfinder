@@ -38,9 +38,17 @@ type KindEntry struct {
 // GroupKind returns the entry's identity.
 func (k KindEntry) GroupKind() GroupKind { return GroupKind{Group: k.Group, Kind: k.Kind} }
 
+// VarScopeEntry classifies one scope served by the vars API.
+type VarScopeEntry struct {
+	Scope  string    `json:"scope"`
+	Class  KindClass `json:"class"`
+	Reason string    `json:"reason,omitempty"`
+}
+
 // KindsFile is the top-level shape of kinds.yaml.
 type KindsFile struct {
-	Kinds []KindEntry `json:"kinds"`
+	Kinds     []KindEntry     `json:"kinds"`
+	VarScopes []VarScopeEntry `json:"varScopes"`
 }
 
 // FieldEntry is one entry of fields.yaml.
@@ -115,6 +123,24 @@ func validateKinds(kf KindsFile) error {
 			errs = append(errs, checkOrder(at, compareGroupKind(kf.Kinds[i-1].GroupKind(), k.GroupKind())))
 		}
 	}
+	for i, scope := range kf.VarScopes {
+		at := fmt.Sprintf("varScopes[%d] %s", i, scope.Scope)
+		if scope.Scope == "" {
+			errs = append(errs, fmt.Errorf("%s: scope is required", at))
+		}
+		switch scope.Class {
+		case ClassTyped:
+		case ClassExclude:
+			if strings.TrimSpace(scope.Reason) == "" {
+				errs = append(errs, fmt.Errorf("%s: class exclude requires a reason", at))
+			}
+		default:
+			errs = append(errs, fmt.Errorf("%s: invalid class %q (want typed|exclude)", at, scope.Class))
+		}
+		if i > 0 {
+			errs = append(errs, checkOrder(at, cmp.Compare(kf.VarScopes[i-1].Scope, scope.Scope)))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -176,7 +202,7 @@ func checkOrder(at string, c int) error {
 	case c == 0:
 		return fmt.Errorf("%s: duplicate entry", at)
 	case c > 0:
-		return fmt.Errorf("%s: entries must be sorted by group, kind (, path)", at)
+		return fmt.Errorf("%s: entries must be sorted by group, kind (, path), or scope for varScopes", at)
 	default:
 		return nil
 	}

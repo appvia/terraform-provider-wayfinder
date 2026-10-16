@@ -190,7 +190,15 @@ Optional keys:
 
 `name` and `noWait` are rejected on excluded kinds. Unknown keys, unsorted entries, duplicates, a registered kind missing from the file and an entry for a kind that no longer exists all fail generation.
 
-The internal kind that stores the variable and secret hierarchy is excluded. Variables and secrets are managed with the hand-written `wayfinder_variable` and `wayfinder_secret` resources instead.
+The internal kind that stores the variable and secret hierarchy stays excluded. Variables and secrets are managed with the hand-written `wayfinder_variable` and `wayfinder_secret` resources instead; their supported scopes are classified separately in `varScopes`.
+
+### Variable scopes
+
+The top-level `varScopes` list in `tools/manifestgen/kinds.yaml` classifies every scope served by the vars API, sorted by `scope` with no duplicates. Each entry has `scope`, `class: typed|exclude`, and an optional `reason` that is required for `exclude`. `typed` scopes are supported by the hand-written variable and secret resources and recorded in the manifest's `varScopes`; excluded scopes are omitted. The `manifest` class is not valid for variable scopes.
+
+Manifestgen parses non-test Go source files directly in the pinned checkout's `pkg/apiserver/handlers` directory. It reads literal `scopeName` values from functions returning `varsHandler` literals, and counts only constructors called by `apiregister.RegisterHandler(X())` inside `init`. It does not import or execute handler code. Unregistered constructors are ignored; zero registered scopes or a registered constructor with a missing or non-literal scope name fails generation. Scopes served by a different handler type are not detected.
+
+Generation fails if a discovered scope is missing from `varScopes` or a listed scope is no longer served. On a Wayfinder bump, classify each new scope: implement support in `internal/vars` and use `typed`, or use `exclude` with a reason. Update or remove stale entries, regenerate the manifest, and run `make manifestgen-test` and the provider tests. The provider's supported scopes must match the manifest's typed scopes.
 
 ## Field overrides
 

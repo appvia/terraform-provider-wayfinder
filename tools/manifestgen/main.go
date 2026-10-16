@@ -65,14 +65,21 @@ func run(args []string, stdout io.Writer) error {
 	if err := CheckCoverage(kinds, registry, o.wayfinderVersion); err != nil {
 		return err
 	}
-	if err := CheckFieldKinds(kinds, fields); err != nil {
-		return err
-	}
-
 	root, err := checkoutRoot()
 	if err != nil {
 		return err
 	}
+	scopes, err := varScopeInventory(root)
+	if err != nil {
+		return err
+	}
+	if err := CheckVarScopeCoverage(kinds, scopes, o.wayfinderVersion); err != nil {
+		return err
+	}
+	if err := CheckFieldKinds(kinds, fields); err != nil {
+		return err
+	}
+
 	inventory, err := controllerInventory(root)
 	if err != nil {
 		return err
