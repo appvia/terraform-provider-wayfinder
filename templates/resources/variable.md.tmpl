@@ -11,7 +11,7 @@ description: |-
 
 Each `wayfinder_variable` manages a single key. Other keys at the same scope, including ones set in the Wayfinder UI or by other configurations, are left alone. The value is a JSON document, so use `jsonencode` for strings, numbers, lists and objects.
 
-Keys resolve through Wayfinder's variable and secret hierarchy: an environment value overrides a workspace value, which overrides a tenant value.
+Keys resolve through Wayfinder's variable and secret hierarchy: a stack instance value overrides an environment value, which overrides a workspace value, which overrides a tenant value.
 
 Creating a variable whose key already exists at the same scope fails with an import hint rather than overwriting it. Import the existing key first.
 
@@ -23,6 +23,6 @@ Creating a variable whose key already exists at the same scope fails with an imp
 
 ## Import
 
-The import ID is `[workspace/[environment/]]key`.
+The import ID is `[workspace/[environment/[instance/]]]key`.
 
 {{ codefile "shell" .ImportFile }}

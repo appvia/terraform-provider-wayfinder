@@ -11,3 +11,12 @@ resource "wayfinder_variable" "replicas" {
   environment = "dev"
   value       = jsonencode(2)
 }
+
+# Variable scoped to one stack instance in an environment.
+resource "wayfinder_variable" "instance_replicas" {
+  key         = "replicas"
+  workspace   = "plat"
+  environment = "dev"
+  instance    = "checkout"
+  value       = jsonencode(4)
+}

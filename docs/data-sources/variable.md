@@ -2,12 +2,12 @@
 page_title: "wayfinder_variable Data Source - wayfinder"
 subcategory: ""
 description: |-
-  Reads one variable from Wayfinder's variable and secret hierarchy at tenant, workspace or environment scope. Only the value stored at exactly that scope is returned. Secrets cannot be read.
+  Reads one variable from Wayfinder's variable and secret hierarchy at tenant, workspace, environment or stack instance scope. Only the value stored at exactly that scope is returned. Secrets cannot be read.
 ---
 
 # wayfinder_variable (Data Source)
 
-Reads one variable from Wayfinder's variable and secret hierarchy at tenant, workspace or environment scope. Only the value stored at exactly that scope is returned. Secrets cannot be read.
+Reads one variable from Wayfinder's variable and secret hierarchy at tenant, workspace, environment or stack instance scope. Only the value stored at exactly that scope is returned. Secrets cannot be read.
 
 ## Example Usage
 
@@ -18,6 +18,18 @@ data "wayfinder_variable" "region" {
 
 output "region" {
   value = jsondecode(data.wayfinder_variable.region.value)
+}
+
+# Read a key set for one stack instance in an environment.
+data "wayfinder_variable" "checkout_replicas" {
+  key         = "replicas"
+  workspace   = "plat"
+  environment = "dev"
+  instance    = "checkout"
+}
+
+output "checkout_replicas" {
+  value = jsondecode(data.wayfinder_variable.checkout_replicas.value)
 }
 ```
 
@@ -31,9 +43,10 @@ output "region" {
 ### Optional
 
 - `environment` (String) Environment (within `workspace`) to read from. Requires `workspace`.
+- `instance` (String) Stack instance (within `environment`) to read from. Requires `workspace` and `environment`.
 - `workspace` (String) Workspace to read from. Omit for a tenant-wide key.
 
 ### Read-Only
 
-- `id` (String) Identifier `[workspace/[environment/]]key`, also used for import.
+- `id` (String) Identifier `[workspace/[environment/[instance/]]]key`, also used for import.
 - `value` (String) Value of the variable as a JSON document. Use `jsondecode` to read it.
