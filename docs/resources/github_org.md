@@ -30,7 +30,7 @@ resource "wayfinder_github_org" "example" {
 ### Optional
 
 - `annotations` (Map of String)
-- `install_grant` (String) InstallGrant is the short-lived token Wayfinder issues when you return from authorising the Wayfinder GitHub App on GitHub. It lists the accounts the App is installed on that you can see, and says which you may connect: an organization you are an owner of, your own personal account, or an installation you asked an owner to approve. Supply it when creating a connection; it is consumed on creation and never stored. The same organization may be connected to several tenants, once in each. Connections are created by the GitHub connect flow, which supplies this automatically.
+- `install_grant` (String) InstallGrant is the short-lived token Wayfinder issues when you return from authorising the Wayfinder GitHub App on GitHub. It lists the accounts the App is installed on that you can see, and says which you may connect: an organization you are an owner of, your own personal account, or an installation you asked an owner to approve. Supply it when creating a connection, or when updating one to reconnect it to the installation the grant holds for the same organization after the App was installed again. It is consumed and never stored. The same organization may be connected to several tenants, once in each. The GitHub connect flow supplies it automatically.
 - `labels` (Map of String)
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `wait_for_ready` (Boolean)
