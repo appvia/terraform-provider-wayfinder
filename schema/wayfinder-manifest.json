@@ -7540,5 +7540,11 @@
     "WorkflowDefinition",
     "WorkflowInvocation",
     "WorkloadIdentity"
+  ],
+  "varScopes": [
+    "environment",
+    "instance",
+    "tenant",
+    "workspace"
   ]
 }

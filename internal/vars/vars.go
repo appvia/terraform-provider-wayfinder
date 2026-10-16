@@ -41,6 +41,10 @@ func DataSources() []func() datasource.DataSource {
 // keyPattern is the server's key rule (server/org/handlers/internal/varset/validate.go:29-30).
 var keyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
 
+// supportedScopes lists the variable and secret scopes this package implements. It must equal the
+// manifest's varScopes and the keys of the tests' testScopes.
+var supportedScopes = []string{"environment", "instance", "tenant", "workspace"}
+
 // API collection names in the per-key routes.
 const (
 	kindVariables = "variables"

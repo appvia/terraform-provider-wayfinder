@@ -40,7 +40,7 @@ Terraform/OpenTofu provider for Appvia Wayfinder (terraform-plugin-framework, pr
 | Wrong attribute shape/description | `cmd/tfgen/`, `tools/manifestgen/fields.yaml` | Regenerate after |
 | Expose/hide a Wayfinder kind | `tools/manifestgen/kinds.yaml` | Classes: typed / manifest / exclude |
 | `wayfinder_manifest` behaviour | `internal/manifestresource/` | Reuses engine `Waiter`, `AddAPIError`, `Reference` |
-| Variables/secrets | `internal/vars/` | Separate from engine; own CRUD |
+| Variables/secrets | `internal/vars/` | Separate from engine; own CRUD; supported scopes guarded by manifest `varScopes` (`scopes_manifest_test.go`) |
 | Auth / env vars | `internal/auth/`, `internal/provider/configure.go` | `WAYFINDER_*` attrs/env, then the wf CLI session (`use_cli`; profiles file read-only) |
 | Doc page content | `templates/`, `examples/`, then `make docs` | `scripts/check-docs.sh` needs an example per page |
 | Manifest wire format | `internal/manifest/contract.go` | Spec in DEVELOPMENT.md "Manifest contract" |
