@@ -42,6 +42,8 @@ type lifecycle struct {
 	checks  []resource.TestCheckFunc
 	// secrets are literals that must never reach the plan, state or the state file.
 	secrets []string
+	// checkDestroy replaces checkDestroyed when set.
+	checkDestroy resource.TestCheckFunc
 }
 
 func emptyAfterApply(pre ...plancheck.PlanCheck) resource.ConfigPlanChecks {
@@ -73,12 +75,16 @@ func run(t *testing.T, lc lifecycle) {
 			ImportStateVerify: true, ImportStateVerifyIgnore: append(append([]string{}, defaultIgnore...), i.ignore...),
 		})
 	}
+	checkDestroy := lc.checkDestroy
+	if checkDestroy == nil {
+		checkDestroy = checkDestroyed
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { PreCheck(t) },
 		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		// Write-only attributes need Terraform 1.11.
 		TerraformVersionChecks: []tfversion.TerraformVersionCheck{tfversion.SkipBelow(tfversion.Version1_11_0)},
-		CheckDestroy:           checkDestroyed,
+		CheckDestroy:           checkDestroy,
 		Steps:                  steps,
 	})
 }

@@ -149,22 +149,45 @@ type varList struct {
 	Variables []struct{ Name string } `json:"variables"`
 }
 
-// sweepVars deletes NamePrefix variables and secrets at tenant scope and in test workspaces.
+// sweepVars deletes NamePrefix variables and secrets at tenant, workspace and environment
+// scope within test workspaces.
+//
+// Known limitation: instance-scope stores (.../envs/{e}/instancevars/{i}) cannot be listed
+// through the vars API, so keys abandoned there by an aborted run are NOT swept. The acceptance
+// tests delete them on destroy and verify that with checkVarsDestroyed.
 func sweepVars(ctx context.Context, c *client.Client) error {
 	ws, err := testWorkspaces(ctx, c)
 	if err != nil {
 		return err
 	}
+	m, err := manifest.LoadEmbedded()
+	if err != nil {
+		return err
+	}
+	environment, ok := m.FindKind("org", "Environment")
+	if !ok {
+		return errors.New("embedded manifest has no Environment kind")
+	}
+	tenant := "/api/v3/general/tenants/" + url.PathEscape(c.Tenant)
+	bases := []string{tenant}
 	var errs []error
-	for _, w := range append([]string{""}, ws...) {
-		base := "/api/v3/general/tenants/" + url.PathEscape(c.Tenant)
-		if w != "" {
-			base += "/workspaces/" + url.PathEscape(w)
+	for _, w := range ws {
+		wsBase := tenant + "/workspaces/" + url.PathEscape(w)
+		bases = append(bases, wsBase)
+		envs, err := list(ctx, c, client.Ref{Group: environment.Group, Version: environment.Version, APIPath: environment.APIPath, Workspace: w})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("listing environments in %q: %w", w, err))
+			continue
 		}
+		for _, e := range envs.Items {
+			bases = append(bases, wsBase+"/envs/"+url.PathEscape(e.Metadata.Name))
+		}
+	}
+	for _, base := range bases {
 		var vl varList
 		if err := c.DoJSON(ctx, http.MethodGet, base+"/vars", nil, &vl); err != nil {
 			if !errors.Is(err, client.ErrNotFound) {
-				errs = append(errs, fmt.Errorf("listing vars in %q: %w", w, err))
+				errs = append(errs, fmt.Errorf("listing vars at %q: %w", base, err))
 			}
 			continue
 		}
@@ -175,7 +198,7 @@ func sweepVars(ctx context.Context, c *client.Client) error {
 				}
 				err := c.DoJSON(ctx, http.MethodDelete, base+"/vars/"+kind+"/"+url.PathEscape(e.Name), nil, nil)
 				if err != nil && !errors.Is(err, client.ErrNotFound) {
-					errs = append(errs, fmt.Errorf("deleting %s %s in %q: %w", kind, e.Name, w, err))
+					errs = append(errs, fmt.Errorf("deleting %s %s at %q: %w", kind, e.Name, base, err))
 				}
 			}
 		}
