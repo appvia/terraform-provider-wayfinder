@@ -33,7 +33,7 @@ resource "wayfinder_cloud_resource" "example" {
 - `cloud` (String) Cloud is the cloud provider this resource is provisioned in, e.g. "aws". It must agree with the cloud named by destination. Deprecated: derivable from destination, and becomes so in the next release.
 - `environment` (String)
 - `name` (String)
-- `plan_ref` (String) PlanRef is the cloud resource plan, and optionally the plan version, to provision from. It is scope-qualified, e.g. "wayfinder/aws-s3-bucket@3" for a plan Wayfinder ships or "team-payments/orders-db@2" for one owned by a workspace. The version actually used for the most recent deployment is reported in status.
+- `plan_ref` (String) PlanRef is the cloud resource plan, and optionally the plan version, to provision from, e.g. "aws-s3-bucket@3" for a plan shared across the tenant or "team-payments/orders-db@2" for one owned by a workspace. A plan from Wayfinder's catalogue is referenced by the copy you installed. The version actually used for the most recent deployment is reported in status.
 - `workspace` (String)
 
 ### Optional

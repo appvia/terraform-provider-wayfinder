@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
-  "wayfinderVersion": "v3.3.2",
-  "wayfinderCommit": "5aacb60745e012793395c95fa2dd967c9636ed1e",
+  "wayfinderVersion": "v3.4.0",
+  "wayfinderCommit": "a5cdc6eeca88c9a1974c98141554697dda615338",
   "kinds": [
     {
       "kind": "AWSAccount",
@@ -200,7 +200,7 @@
           },
           "planRef": {
             "type": "string",
-            "description": "PlanRef is the cloud resource plan, and optionally the plan version, to provision from. It is scope-qualified, e.g. \"wayfinder/aws-s3-bucket@3\" for a plan Wayfinder ships or \"team-payments/orders-db@2\" for one owned by a workspace. The version actually used for the most recent deployment is reported in status.",
+            "description": "PlanRef is the cloud resource plan, and optionally the plan version, to provision from, e.g. \"aws-s3-bucket@3\" for a plan shared across the tenant or \"team-payments/orders-db@2\" for one owned by a workspace. A plan from Wayfinder's catalogue is referenced by the copy you installed. The version actually used for the most recent deployment is reported in status.",
             "required": true
           },
           "stackInstanceRef": {
@@ -7383,7 +7383,7 @@
           },
           "installGrant": {
             "type": "string",
-            "description": "InstallGrant is the short-lived token Wayfinder issues when you return from authorising the Wayfinder GitHub App on GitHub. It lists the accounts the App is installed on that you can see, and says which you may connect: an organization you are an owner of, your own personal account, or an installation you asked an owner to approve. Supply it when creating a connection; it is consumed on creation and never stored. The same organization may be connected to several tenants, once in each. Connections are created by the GitHub connect flow, which supplies this automatically."
+            "description": "InstallGrant is the short-lived token Wayfinder issues when you return from authorising the Wayfinder GitHub App on GitHub. It lists the accounts the App is installed on that you can see, and says which you may connect: an organization you are an owner of, your own personal account, or an installation you asked an owner to approve. Supply it when creating a connection, or when updating one to reconnect it to the installation the grant holds for the same organization after the App was installed again. It is consumed and never stored. The same organization may be connected to several tenants, once in each. The GitHub connect flow supplies it automatically."
           }
         }
       }
@@ -7507,14 +7507,20 @@
     }
   ],
   "excluded": [
+    "AIAgentDefinition",
     "AIConversation",
     "AIMemory",
+    "AIProviderDefinition",
     "BillingPlan",
+    "BillingPlanTenantOffer",
     "ClientAuthorization",
+    "CloudResourcePlanDefinition",
     "CommandInvocation",
     "Identity",
     "IntegrationDefinition",
+    "KubeResourcePlanDefinition",
     "MCPDefinition",
+    "RepoTemplateDefinition",
     "Run",
     "Sandbox",
     "SourceProposal",
@@ -7523,6 +7529,7 @@
     "System",
     "Tenant",
     "TenantConfig",
+    "UsageRecord",
     "User",
     "VarSet",
     "WayfinderRole",
@@ -7530,6 +7537,7 @@
     "WebAPIInvocation",
     "WebhookDefinition",
     "WebhookInvocation",
+    "WorkflowDefinition",
     "WorkflowInvocation",
     "WorkloadIdentity"
   ]
