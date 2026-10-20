@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package fakekinds registers manifest kinds with the fake Wayfinder API, so provider-level
 // tests can exercise the generated resources against exactly the kinds compiled into the
 // provider.

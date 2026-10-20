@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package auth
 
 import (
@@ -38,9 +41,14 @@ func resolveCLI(cfg Config, getenv func(string) string, explicitServer, tenant s
 			return nil, fmt.Errorf("could not trust the wf CLI profile's CA certificate: %w", err)
 		}
 	}
+
 	source := &cachedSource{server: strings.TrimRight(profile.Server, "/"), http: httpClient, now: now}
-	var selected TokenSource
-	var expired error
+
+	var (
+		selected TokenSource
+		expired  error
+	)
+
 	switch {
 	case profile.RefreshToken != "":
 		source.request = tokenRequest{GrantType: grantRefresh, RefreshToken: profile.RefreshToken}

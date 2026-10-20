@@ -21,6 +21,9 @@ Creating a variable whose key already exists at the same scope fails with an imp
 ## Example Usage
 
 ```terraform
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Tenant-wide variable.
 resource "wayfinder_variable" "region" {
   key   = "default_region"
@@ -69,6 +72,9 @@ The import ID is `[workspace/[environment/[instance/]]]key`.
 
 ```shell
 #!/bin/sh
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 set -eu
 # [workspace/[environment/[instance/]]]key
 terraform import wayfinder_variable.region 'default_region'

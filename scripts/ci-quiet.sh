@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Runs a command with its output withheld from the CI log.
 #
 # Used where a command may quote private Wayfinder source (for example code

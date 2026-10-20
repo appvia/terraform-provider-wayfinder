@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Terraform classification of every Wayfinder API kind registered at the
 # pinned tag (WAYFINDER_REF). Read by tools/manifestgen; see DEVELOPMENT.md.
 #

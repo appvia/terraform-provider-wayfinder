@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert_test
 
 import (
@@ -23,8 +26,10 @@ func TestFromObject_whenPopulateAllReadsGoldenOptionalFields(t *testing.T) {
 				x := object(t, `{"metadata":{"name":"example","labels":{"server":"yes"},"annotations":{"controller":"yes"}},"spec":`+tc.spec+`}`)
 				prior := config(t, m, nil)
 				// When reading with the explicit import option (or the existing API).
-				var got tftypes.Value
-				var err error
+				var (
+					got tftypes.Value
+					err error
+				)
 				if populate {
 					got, err = convert.FromObjectOpts(m, x, prior, convert.FromOpts{PopulateAll: true})
 				} else {

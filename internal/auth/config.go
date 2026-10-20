@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package auth resolves provider authentication, using the wf CLI session as a last resort.
 // CLI profiles are read only; the provider never runs wf or writes its configuration.
 package auth

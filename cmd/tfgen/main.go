@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // tfgen emits literal Terraform schemas and examples from the pinned manifest.
 package main
 

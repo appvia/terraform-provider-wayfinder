@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package convert maps manifest-defined Terraform values to Wayfinder JSON.
 package convert
 

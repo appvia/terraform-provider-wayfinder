@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package provider implements the Wayfinder Terraform provider: the provider block,
 // authentication, and registration of every resource and data source.
 package provider

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package client is a minimal REST client for the Wayfinder resource API (plan R8-R10).
 //
 // It never sends query parameters on resource routes (no apply, force or withSensitiveData),

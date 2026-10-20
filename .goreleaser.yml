@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Adapted from hashicorp/terraform-provider-scaffolding-framework.
 # Local dry run (no signing, no publishing):
 #   GORELEASER_CURRENT_TAG=v0.1.0 goreleaser release --snapshot --clean --skip=sign,publish

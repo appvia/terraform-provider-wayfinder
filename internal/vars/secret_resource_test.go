@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package vars_test
 
 import (
@@ -51,8 +54,12 @@ func expectPuts(e env, want int) resource.TestCheckFunc {
 // secretAbsent asserts every secret literal is missing from state and plan.
 func secretAbsent() ([]statecheck.StateCheck, []plancheck.PlanCheck) {
 	lits := []string{secretV1, secretV2, secretV3}
-	var sc []statecheck.StateCheck
-	var pc []plancheck.PlanCheck
+
+	var (
+		sc []statecheck.StateCheck
+		pc []plancheck.PlanCheck
+	)
+
 	for _, l := range lits {
 		sc = append(sc, absentFromState(l))
 		pc = append(pc, absentFromPlan(l))

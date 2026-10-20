@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Scenario tests for bump-wayfinder.sh failure, restore and preflight paths.
 #
 # Runs every scenario in a throwaway clone of this repository (HEAD plus the

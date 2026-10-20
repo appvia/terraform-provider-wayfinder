@@ -1,10 +1,13 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 BINARY  := terraform-provider-wayfinder
 VERSION ?= dev
 
 # Allow `make WAYFINDER_GIT_URL=file:///path/to/wayfinder <target>`.
 export WAYFINDER_GIT_URL
 
-.PHONY: build test testacc generate lint docs wayfinder-src manifest manifestgen-test bump-wayfinder test-scripts check-reproducible
+.PHONY: build test testacc generate lint license-headers check-license-headers docs wayfinder-src manifest manifestgen-test bump-wayfinder test-scripts check-reproducible
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) .
@@ -20,6 +23,13 @@ generate:
 
 lint:
 	golangci-lint run
+	./scripts/license-headers.sh --check
+
+license-headers:
+	./scripts/license-headers.sh
+
+check-license-headers:
+	./scripts/license-headers.sh --check
 
 TFPLUGINDOCS = go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 
@@ -46,6 +56,7 @@ test-scripts:
 	./scripts/test-ci-quiet.sh
 	./scripts/test-wayfinder-checkout.sh
 	./scripts/test-bump-wayfinder.sh
+	./scripts/test-license-headers.sh
 
 check-reproducible:
 	./scripts/check-reproducible.sh

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Guards that the provider module never depends on the private Wayfinder module.
 set -euo pipefail
 

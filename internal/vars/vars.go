@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package vars implements the wayfinder_variable and wayfinder_secret resources and the
 // wayfinder_variable data source over Wayfinder's per-key variables API (plan R16).
 //

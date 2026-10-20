@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package provider
 
 import (
@@ -12,10 +15,12 @@ import (
 )
 
 func TestProvider_manifestUpdate_whenOnlyManagedKeysRemoved(t *testing.T) {
-	const initial = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1', b: '2'}\nspec: {description: first}\n"
-	const labelRemoved = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1'}\nspec: {description: first}\n"
-	const bothRemoved = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1'}\nspec: {}\n"
-	const specRemoved = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1', b: '2'}\nspec: {}\n"
+	const (
+		initial      = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1', b: '2'}\nspec: {description: first}\n"
+		labelRemoved = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1'}\nspec: {description: first}\n"
+		bothRemoved  = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1'}\nspec: {}\n"
+		specRemoved  = "apiVersion: org/v3\nkind: Workspace\nmetadata:\n  name: example\n  labels: {a: '1', b: '2'}\nspec: {}\n"
+	)
 	for _, tc := range []struct {
 		name      string
 		manifests []string

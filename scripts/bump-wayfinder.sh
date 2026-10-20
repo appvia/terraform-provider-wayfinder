@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Usage: bump-wayfinder.sh <tag> [--dry-run] [--allow-downgrade]
 #
 # Moves WAYFINDER_REF to <tag>, regenerates the manifest, code and docs, and

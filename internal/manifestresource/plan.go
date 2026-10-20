@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -15,10 +18,14 @@ import (
 
 // writeOnlyFrom reads apply-time write-only values from configuration, never plan or state.
 func (r *manifestResource) writeOnlyFrom(ctx context.Context, config tfsdk.Config, want desired, d *diag.Diagnostics) (wo map[string]any, versions map[string]string, ok bool) {
-	var text types.String
-	var versionMap types.Map
+	var (
+		text       types.String
+		versionMap types.Map
+	)
+
 	d.Append(config.GetAttribute(ctx, path.Root("manifest_wo"), &text)...)
 	d.Append(config.GetAttribute(ctx, path.Root("manifest_wo_version"), &versionMap)...)
+
 	if d.HasError() {
 		return nil, nil, false
 	}
@@ -33,8 +40,11 @@ func (r *manifestResource) writeOnlyFrom(ctx context.Context, config tfsdk.Confi
 }
 
 func (r *manifestResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var text, wo types.String
-	var versionMap types.Map
+	var (
+		text, wo   types.String
+		versionMap types.Map
+	)
+
 	d := &resp.Diagnostics
 	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest"), &text)...)
 	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest_wo"), &wo)...)

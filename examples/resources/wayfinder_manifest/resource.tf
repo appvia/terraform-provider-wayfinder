@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 resource "wayfinder_manifest" "developers" {
   manifest = yamlencode({
     apiVersion = "org/v3"

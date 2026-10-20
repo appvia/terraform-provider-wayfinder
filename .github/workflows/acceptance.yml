@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 name: Acceptance
 
 # Runs the TF_ACC acceptance tests against a real Wayfinder tenant, then sweeps leftovers.

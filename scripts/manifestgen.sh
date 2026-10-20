@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Usage: manifestgen.sh run|test [extra generator args]
 # Compiles tools/manifestgen INSIDE the pinned Wayfinder checkout so Wayfinder's
 # own go.mod/go.sum govern the build (see DEVELOPMENT.md).

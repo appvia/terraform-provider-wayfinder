@@ -12,6 +12,9 @@ Reads one variable from Wayfinder's variable and secret hierarchy at tenant, wor
 ## Example Usage
 
 ```terraform
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 data "wayfinder_variable" "region" {
   key = "default_region"
 }

@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # shellcheck shell=bash
 # Sourced helper: git access to the Wayfinder source repo.
 #

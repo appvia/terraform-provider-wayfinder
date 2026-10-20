@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -68,8 +71,11 @@ func parseWriteOnly(text string) (map[string]any, []woProblem) {
 
 // mergeWriteOnly applies wo to a private copy, allowing blank placeholders only at secret paths.
 func mergeWriteOnly(k manifest.Kind, base, wo map[string]any) (map[string]any, []woProblem) {
-	var problems []woProblem
-	var merge func(any, any, bool, woPath) any
+	var (
+		problems []woProblem
+		merge    func(any, any, bool, woPath) any
+	)
+
 	merge = func(base, value any, exists bool, p woPath) any {
 		if value == nil {
 			return base

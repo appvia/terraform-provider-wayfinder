@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package acctest runs the provider's acceptance tests (TF_ACC=1) against a real Wayfinder API
 // and sweeps the objects they leave behind. Every object a test creates is named with
 // NamePrefix so the sweepers can find it.

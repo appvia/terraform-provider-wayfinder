@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Scenario tests for wayfinder-checkout.sh, latest-wayfinder-tag.sh and semver-gt.sh.
 # Builds a throwaway git repo with release tags and runs the scripts from a
 # temporary copy of the repo root, so the real .wayfinder-src is never touched.

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package manifestresource implements wayfinder_manifest: one Wayfinder object managed from a
 // YAML or JSON manifest, for any kind in the provider manifest (including kinds without a
 // dedicated resource). CRUD, readiness and error handling follow the generic engine.

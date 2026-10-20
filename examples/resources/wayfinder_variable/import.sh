@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 set -eu
 # [workspace/[environment/[instance/]]]key
 terraform import wayfinder_variable.region 'default_region'
