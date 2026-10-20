@@ -47,36 +47,44 @@ func diffFiles(oldPath, newPath string) (diffReport, error) {
 	if err != nil {
 		return diffReport{}, err
 	}
+
 	newM, err := manifest.Load(newPath)
 	if err != nil {
 		return diffReport{}, err
 	}
+
 	return diffManifests(oldM, newM)
 }
 
 func diffManifests(oldM, newM *manifest.Manifest) (diffReport, error) {
 	r := diffReport{From: oldM.WayfinderVersion, To: newM.WayfinderVersion}
+
 	oldS, err := resourceSchemas(oldM)
 	if err != nil {
 		return r, fmt.Errorf("old manifest: %w", err)
 	}
+
 	newS, err := resourceSchemas(newM)
 	if err != nil {
 		return r, fmt.Errorf("new manifest: %w", err)
 	}
+
 	for _, res := range slices.Sorted(maps.Keys(oldS)) {
 		if _, ok := newS[res]; !ok {
 			r.RemovedKinds = append(r.RemovedKinds, res)
 		}
 	}
+
 	for _, res := range slices.Sorted(maps.Keys(newS)) {
 		before, ok := oldS[res]
 		if !ok {
 			r.AddedKinds = append(r.AddedKinds, res)
 			continue
 		}
+
 		r.compare(res, before, newS[res])
 	}
+
 	return r, nil
 }
 
@@ -86,6 +94,7 @@ func (r *diffReport) compare(res string, before, after resourceSchema) {
 			r.Removed = append(r.Removed, attrChange{Resource: res, Attribute: attr})
 		}
 	}
+
 	for _, attr := range slices.Sorted(maps.Keys(after.types)) {
 		oldType, existed := before.types[attr]
 		switch {
@@ -94,6 +103,7 @@ func (r *diffReport) compare(res string, before, after resourceSchema) {
 		case oldType != after.types[attr]:
 			r.TypeChanged = append(r.TypeChanged, attrChange{Resource: res, Attribute: attr, Detail: oldType + " -> " + after.types[attr]})
 		}
+
 		if after.required[attr] && !before.required[attr] {
 			r.NowRequired = append(r.NowRequired, attrChange{Resource: res, Attribute: attr})
 		}
@@ -102,24 +112,30 @@ func (r *diffReport) compare(res string, before, after resourceSchema) {
 
 func resourceSchemas(m *manifest.Manifest) (map[string]resourceSchema, error) {
 	out := map[string]resourceSchema{}
+
 	for _, k := range m.TypedKinds() {
 		mapping, err := convert.NewMapping(k)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", k.Kind, err)
 		}
+
 		s := resourceSchema{types: map[string]string{}, required: map[string]bool{}}
 		flattenType(mapping.TFType(), "", s.types)
+
 		if k.Spec != nil {
 			requiredPaths(k.Spec, true, "", s.required)
 		}
+
 		out[typeName(k)] = s
 	}
+
 	return out, nil
 }
 
 func flattenType(obj tftypes.Object, prefix string, out map[string]string) {
 	for name, typ := range obj.AttributeTypes {
 		path := prefix + name
+
 		out[path] = typeString(typ)
 		if nested, ok := nestedObject(typ); ok {
 			flattenType(nested, path+".", out)
@@ -166,10 +182,12 @@ func typeString(typ tftypes.Type) string {
 func requiredPaths(f *manifest.Field, top bool, prefix string, out map[string]bool) {
 	for _, jsonName := range propertyNames(f) {
 		child := f.Properties[jsonName]
+
 		path := prefix + fieldName(jsonName, child, top)
 		if child.Required {
 			out[path] = true
 		}
+
 		switch child.Type {
 		case "object":
 			requiredPaths(child, false, path+".", out)
@@ -188,15 +206,20 @@ func (r diffReport) write(w io.Writer) {
 	if r.breaking() {
 		b.WriteString("BREAKING\n\n")
 	}
+
 	fmt.Fprintf(&b, "## Wayfinder %s -> %s: Terraform schema changes\n", r.From, r.To)
+
 	if !r.changed() {
 		b.WriteString("\nNo resource schema changes.\n")
 	}
+
 	section := func(title string, items []string) {
 		if len(items) == 0 {
 			return
 		}
+
 		fmt.Fprintf(&b, "\n### %s\n\n", title)
+
 		for _, item := range items {
 			fmt.Fprintf(&b, "- %s\n", item)
 		}
@@ -208,15 +231,19 @@ func (r diffReport) write(w io.Writer) {
 			if c.Detail != "" {
 				item += " (" + c.Detail + ")"
 			}
+
 			items = append(items, item)
 		}
+
 		return items
 	}
+
 	section("Removed resources (breaking)", r.RemovedKinds)
 	section("Removed attributes (breaking)", attrs(r.Removed))
 	section("Attributes that became required (breaking)", attrs(r.NowRequired))
 	section("Attribute type changes (breaking)", attrs(r.TypeChanged))
 	section("Added resources", r.AddedKinds)
 	section("Added attributes", attrs(r.Added))
+
 	_, _ = io.WriteString(w, b.String())
 }

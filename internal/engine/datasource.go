@@ -41,6 +41,7 @@ func (s *kindDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 func (s *kindDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	c, d := configuredClient(req.ProviderData)
 	resp.Diagnostics.Append(d...)
+
 	s.client = c
 }
 
@@ -49,21 +50,25 @@ func (s *kindDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	if !r.prepared(&resp.Diagnostics) {
 		return
 	}
+
 	i, err := identityOf(s.kind, req.Config.Raw)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid resource identity", err.Error())
 		return
 	}
+
 	obj, err := s.client.Get(ctx, reference(s.kind, i))
 	if err != nil {
 		r.apiDiagnostics(&resp.Diagnostics, err, i.ID())
 		return
 	}
+
 	configured, err := attributes(req.Config.Raw)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid resource configuration", err.Error())
 		return
 	}
+
 	prior := map[string]tftypes.Value{}
 	for name, typ := range s.mapping.TFType().AttributeTypes {
 		prior[name] = tftypes.NewValue(typ, nil)
@@ -71,17 +76,21 @@ func (s *kindDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			prior[name] = value
 		}
 	}
+
 	state, err := convert.FromDataSource(s.mapping, obj, tftypes.NewValue(s.mapping.TFType(), prior))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read resource", err.Error())
 		return
 	}
+
 	values, err := attributes(state)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read resource", err.Error())
 		return
 	}
+
 	typ := s.schema.Type().TerraformType(ctx).(tftypes.Object)
+
 	projected := map[string]tftypes.Value{}
 	for name, child := range typ.AttributeTypes {
 		projected[name] = tftypes.NewValue(child, nil)
@@ -89,5 +98,6 @@ func (s *kindDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			projected[name] = value
 		}
 	}
+
 	resp.State.Raw = tftypes.NewValue(typ, projected)
 }

@@ -26,6 +26,7 @@ func TestProvider_configure_whenCLIProfileSession(t *testing.T) {
 	api := httptest.NewTLSServer(e.fake)
 	t.Cleanup(api.Close)
 	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: api.Certificate().Raw})
+
 	body, err := json.Marshal(map[string]any{
 		"current-profile": "other",
 		"users":           map[string]any{"alice": map[string]any{"identity": map[string]string{"refresh-token": "cli-refresh"}}},
@@ -41,10 +42,12 @@ func TestProvider_configure_whenCLIProfileSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	profiles := filepath.Join(t.TempDir(), "profiles")
 	if err := os.WriteFile(profiles, body, 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	t.Setenv("WAYFINDER_CONFIG", profiles)
 	t.Setenv("WAYFINDER_USE_CLI", "")
 	t.Setenv(CAFileEnv, "")
@@ -73,13 +76,16 @@ data "wayfinder_workspace" "read" {
 	if n := e.fake.Mints(fakeapi.GrantRefreshToken); n < 1 {
 		t.Fatalf("refresh-token mints = %d, want >= 1", n)
 	}
+
 	if n := e.fake.CountRequests("GET", "/api/v3/resources/tenants/"+testTenant+"/"); n < 1 {
 		t.Fatalf("GET requests to tenant %s = %d, want >= 1", testTenant, n)
 	}
+
 	after, err := os.ReadFile(profiles)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !bytes.Equal(after, body) {
 		t.Fatal("profiles file was modified")
 	}
@@ -100,6 +106,7 @@ func TestProvider_configure_whenNoCredentialsAndCLIDisabled(t *testing.T) {
 				Config:      cfg + `data "wayfinder_workspace" "read" { name = "example" }`,
 				ExpectError: regexp.MustCompile(`(?s)set token, service_account.*WAYFINDER_CLIENT_SECRET(\s|$)`),
 			}}})
+
 			if n := len(e.fake.Requests()); n != 0 {
 				t.Fatalf("requests = %d, want 0", n)
 			}

@@ -28,9 +28,11 @@ func TestSpec_whenKindHasNestedSensitiveFields(t *testing.T) {
 	if s.Kind != "Thing" || s.APIPath != "things" || !s.Versioned || !s.HasStatus || !slices.Equal(s.Scopes, []fakeapi.Scope{fakeapi.ScopeTenant, fakeapi.ScopeWorkspace}) {
 		t.Fatalf("spec = %+v", s)
 	}
+
 	if want := []string{"spec.apiKey", "spec.bearer.token", "spec.rules.password"}; !slices.Equal(s.SensitiveStrings, want) {
 		t.Fatalf("SensitiveStrings = %v, want %v", s.SensitiveStrings, want)
 	}
+
 	if want := []string{"spec.headers"}; !slices.Equal(s.SensitiveMaps, want) {
 		t.Fatalf("SensitiveMaps = %v, want %v", s.SensitiveMaps, want)
 	}
@@ -59,6 +61,7 @@ func TestServerDefaults_whenComputedFieldsAtVariousDepths(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("defaults = %v, want %v", got, want)
 	}
+
 	for path, v := range want {
 		if fmt.Sprint(got[path]) != fmt.Sprint(v) {
 			t.Fatalf("%s = %v, want %v", path, got[path], v)

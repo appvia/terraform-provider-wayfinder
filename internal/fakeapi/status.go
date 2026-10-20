@@ -43,10 +43,12 @@ func (s *Server) startOperation(e *entry, prevStatus map[string]any) {
 		delete(e.obj, "status")
 		return
 	}
+
 	status := map[string]any{"status": "Pending"}
 	if prevStatus != nil {
 		status = prevStatus
 	}
+
 	status["processing"] = map[string]any{"operationID": s.nextID("op")}
 	e.obj["status"] = status
 }
@@ -58,15 +60,18 @@ func (e *entry) advance() {
 	if !e.kind.HasStatus {
 		return
 	}
+
 	steps := e.steps()
 	if e.cursor < len(steps)-1 {
 		e.cursor++
 	}
+
 	step := steps[e.cursor]
 	status := child(e.obj, "status", true)
 	status["status"] = step.Status
 	setOrDelete(status, "message", step.Message)
 	setOrDelete(status, "detail", step.Detail)
+
 	if e.cursor == len(steps)-1 {
 		op := str(child(status, "processing", true), "operationID")
 		status["lastReconcile"] = map[string]any{
@@ -82,6 +87,7 @@ func setOrDelete(m map[string]any, key, val string) {
 		delete(m, key)
 		return
 	}
+
 	m[key] = val
 }
 
@@ -91,7 +97,9 @@ func (s *Server) SetStatusScript(ref Ref, steps []StatusStep) {
 	s.t.Helper()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	e := s.mustEntry(ref)
+
 	e.script = append([]StatusStep(nil), steps...)
 	s.startOperation(e, child(e.obj, "status", false))
 }

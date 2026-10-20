@@ -15,6 +15,7 @@ func TestAPIInfo_returns_endpoints_when_unauthenticated(t *testing.T) {
 	got := callWithToken(t, s, "", http.MethodGet, "/apiinfo", nil)
 	// Then
 	wantCode(t, got, http.StatusOK)
+
 	if got.body["generalAPI"] != "/api/v3/general" || got.body["resourceAPI"] != "/api/v3/resources" || got.body["ui"] != "https://portal.example/" {
 		t.Fatalf("apiinfo = %s", got.raw)
 	}

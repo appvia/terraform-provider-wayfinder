@@ -94,6 +94,7 @@ resource "wayfinder_kube_resource_plan" "example" {
 				if v := s[0].Attributes["labels.team"]; v != "x" {
 					return fmt.Errorf("labels.team = %q", v)
 				}
+
 				return nil
 			}},
 		// Then user label was adopted and the plan is empty (no annotation removal).

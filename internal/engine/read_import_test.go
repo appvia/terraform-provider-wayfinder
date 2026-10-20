@@ -28,15 +28,19 @@ func TestRead_whenImportHydratesOptionalFieldsAndSetsGeneration(t *testing.T) {
 	r.Read(t.Context(), resource.ReadRequest{State: imported.State}, &resp)
 	// Then the optional field and generation baseline are adopted.
 	assertDiagnostics(t, resp.Diagnostics)
+
 	var attrs map[string]tftypes.Value
 	if err := resp.State.Raw.As(&attrs); err != nil {
 		t.Fatal(err)
 	}
+
 	if !attrs["timeout_seconds"].Equal(tftypes.NewValue(tftypes.Number, 30)) {
 		t.Fatalf("timeout_seconds = %s", attrs["timeout_seconds"])
 	}
+
 	b, d := resp.Private.GetKey(t.Context(), "generation")
 	assertDiagnostics(t, d)
+
 	if string(b) != "1" {
 		t.Fatalf("generation = %s", b)
 	}
@@ -57,15 +61,19 @@ func TestRead_whenCreatedResourceIgnoresNewServerDefault(t *testing.T) {
 	r.Read(t.Context(), resource.ReadRequest{State: created.State, Private: created.Private}, &resp)
 	// Then the unconfigured default stays null and the baseline stays at Create's value.
 	assertDiagnostics(t, resp.Diagnostics)
+
 	var attrs map[string]tftypes.Value
 	if err := resp.State.Raw.As(&attrs); err != nil {
 		t.Fatal(err)
 	}
+
 	if !attrs["timeout_seconds"].IsNull() {
 		t.Fatalf("timeout_seconds = %s", attrs["timeout_seconds"])
 	}
+
 	b, d := resp.Private.GetKey(t.Context(), "generation")
 	assertDiagnostics(t, d)
+
 	if string(b) != "1" {
 		t.Fatalf("generation = %s", b)
 	}

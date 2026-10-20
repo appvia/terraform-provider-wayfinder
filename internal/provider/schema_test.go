@@ -22,6 +22,7 @@ func TestProviderSchema_whenCLIAttributesDeclared(t *testing.T) {
 	if !okUseCLI || !useCLI.Optional {
 		t.Fatalf("use_cli = %#v, want optional BoolAttribute", attrs["use_cli"])
 	}
+
 	if !okCLIProfile || !cliProfile.Optional {
 		t.Fatalf("cli_profile = %#v, want optional StringAttribute", attrs["cli_profile"])
 	}
@@ -34,6 +35,7 @@ func TestProviderSchema_whenDescriptionsNameEnvironmentVariable(t *testing.T) {
 	// When reading the description of each CLI session attribute.
 	for name, env := range map[string]string{"use_cli": "WAYFINDER_USE_CLI", "cli_profile": "WAYFINDER_CLI_PROFILE"} {
 		var desc string
+
 		switch a := attrs[name].(type) {
 		case schema.BoolAttribute:
 			desc = a.MarkdownDescription

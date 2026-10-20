@@ -18,6 +18,7 @@ func TestAttributePath_whenNestedValidationField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, tc := range []struct {
 		json string
 		want path.Path

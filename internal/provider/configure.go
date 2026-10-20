@@ -30,27 +30,34 @@ const requestTimeout = 60 * time.Second
 func (p *wayfinderProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var m providerModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	cfg, d := authConfig(m)
 	resp.Diagnostics.Append(d...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	httpClient, err := NewHTTPClient(os.Getenv(CAFileEnv))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to configure the Wayfinder provider", err.Error())
 		return
 	}
+
 	cfg.HTTP = httpClient
 	cfg.CLIHTTP = CLIHTTPClient
 	cfg.Context = ctx
+
 	resolved, err := auth.Resolve(cfg)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to configure the Wayfinder provider", err.Error())
 		return
 	}
+
 	c := &client.Client{
 		BaseURL:     resolved.Server,
 		Tenant:      resolved.Tenant,
@@ -66,6 +73,7 @@ func (p *wayfinderProvider) Configure(ctx context.Context, req provider.Configur
 // back to the environment; unknown attributes cannot be resolved and are reported.
 func authConfig(m providerModel) (auth.Config, diag.Diagnostics) {
 	var d diag.Diagnostics
+
 	unknown := func(name string) {
 		d.AddAttributeError(path.Root(name), "Unknown Wayfinder provider attribute",
 			"The provider cannot be configured because "+name+" is not known until apply. "+
@@ -75,8 +83,10 @@ func authConfig(m providerModel) (auth.Config, diag.Diagnostics) {
 		if v.IsUnknown() {
 			unknown(name)
 		}
+
 		return v.ValueString()
 	}
+
 	cfg := auth.Config{
 		Server:                        value("server", m.Server),
 		Tenant:                        value("tenant", m.Tenant),
@@ -97,6 +107,7 @@ func authConfig(m providerModel) (auth.Config, diag.Diagnostics) {
 		useCLI := m.UseCLI.ValueBool()
 		cfg.UseCLI = &useCLI
 	}
+
 	return cfg, d
 }
 
@@ -119,13 +130,16 @@ func CLIHTTPClient(caPEM []byte) (*http.Client, error) {
 
 func newHTTPClient(caFile string, extraPEM []byte) (*http.Client, error) {
 	var tlsConfig *tls.Config
+
 	if caFile != "" || len(extraPEM) > 0 {
 		pool, err := caPool(caFile, extraPEM)
 		if err != nil {
 			return nil, err
 		}
+
 		tlsConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 	}
+
 	return &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
@@ -148,17 +162,21 @@ func caPool(caFile string, extraPEM []byte) (*x509.CertPool, error) {
 	if err != nil {
 		pool = x509.NewCertPool()
 	}
+
 	if caFile != "" {
 		pem, err := os.ReadFile(caFile)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", CAFileEnv, err)
 		}
+
 		if !pool.AppendCertsFromPEM(pem) {
 			return nil, fmt.Errorf("%s %s contains no PEM certificates", CAFileEnv, caFile)
 		}
 	}
+
 	if len(extraPEM) > 0 && !pool.AppendCertsFromPEM(extraPEM) {
 		return nil, errors.New("the wf CLI profile's CA certificate contains no PEM certificates")
 	}
+
 	return pool, nil
 }

@@ -26,17 +26,23 @@ import (
 func configWO(manifest, wo string, versions map[string]string) string {
 	var b strings.Builder
 	b.WriteString("resource \"wayfinder_manifest\" \"this\" {\n  manifest = <<-EOT\n" + indent(manifest) + "  EOT\n")
+
 	if wo != "" {
 		b.WriteString("  manifest_wo = <<-EOT\n" + indent(wo) + "  EOT\n")
 	}
+
 	if versions != nil {
 		b.WriteString("  manifest_wo_version = {\n")
+
 		for _, k := range slices.Sorted(maps.Keys(versions)) {
 			b.WriteString("    " + strconv.Quote(k) + " = " + strconv.Quote(versions[k]) + "\n")
 		}
+
 		b.WriteString("  }\n")
 	}
+
 	b.WriteString("}\n")
+
 	return b.String()
 }
 
@@ -56,6 +62,7 @@ const (
 
 func TestPlan_whenManifestWORejected(t *testing.T) {
 	pipeline := "apiVersion: core.appvia.io/v3\nkind: Pipeline\nmetadata: {name: build, workspace: ws, environment: dev}\nspec:\n  trigger: manual\n  steps:\n    - {name: test}\n    - {name: lint}\n"
+
 	apiKey := "spec:\n  apiKey: " + woPlanLiteral + "\n"
 	for _, tc := range []struct {
 		name, manifest, wo string
@@ -74,6 +81,7 @@ func TestPlan_whenManifestWORejected(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given a manifest_wo configuration the provider must refuse.
 			e := newTestEnv(t)
+
 			var planErr error
 			// When planning it.
 			resource.UnitTest(t, resource.TestCase{
@@ -86,13 +94,17 @@ func TestPlan_whenManifestWORejected(t *testing.T) {
 			if planErr == nil {
 				t.Fatal("expected a plan error, got none")
 			}
+
 			t.Logf("plan error: %s", planErr)
+
 			if !wrapTolerant(tc.want).MatchString(planErr.Error()) {
 				t.Fatalf("error does not match %q: %s", tc.want, planErr)
 			}
+
 			if tc.literal != "" && strings.Contains(sourceLines.ReplaceAllString(planErr.Error(), ""), tc.literal) {
 				t.Fatalf("diagnostic contains manifest_wo literal %q: %s", tc.literal, planErr)
 			}
+
 			if n := len(e.fake.Requests()); n != 0 {
 				t.Fatalf("requests = %d", n)
 			}
@@ -154,22 +166,27 @@ const (
 // and checks that none of the test literals reached public state, including object_json.
 func checkStoredWO(t *testing.T, e testEnv, ref fakeapi.Ref, want map[string]any) resource.TestCheckFunc {
 	t.Helper()
+
 	return func(state *terraform.State) error {
 		obj, exists := e.fake.Object(ref)
 		if !exists {
 			return fmt.Errorf("stored object %s is missing", ref.Name)
 		}
+
 		for _, key := range slices.Sorted(maps.Keys(want)) {
 			p, err := parseWOPath(key)
 			if err != nil {
 				return err
 			}
+
 			got, ok := lookup(obj, p)
 			t.Logf("stored %s = %v", key, got)
+
 			if !ok || !reflect.DeepEqual(got, want[key]) {
 				return fmt.Errorf("stored %s = %#v, want %#v", key, got, want[key])
 			}
 		}
+
 		for _, module := range state.Modules {
 			for _, res := range module.Resources {
 				for key, value := range res.Primary.Attributes {
@@ -179,6 +196,7 @@ func checkStoredWO(t *testing.T, e testEnv, ref fakeapi.Ref, want map[string]any
 				}
 			}
 		}
+
 		return nil
 	}
 }
@@ -384,6 +402,7 @@ func TestUpdate_whenServerRejectsManifestWOField(t *testing.T) {
 				if op == fakeapi.OpUpdate {
 					return []fakeapi.FieldError{{Field: "spec.apiKey", Message: "bad key"}}
 				}
+
 				return nil
 			}
 		}

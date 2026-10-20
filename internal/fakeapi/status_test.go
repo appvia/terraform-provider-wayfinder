@@ -16,17 +16,20 @@ func reconciled(obj map[string]any) bool {
 	lrGen := dig(obj, "status", "lastReconcile", "generation")
 	opProc, _ := dig(obj, "status", "processing", "operationID").(string)
 	opDone, _ := dig(obj, "status", "lastReconcile", "operationID").(string)
+
 	return gen == lrGen && opProc == opDone
 }
 
 func pollStatuses(t *testing.T, s *fakeapi.Server, path string, n int) []map[string]any {
 	t.Helper()
+
 	out := make([]map[string]any, 0, n)
 	for range n {
 		r := call(t, s, http.MethodGet, path, nil)
 		wantCode(t, r, http.StatusOK)
 		out = append(out, r.body)
 	}
+
 	return out
 }
 
@@ -41,15 +44,18 @@ func TestStatus_script_progresses_pending_twice_then_success_and_reconciles_last
 	if reconciled(created.body) {
 		t.Error("create response already reconciled")
 	}
+
 	want := []string{"Pending", "Pending", "Success", "Success"}
 	for i, p := range polls {
 		if st := dig(p, "status", "status"); st != want[i] {
 			t.Errorf("poll %d status = %v, want %s", i, st, want[i])
 		}
+
 		if reconciled(p) != (i >= 2) {
 			t.Errorf("poll %d reconciled = %v", i, reconciled(p))
 		}
 	}
+
 	if dig(polls[2], "status", "message") != "ready" {
 		t.Errorf("message = %v", dig(polls[2], "status", "message"))
 	}
@@ -68,6 +74,7 @@ func TestStatus_script_restarts_after_update_with_new_operation(t *testing.T) {
 	if reconciled(upd.body) || reconciled(polls[0]) || !reconciled(polls[1]) {
 		t.Errorf("reconciled after update = %v %v %v", reconciled(upd.body), reconciled(polls[0]), reconciled(polls[1]))
 	}
+
 	if dig(polls[1], "status", "lastReconcile", "operationID") == dig(done, "status", "lastReconcile", "operationID") {
 		t.Error("update did not start a new operation")
 	}

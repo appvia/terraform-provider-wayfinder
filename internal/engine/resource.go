@@ -49,6 +49,7 @@ func typeSuffix(k manifest.Kind) string {
 	if k.TerraformName != "" {
 		return k.TerraformName
 	}
+
 	return convert.SnakeCase(k.Kind)
 }
 
@@ -63,6 +64,7 @@ func (r *kindResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 func (r *kindResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	c, d := configuredClient(req.ProviderData)
 	resp.Diagnostics.Append(d...)
+
 	r.client = c
 }
 
@@ -70,10 +72,12 @@ func configuredClient(data any) (*client.Client, diag.Diagnostics) {
 	if data == nil {
 		return nil, nil
 	}
+
 	c, ok := data.(*client.Client)
 	if !ok {
 		return nil, diag.Diagnostics{diag.NewErrorDiagnostic("Unexpected provider data", fmt.Sprintf("expected *client.Client, got %T", data))}
 	}
+
 	return c, nil
 }
 
@@ -81,8 +85,10 @@ func (r *kindResource) prepared(d *diag.Diagnostics) bool {
 	if r.mappingErr != nil {
 		d.AddError("Invalid kind mapping", r.mappingErr.Error())
 	}
+
 	if r.client == nil {
 		d.AddError("Wayfinder client unavailable", "The provider must be configured before reading or writing resources.")
 	}
+
 	return !d.HasError()
 }

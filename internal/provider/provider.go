@@ -45,6 +45,7 @@ func (p *wayfinderProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 func (p *wayfinderProvider) Resources(_ context.Context) []func() resource.Resource {
 	out := append([]func() resource.Resource{}, generated.Resources()...)
 	out = append(out, manifestresource.NewResource)
+
 	return append(out, vars.Resources()...)
 }
 

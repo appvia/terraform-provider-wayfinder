@@ -25,15 +25,19 @@ func TestWaiter_whenObjectReconcilesThenIsDeleted(t *testing.T) {
 	// When waiting for readiness, deleting, and waiting for removal.
 	obj, d := w.Ready(t.Context(), ref)
 	assertDiagnostics(t, d)
+
 	if err := e.c.Delete(t.Context(), ref); err != nil {
 		t.Fatal(err)
 	}
+
 	d = w.Gone(t.Context(), ref)
 	// Then readiness returns the reconciled object and removal completes.
 	assertDiagnostics(t, d)
+
 	if g, err := Generation(obj); err != nil || g != 1 {
 		t.Fatalf("generation = %d, %v", g, err)
 	}
+
 	if n := e.fake.CountRequests(http.MethodGet, ""); n < 3 {
 		t.Fatalf("GET = %d, want >= 3", n)
 	}

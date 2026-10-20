@@ -16,7 +16,9 @@ import (
 func TestProvider_update_whenImmutableAttributeChanged(t *testing.T) {
 	// Given: an applied workspace with a slug.
 	e := newTestEnv(t)
+
 	const addr = "wayfinder_workspace.example"
+
 	ref := e.ref(e.kind(t, "workspace"), "", "example")
 	cfg := func(slug, description string) string {
 		return e.providerBlock() + fmt.Sprintf("resource \"wayfinder_workspace\" \"example\" {\n name = \"example\"\n slug = %q\n description = %q\n}\n", slug, description)
@@ -43,17 +45,21 @@ func TestProvider_update_whenImmutableAttributeChanged(t *testing.T) {
 						return fmt.Errorf("%s count = %d, want %d", method, got, want)
 					}
 				}
+
 				obj, exists := e.fake.Object(ref)
 				if !exists {
 					return fmt.Errorf("replaced Workspace missing")
 				}
+
 				spec, err := nestedMap(obj, "spec")
 				if err != nil {
 					return err
 				}
+
 				if spec["slug"] != "core" {
 					return fmt.Errorf("spec.slug = %v, want core", spec["slug"])
 				}
+
 				return nil
 			},
 		},

@@ -40,6 +40,7 @@ func TestImport_whenIDSelectsScopeAndVersion(t *testing.T) {
 			if resp.Diagnostics.HasError() != tc.invalid {
 				t.Fatalf("diagnostics = %v", resp.Diagnostics)
 			}
+
 			if !tc.invalid {
 				i, err := identityOf(e.k, resp.State.Raw)
 				if err != nil || i.ID() != tc.id {

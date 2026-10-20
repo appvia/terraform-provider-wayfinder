@@ -37,17 +37,21 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T) testEnv {
 	t.Helper()
+
 	for _, k := range authEnv {
 		t.Setenv(k, "")
 	}
 	// Never fall back to the developer's real wf CLI session.
 	t.Setenv("WAYFINDER_USE_CLI", "false")
+
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	f := fakeapi.New(t)
 	fakekinds.RegisterAll(f, m)
+
 	return testEnv{fake: f, m: m, factories: map[string]func() (tfprotov6.ProviderServer, error){
 		"wayfinder": providerserver.NewProtocol6WithError(New("test")()),
 	}}
@@ -61,12 +65,15 @@ func (e testEnv) providerBlock() string {
 // kind returns the embedded kind whose Terraform type is wayfinder_<suffix>.
 func (e testEnv) kind(t *testing.T, suffix string) manifest.Kind {
 	t.Helper()
+
 	for _, k := range e.m.Kinds {
 		if k.Typed && strings.TrimPrefix(k.TerraformName, "wayfinder_") == suffix {
 			return k
 		}
 	}
+
 	t.Fatalf("embedded manifest has no typed kind wayfinder_%s", suffix)
+
 	return manifest.Kind{}
 }
 
@@ -78,12 +85,15 @@ func nestedMap(obj map[string]any, keys ...string) (map[string]any, error) {
 	cur := obj
 	for i, k := range keys {
 		v := cur[k]
+
 		next, ok := v.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("%s: want map, got %T", strings.Join(keys[:i+1], "."), v)
 		}
+
 		cur = next
 	}
+
 	return cur, nil
 }
 
@@ -91,16 +101,20 @@ func nestedSlice(obj map[string]any, keys ...string) ([]any, error) {
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("nestedSlice: no keys given")
 	}
+
 	parent, err := nestedMap(obj, keys[:len(keys)-1]...)
 	if err != nil {
 		return nil, err
 	}
+
 	last := keys[len(keys)-1]
 	v := parent[last]
+
 	s, ok := v.([]any)
 	if !ok {
 		return nil, fmt.Errorf("%s: want slice, got %T", strings.Join(keys, "."), v)
 	}
+
 	return s, nil
 }
 
@@ -109,6 +123,7 @@ func TestNestedMap_whenShapeWrong(t *testing.T) {
 		"metadata": map[string]any{"labels": "not-a-map"},
 		"spec":     map[string]any{"helm": map[string]any{"chart": "x"}},
 	}
+
 	for _, tc := range []struct {
 		name     string
 		keys     []string
@@ -128,11 +143,14 @@ func TestNestedMap_whenShapeWrong(t *testing.T) {
 				if err == nil || err.Error() != tc.wantErr {
 					t.Fatalf("nestedMap(%v) error = %v; want %q", tc.keys, err, tc.wantErr)
 				}
+
 				return
 			}
+
 			if err != nil {
 				t.Fatalf("nestedMap(%v) unexpected error: %v", tc.keys, err)
 			}
+
 			if _, ok := got[tc.wantKeys]; !ok {
 				t.Fatalf("nestedMap(%v) = %#v; want key %q", tc.keys, got, tc.wantKeys)
 			}

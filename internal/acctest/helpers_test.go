@@ -88,13 +88,16 @@ func TestRandomName_whenGenerated(t *testing.T) {
 // sweepEnv is a fake API with every embedded kind plus a client for it.
 func sweepEnv(t *testing.T) (*fakeapi.Server, *client.Client, *manifest.Manifest) {
 	t.Helper()
+
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	f := fakeapi.New(t)
 	fakekinds.RegisterAll(f, m)
 	c := &client.Client{BaseURL: f.URL, Tenant: fakeTenant, TokenSource: staticToken(fakeapi.DefaultToken)}
+
 	return f, c, m
 }
 
@@ -104,21 +107,26 @@ func (s staticToken) Token(context.Context) (string, error) { return string(s), 
 
 func kindRef(t *testing.T, m *manifest.Manifest, kind, workspace, name string) fakeapi.Ref {
 	t.Helper()
+
 	k, ok := m.FindKind(kindGroup(t, m, kind), kind)
 	if !ok {
 		t.Fatalf("kind %s not found", kind)
 	}
+
 	return fakeapi.Ref{Tenant: fakeTenant, Workspace: workspace, Group: k.Group, Version: k.Version, APIPath: k.APIPath, Name: name}
 }
 
 func kindGroup(t *testing.T, m *manifest.Manifest, kind string) string {
 	t.Helper()
+
 	for _, k := range m.Kinds {
 		if k.Kind == kind {
 			return k.Group
 		}
 	}
+
 	t.Fatalf("kind %s not found", kind)
+
 	return ""
 }
 
@@ -127,6 +135,7 @@ func TestSweepKind_whenTestAndOtherObjectsExist(t *testing.T) {
 	f, c, m := sweepEnv(t)
 	f.Seed(kindRef(t, m, "Workspace", "", "tfacc-ws"), map[string]any{"spec": map[string]any{}})
 	f.Seed(kindRef(t, m, "Workspace", "", "keep"), map[string]any{"spec": map[string]any{}})
+
 	for _, ws := range []string{"", "tfacc-ws", "keep"} {
 		for _, name := range []string{"tfacc-sa", "prod-sa"} {
 			f.Seed(kindRef(t, m, "ServiceAccount", ws, name), map[string]any{"spec": map[string]any{}})
@@ -155,6 +164,7 @@ func TestSweepVars_whenTestAndOtherKeysExist(t *testing.T) {
 	f.Seed(kindRef(t, m, "Environment", "tfacc-ws", "tfacc-env"), map[string]any{"spec": map[string]any{}})
 	f.Seed(kindRef(t, m, "Workspace", "", "keep-ws"), map[string]any{"spec": map[string]any{}})
 	f.Seed(kindRef(t, m, "Environment", "keep-ws", "tfacc-env"), map[string]any{"spec": map[string]any{}})
+
 	swept := []fakeapi.VarScope{
 		{Tenant: fakeTenant}, {Tenant: fakeTenant, Workspace: "tfacc-ws"},
 		{Tenant: fakeTenant, Workspace: "tfacc-ws", Environment: "tfacc-env"},
@@ -164,6 +174,7 @@ func TestSweepVars_whenTestAndOtherKeysExist(t *testing.T) {
 		f.SetSecret(scope, "tfacc-s", json.RawMessage(`"x"`))
 		f.SetVariable(scope, "keep", json.RawMessage(`"x"`))
 	}
+
 	other := fakeapi.VarScope{Tenant: fakeTenant, Workspace: "keep-ws", Environment: "tfacc-env"}
 	f.SetVariable(other, "tfacc-v", json.RawMessage(`"x"`))
 	// When sweeping variables and secrets.
@@ -175,13 +186,16 @@ func TestSweepVars_whenTestAndOtherKeysExist(t *testing.T) {
 		if _, ok := f.Variable(scope, "tfacc-v"); ok {
 			t.Fatalf("%+v tfacc-v survived", scope)
 		}
+
 		if _, ok := f.Secret(scope, "tfacc-s"); ok {
 			t.Fatalf("%+v tfacc-s survived", scope)
 		}
+
 		if _, ok := f.Variable(scope, "keep"); !ok {
 			t.Fatalf("%+v keep was deleted", scope)
 		}
 	}
+
 	if _, ok := f.Variable(other, "tfacc-v"); !ok {
 		t.Fatalf("%+v tfacc-v in a non-test workspace was deleted", other)
 	}
@@ -189,9 +203,11 @@ func TestSweepVars_whenTestAndOtherKeysExist(t *testing.T) {
 
 func mustKind(t *testing.T, m *manifest.Manifest, kind string) manifest.Kind {
 	t.Helper()
+
 	k, ok := m.FindKind(kindGroup(t, m, kind), kind)
 	if !ok {
 		t.Fatalf("kind %s not found", kind)
 	}
+
 	return *k
 }

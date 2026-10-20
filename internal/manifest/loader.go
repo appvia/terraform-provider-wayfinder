@@ -16,10 +16,12 @@ func Load(path string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read manifest %s: %w", path, err)
 	}
+
 	m, err := Parse(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse manifest %s: %w", path, err)
 	}
+
 	return m, nil
 }
 
@@ -29,6 +31,7 @@ func LoadEmbedded() (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse embedded manifest: %w", err)
 	}
+
 	return m, nil
 }
 
@@ -39,16 +42,19 @@ func (m *Manifest) FindKind(group, kind string) (*Kind, bool) {
 			return &m.Kinds[i], true
 		}
 	}
+
 	return nil, false
 }
 
 // TypedKinds returns the kinds that have a typed Terraform resource.
 func (m *Manifest) TypedKinds() []Kind {
 	var out []Kind
+
 	for _, k := range m.Kinds {
 		if k.Typed {
 			out = append(out, k)
 		}
 	}
+
 	return out
 }

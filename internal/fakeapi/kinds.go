@@ -99,11 +99,14 @@ func (r Ref) scope() Scope {
 // RegisterKind adds or replaces a kind definition.
 func (s *Server) RegisterKind(k KindSpec) {
 	s.t.Helper()
+
 	if k.Group == "" || k.Version == "" || k.APIPath == "" || len(k.Scopes) == 0 {
 		s.t.Fatalf("fakeapi: kind %q needs group, version, apiPath and scopes", k.Kind)
 	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.kinds[k.key()] = &k
 }
 
@@ -119,7 +122,9 @@ func parseResourcePath(r *http.Request) (resourcePath, bool) {
 	if !ok || len(segs) < 2 || segs[0] != "tenants" {
 		return resourcePath{}, false
 	}
+
 	p := resourcePath{ref: Ref{Tenant: segs[1]}}
+
 	rest := segs[2:]
 	if len(rest) >= 2 && rest[0] == "workspaces" {
 		p.ref.Workspace, rest = rest[1], rest[2:]
@@ -127,9 +132,11 @@ func parseResourcePath(r *http.Request) (resourcePath, bool) {
 			p.ref.Environment, rest = rest[1], rest[2:]
 		}
 	}
+
 	if len(rest) < 3 {
 		return resourcePath{}, false
 	}
+
 	p.ref.Group, p.ref.Version, p.ref.APIPath = rest[0], rest[1], rest[2]
 	switch rest = rest[3:]; {
 	case len(rest) == 0:
@@ -140,6 +147,7 @@ func parseResourcePath(r *http.Request) (resourcePath, bool) {
 	default:
 		return resourcePath{}, false
 	}
+
 	return p, true
 }
 
@@ -150,8 +158,10 @@ func splitEscaped(p string) ([]string, bool) {
 		if err != nil || dec == "" {
 			return nil, false
 		}
+
 		parts[i] = dec
 	}
+
 	return parts, true
 }
 
@@ -161,6 +171,7 @@ func (s *Server) lookupKind(ref Ref) (*KindSpec, bool) {
 	if !ok || !slices.Contains(k.Scopes, ref.scope()) {
 		return nil, false
 	}
+
 	return k, true
 }
 

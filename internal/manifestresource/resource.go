@@ -112,11 +112,13 @@ func (r *manifestResource) Configure(_ context.Context, req resource.ConfigureRe
 	if req.ProviderData == nil {
 		return
 	}
+
 	c, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError("Unexpected provider data", fmt.Sprintf("expected *client.Client, got %T", req.ProviderData))
 		return
 	}
+
 	r.client = c
 }
 
@@ -125,8 +127,10 @@ func (r *manifestResource) ready(d *diag.Diagnostics, needClient bool) bool {
 	if r.manifestErr != nil {
 		d.AddError("Provider manifest unavailable", r.manifestErr.Error())
 	}
+
 	if needClient && r.client == nil {
 		d.AddError("Wayfinder client unavailable", "The provider must be configured before reading or writing resources.")
 	}
+
 	return !d.HasError()
 }

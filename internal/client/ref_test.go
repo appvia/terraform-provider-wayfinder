@@ -52,6 +52,7 @@ func TestRef_paths_match_R8(t *testing.T) {
 			if err != nil || col != tc.collection {
 				t.Errorf("CollectionPath = %q, %v; want %q", col, err, tc.collection)
 			}
+
 			item, err := tc.ref.ItemPath(tenant)
 			if err != nil || item != tc.item {
 				t.Errorf("ItemPath = %q, %v; want %q", item, err, tc.item)
@@ -75,6 +76,7 @@ func TestRef_invalid_refs_are_rejected(t *testing.T) {
 			}
 		})
 	}
+
 	if _, err := (client.Ref{Group: "g", Version: "v3", APIPath: "x"}).CollectionPath(""); err == nil {
 		t.Error("CollectionPath with empty tenant succeeded; want error")
 	}

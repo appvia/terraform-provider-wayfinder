@@ -37,14 +37,17 @@ func TestSecrets_whenVersionUnchangedOrRotated(t *testing.T) {
 			if !ok {
 				return fmt.Errorf("object missing")
 			}
+
 			spec := obj["spec"].(map[string]any)
 			if spec["apiKey"] != wantKey || !reflect.DeepEqual(spec["headers"], wantHeaders) {
 				return fmt.Errorf("stored secrets do not match rotation contract")
 			}
+
 			for _, req := range e.fake.Requests() {
 				if req.Method != http.MethodPut {
 					continue
 				}
+
 				var body struct {
 					Spec struct {
 						APIKey  string            `json:"apiKey"`
@@ -54,10 +57,12 @@ func TestSecrets_whenVersionUnchangedOrRotated(t *testing.T) {
 				if err := json.Unmarshal(req.Body, &body); err != nil {
 					return err
 				}
+
 				if blank {
 					if body.Spec.APIKey != "" || len(body.Spec.Headers) != 2 {
 						return fmt.Errorf("non-secret update did not retain blank map keys")
 					}
+
 					for _, v := range body.Spec.Headers {
 						if v != "" {
 							return fmt.Errorf("unchanged header sent secret")
@@ -65,6 +70,7 @@ func TestSecrets_whenVersionUnchangedOrRotated(t *testing.T) {
 					}
 				}
 			}
+
 			return checkSecretAbsent(t)(s)
 		}
 	}
@@ -83,7 +89,9 @@ func requestCount(t *testing.T, e testEnv, method string, want int) resource.Tes
 		if got != want {
 			return fmt.Errorf("%s requests = %d, want %d", method, got, want)
 		}
+
 		t.Logf("%s request count = %d", method, got)
+
 		return nil
 	}
 }
@@ -105,5 +113,6 @@ func TestUpdate_whenExternalChangeBeforeApply(t *testing.T) {
 	if n := e.fake.CountRequests(http.MethodPut, ""); n != 0 {
 		t.Fatalf("PUT requests = %d", n)
 	}
+
 	t.Log("Terraform stale-generation apply: provider PUT requests after external change = 0")
 }

@@ -35,13 +35,17 @@ func TestVersioned_create_get_and_update_use_version_routes(t *testing.T) {
 	upd := call(t, s, http.MethodPut, planCollection+"/p/versions/1.1.0", planObject("1.1.0"))
 
 	wantCode(t, v1, http.StatusOK)
+
 	if dig(v1.body, "metadata", "version") != "1.0.0" {
 		t.Errorf("version = %v", dig(v1.body, "metadata", "version"))
 	}
+
 	wantCode(t, upd, http.StatusOK)
+
 	if g := dig(upd.body, "metadata", "generation"); g != float64(2) {
 		t.Errorf("generation = %v, want 2", g)
 	}
+
 	wantCode(t, call(t, s, http.MethodGet, planCollection+"/p/versions/9.9.9", nil), http.StatusNotFound)
 }
 
@@ -69,6 +73,7 @@ func TestVersioned_create_rejects_non_semver_version(t *testing.T) {
 	got := call(t, s, http.MethodPost, planCollection, planObject("v1.0.0"))
 
 	wantCode(t, got, http.StatusBadRequest)
+
 	fes, _ := got.body["fieldErrors"].([]any)
 	if len(fes) != 1 || dig(fes[0].(map[string]any), "field") != "metadata.version" {
 		t.Errorf("body = %s", got.raw)

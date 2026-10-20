@@ -18,6 +18,7 @@ func TestToObject_whenManagedValuesRemoved(t *testing.T) {
 	obj := &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
 		"keep": str, "remove": str, "computed": {Type: "string", Computed: true}, "token": {Type: "string", Sensitive: true},
 	}}
+
 	m, err := convert.NewMapping(manifest.Kind{Kind: "Example", Group: "example.io", Version: "v1", Scopes: []string{"tenant"}, Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
 		"description": str, "nested": obj, "entries": {Type: "map", Values: obj}, "rules": {Type: "array", Items: obj},
 		"computed": {Type: "string", Computed: true}, "required": {Type: "string", Required: true}, "token": {Type: "string", Sensitive: true},
@@ -26,6 +27,7 @@ func TestToObject_whenManagedValuesRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, tc := range []struct {
 		name, prior, plan, base, want string
 		unset, nullPrior              bool
@@ -47,16 +49,20 @@ func TestToObject_whenManagedValuesRemoved(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			plan, err := fixtureValue(m.TFType(), tc.plan)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.unset {
 				prior = tftypes.Value{}
 			}
+
 			if tc.nullPrior {
 				prior = tftypes.NewValue(m.TFType(), nil)
 			}
+
 			if tc.name == "unknown plan" {
 				attrs := values(t, plan)
 				attrs["description"] = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
@@ -68,6 +74,7 @@ func TestToObject_whenManagedValuesRemoved(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if !reflect.DeepEqual(got["spec"], object(t, tc.want)) {
 				t.Fatalf("spec = %#v; want %s", got["spec"], tc.want)
 			}
@@ -86,6 +93,7 @@ func TestToObject_whenWriteOnlyMapRotatedWithPrior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !reflect.DeepEqual(got["spec"].(map[string]any)["headers"], map[string]any{"new": "secret"}) {
 		t.Fatalf("rotated headers = %#v", got["spec"])
 	}
@@ -97,14 +105,17 @@ func TestToObject_whenManagedMetadataKeysRemoved(t *testing.T) {
 			t.Run(name+plan, func(t *testing.T) {
 				// Given
 				m := mapping(t, "Workspace")
+
 				prior, err := fixtureValue(m.TFType(), `{"`+name+`":{"a":"1","b":"2"}}`)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				cfg, err := fixtureValue(m.TFType(), `{"`+name+`":`+plan+`}`)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				base := object(t, `{"metadata":{"generation":7,"uid":"id","`+name+`":{"a":"1","b":"2","server":"added"}}}`)
 				// When
 				got, err := convert.ToObject(m, cfg, convert.ToOpts{Base: base, Prior: prior})
@@ -112,14 +123,17 @@ func TestToObject_whenManagedMetadataKeysRemoved(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				want := map[string]any{"server": "added"}
 				if plan != "null" {
 					want["a"] = "1"
 				}
+
 				meta := got["metadata"].(map[string]any)
 				if !reflect.DeepEqual(meta[name], want) || meta["generation"] != float64(7) || meta["uid"] != "id" {
 					t.Fatalf("metadata = %#v", meta)
 				}
+
 				if !reflect.DeepEqual(base["metadata"].(map[string]any)[name], map[string]any{"a": "1", "b": "2", "server": "added"}) {
 					t.Fatal("mutated Base")
 				}

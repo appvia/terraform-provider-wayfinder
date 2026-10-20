@@ -20,21 +20,27 @@ import (
 func renderTests(kinds []manifest.Kind) ([]byte, error) {
 	var b strings.Builder
 	b.WriteString(header + "package generated_test\n\nvar generatedCases = []generatedCase{\n")
+
 	for _, k := range kinds {
 		name := typeName(k)
 		identity, id := exampleIdentity(k)
 		s := &synth{typ: name, fixture: true}
 		config := fmt.Sprintf("resource %q \"example\" {\n%s%s}\n", name, identity, s.body(k.Spec, true, "  ", ""))
 		fmt.Fprintf(&b, "{Type: %q, Group: %q, Kind: %q, ImportID: %q,\nConfig: %s,\n", name, k.Group, k.Kind, id, quote(config))
+
 		if len(s.secrets) > 0 {
 			fmt.Fprintf(&b, "Secrets: %s,\nWriteOnly: %s,\n", stringSlice(s.secrets), stringSlice(s.writeOnly))
 		}
+
 		if len(s.problems) > 0 {
 			fmt.Fprintf(&b, "Skip: %q,\n", "cannot synthesize a minimal fixture: "+strings.Join(s.problems, "; "))
 		}
+
 		b.WriteString("},\n")
 	}
+
 	b.WriteString("}\n")
+
 	return format.Source([]byte(b.String()))
 }
 
@@ -42,6 +48,7 @@ func quote(s string) string {
 	if strings.Contains(s, "`") {
 		return strconv.Quote(s)
 	}
+
 	return "`" + s + "`"
 }
 
@@ -50,5 +57,6 @@ func stringSlice(items []string) string {
 	for i, item := range items {
 		quoted[i] = strconv.Quote(item)
 	}
+
 	return "[]string{" + strings.Join(quoted, ", ") + "}"
 }

@@ -22,58 +22,76 @@ import (
 func TestSchemas_whenEmbeddedManifest(t *testing.T) {
 	// Given
 	ctx := context.Background()
+
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(Resources()) != len(m.TypedKinds()) || len(DataSources()) != len(m.TypedKinds()) {
 		t.Fatal("registry count differs from typed kinds")
 	}
+
 	private := regexp.MustCompile(`(?i)varset`)
+
 	for i, factory := range Resources() {
 		// When
 		r := factory()
+
 		var resp resource.SchemaResponse
 		r.Schema(ctx, resource.SchemaRequest{}, &resp)
 		// Then
 		if resp.Diagnostics.HasError() {
 			t.Fatal(resp.Diagnostics)
 		}
+
 		if d := resp.Schema.ValidateImplementation(ctx); d.HasError() {
 			t.Fatal(d)
 		}
+
 		var meta resource.MetadataResponse
 		r.Metadata(ctx, resource.MetadataRequest{ProviderTypeName: "wayfinder"}, &meta)
+
 		if meta.TypeName != ResourceTypeNames()[i] || private.MatchString(meta.TypeName) {
 			t.Fatalf("type name %s", meta.TypeName)
 		}
+
 		var kind manifest.Kind
+
 		for _, k := range m.TypedKinds() {
 			name := "wayfinder_" + strings.TrimPrefix(k.TerraformName, "wayfinder_")
 			if k.TerraformName == "" {
 				name = "wayfinder_" + convert.SnakeCase(k.Kind)
 			}
+
 			if name == meta.TypeName {
 				kind = k
 				break
 			}
 		}
+
 		mapping, err := convert.NewMapping(kind)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !resp.Schema.Type().TerraformType(ctx).Equal(mapping.TFType()) {
 			t.Fatalf("mapping type differs for %s", meta.TypeName)
 		}
+
 		checkResourceText(t, resp.Schema.Attributes)
+
 		var ds datasource.SchemaResponse
 		DataSources()[i]().Schema(ctx, datasource.SchemaRequest{}, &ds)
+
 		if ds.Diagnostics.HasError() {
 			t.Fatal(ds.Diagnostics)
 		}
+
 		if d := ds.Schema.ValidateImplementation(ctx); d.HasError() {
 			t.Fatal(d)
 		}
+
 		checkDataSourceText(t, ds.Schema.Attributes)
 		t.Logf("%s: resource/data source valid; mapping equal", meta.TypeName)
 	}
@@ -81,10 +99,12 @@ func TestSchemas_whenEmbeddedManifest(t *testing.T) {
 
 func checkResourceText(t *testing.T, attrs map[string]rschema.Attribute) {
 	t.Helper()
+
 	for name, a := range attrs {
 		if strings.Contains(strings.ToLower(name+a.GetDescription()+a.GetMarkdownDescription()), "varset") {
 			t.Fatal("private terminology", name)
 		}
+
 		switch v := a.(type) {
 		case rschema.SingleNestedAttribute:
 			checkResourceText(t, v.Attributes)
@@ -98,13 +118,16 @@ func checkResourceText(t *testing.T, attrs map[string]rschema.Attribute) {
 
 func checkDataSourceText(t *testing.T, attrs map[string]dschema.Attribute) {
 	t.Helper()
+
 	for name, a := range attrs {
 		if strings.HasSuffix(name, "_wo") || strings.HasSuffix(name, "_wo_version") {
 			t.Fatal("secret in data source", name)
 		}
+
 		if strings.Contains(strings.ToLower(name+a.GetDescription()+a.GetMarkdownDescription()), "varset") {
 			t.Fatal("private terminology", name)
 		}
+
 		switch v := a.(type) {
 		case dschema.SingleNestedAttribute:
 			checkDataSourceText(t, v.Attributes)
@@ -127,9 +150,11 @@ func TestRegistry_whenEmbeddedManifest_hasOneResourceAndDataSourcePerTypedKind(t
 	if len(Resources()) != typed || len(ResourceTypeNames()) != typed {
 		t.Fatalf("resources = %d, type names = %d, typed kinds = %d", len(Resources()), len(ResourceTypeNames()), typed)
 	}
+
 	if len(DataSources()) != typed {
 		t.Fatalf("data sources = %d, typed kinds = %d", len(DataSources()), typed)
 	}
+
 	t.Logf("typed kinds = resources = data sources = %d", typed)
 }
 
@@ -140,9 +165,11 @@ func TestVersion_whenVersionedKubeResourcePlan(t *testing.T) {
 	if !a.Required || len(a.PlanModifiers) == 0 || len(a.Validators) == 0 {
 		t.Fatal("version must be required, replacing, validated")
 	}
+
 	for _, value := range []string{"1.0.0", "1.2.3-rc.1+build", "v1.0.0", "01.0.0", "1.0.0-01"} {
 		var resp validator.StringResponse
 		a.Validators[0].ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(value)}, &resp)
+
 		valid := value == "1.0.0" || value == "1.2.3-rc.1+build"
 		if resp.Diagnostics.HasError() == valid {
 			t.Errorf("semver validation %q", value)
@@ -163,12 +190,15 @@ func TestWriteOnly_whenExternalIdentityNestedSecrets(t *testing.T) {
 	if !a.WriteOnly || !a.Sensitive || !a.Required || a.Computed || len(a.PlanModifiers) != 0 || !v.Optional || v.WriteOnly {
 		t.Fatal("invalid write-only pair")
 	}
+
 	if !headers.WriteOnly || !headers.Sensitive {
 		t.Fatal("sensitive map must be write-only")
 	}
+
 	if _, ok := ds.Attributes["token_wo"]; ok {
 		t.Fatal("data source secret")
 	}
+
 	if _, ok := ds.Attributes["token_wo_version"]; ok {
 		t.Fatal("data source companion")
 	}

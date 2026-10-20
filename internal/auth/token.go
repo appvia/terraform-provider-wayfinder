@@ -59,27 +59,34 @@ var errEmptyToken = errors.New("authentication response contained no access toke
 func (s *cachedSource) Token(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if err := ctx.Err(); err != nil {
 		return "", fmt.Errorf("get access token: %w", err)
 	}
+
 	if s.token != "" && s.now().Add(time.Minute).Before(s.expires) {
 		return s.token, nil
 	}
+
 	payload := s.request
 	if s.identity != nil {
 		subject, err := s.subjectToken(ctx)
 		if err != nil {
 			return "", fmt.Errorf("resolve federated identity: %w", err)
 		}
+
 		payload.SubjectToken = subject
 	}
+
 	issued, err := s.issue(ctx, payload)
 	if err != nil {
 		return "", err
 	}
+
 	if issued.AccessToken == "" {
 		return "", errEmptyToken
 	}
+
 	expires := s.now().Add(time.Duration(issued.ExpiresIn) * time.Second)
 	switch {
 	case issued.Expires > 0:
@@ -91,10 +98,12 @@ func (s *cachedSource) Token(ctx context.Context) (string, error) {
 			expires = time.Unix(claims.Exp, 0)
 		}
 	}
+
 	s.token, s.expires = issued.AccessToken, expires
 	if payload.GrantType == grantRefresh && issued.RefreshToken != "" {
 		s.request.RefreshToken = issued.RefreshToken
 	}
+
 	return s.token, nil
 }
 
@@ -105,21 +114,28 @@ func (s *cachedSource) issue(ctx context.Context, payload tokenRequest) (tokenRe
 	if err != nil {
 		return tokenResponse{}, fmt.Errorf("encode token request: %w", err)
 	}
+
 	for attempt := 0; ; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.server+"/api/v3/general/login/token", bytes.NewReader(body))
 		if err != nil {
 			return tokenResponse{}, &safeError{operation: "create token request", cause: err}
 		}
+
 		req.Header.Set("Content-Type", "application/json")
+
 		var issued tokenResponse
+
 		err = s.decode(req, &issued)
+
 		var status *HTTPStatusError
 		if err == nil || attempt >= maxRateLimitRetries || !errors.As(err, &status) || status.StatusCode != http.StatusTooManyRequests {
 			if err != nil {
 				return tokenResponse{}, fmt.Errorf("authentication failed: %w", err)
 			}
+
 			return issued, nil
 		}
+
 		if err := wait(ctx, status.retryAfter(attempt)); err != nil {
 			return tokenResponse{}, fmt.Errorf("authentication failed: %w", err)
 		}
@@ -139,15 +155,18 @@ func readLimited(r io.Reader, max int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if int64(len(b)) > max {
 		return nil, fmt.Errorf("%w: exceeds %d bytes", errResponseTooLarge, max)
 	}
+
 	return b, nil
 }
 
 func wait(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
 	defer t.Stop()
+
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)
@@ -168,6 +187,7 @@ func (e *HTTPStatusError) retryAfter(attempt int) time.Duration {
 	if e.RetryAfter != nil {
 		return *e.RetryAfter
 	}
+
 	return rateLimitBaseDelay << attempt
 }
 
@@ -194,19 +214,24 @@ func (s *cachedSource) decode(req *http.Request, out any) (err error) {
 			err = errors.Join(err, &safeError{operation: "close authentication response", cause: closeErr})
 		}
 	}()
+
 	if resp.StatusCode != http.StatusOK {
 		return &HTTPStatusError{StatusCode: resp.StatusCode, RetryAfter: retryAfterHeader(resp.Header.Get("Retry-After"))}
 	}
+
 	body, err := readLimited(resp.Body, maxAuthResponseBytes)
 	if errors.Is(err, errResponseTooLarge) {
 		return &safeError{operation: fmt.Sprintf("read authentication response (exceeds %d bytes)", maxAuthResponseBytes), cause: err}
 	}
+
 	if err != nil {
 		return &safeError{operation: "read authentication response", cause: err}
 	}
+
 	if err := json.Unmarshal(body, out); err != nil {
 		return &safeError{operation: "decode authentication response", cause: err}
 	}
+
 	return nil
 }
 
@@ -216,6 +241,8 @@ func retryAfterHeader(v string) *time.Duration {
 	if err != nil || secs < 0 {
 		return nil
 	}
+
 	d := time.Duration(secs) * time.Second
+
 	return &d
 }

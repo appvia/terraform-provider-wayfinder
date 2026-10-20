@@ -31,6 +31,7 @@ func environmentKind() fakeapi.KindSpec {
 			if spec["stage"] == "bogus" {
 				return []fakeapi.FieldError{{Field: "spec.stage", ErrCode: "invalidValue", Message: "stage must be one of dev, prod"}}
 			}
+
 			return nil
 		},
 	}
@@ -87,20 +88,24 @@ func newHarness(t *testing.T) *harness {
 	h.fake.RegisterKind(planKind())
 	h.srv = httptest.NewServer(http.HandlerFunc(h.serve))
 	t.Cleanup(h.srv.Close)
+
 	return h
 }
 
 func (h *harness) serve(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.seen = append(h.seen, recorded{Method: r.Method, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Header: r.Header.Clone()})
+
 	var fn func(w http.ResponseWriter) bool
 	if len(h.inject) > 0 && (h.matchFn == nil || h.matchFn(r)) {
 		fn, h.inject = h.inject[0], h.inject[1:]
 	}
 	h.mu.Unlock()
+
 	if fn != nil && fn(w) {
 		return
 	}
+
 	h.fake.ServeHTTP(w, r)
 }
 
@@ -109,13 +114,16 @@ func (h *harness) serve(w http.ResponseWriter, r *http.Request) {
 func (h *harness) failWith(method string, status, n int, retryAfter string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.matchFn = func(r *http.Request) bool { return r.Method == method }
 	for range n {
 		h.inject = append(h.inject, func(w http.ResponseWriter) bool {
 			if retryAfter != "" {
 				w.Header().Set("Retry-After", retryAfter)
 			}
+
 			http.Error(w, `{"message":"try later"}`, status)
+
 			return true
 		})
 	}
@@ -124,16 +132,19 @@ func (h *harness) failWith(method string, status, n int, retryAfter string) {
 func (h *harness) requests() []recorded {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	return append([]recorded(nil), h.seen...)
 }
 
 func (h *harness) count(method string) int {
 	n := 0
+
 	for _, r := range h.requests() {
 		if r.Method == method {
 			n++
 		}
 	}
+
 	return n
 }
 

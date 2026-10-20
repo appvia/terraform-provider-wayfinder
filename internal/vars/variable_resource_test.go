@@ -26,9 +26,11 @@ func expectVariable(e env, s fakeapi.VarScope, want string) resource.TestCheckFu
 		if !ok {
 			return fmt.Errorf("variable not stored in %+v", s)
 		}
+
 		if !jsonEqual(got, want) {
 			return fmt.Errorf("stored value = %s, want %s", got, want)
 		}
+
 		return nil
 	}
 }
@@ -48,6 +50,7 @@ func TestVariable_lifecycle_at_every_scope(t *testing.T) {
 					if _, ok := e.fake.Variable(scope, "region"); ok {
 						return fmt.Errorf("variable still present after destroy")
 					}
+
 					return nil
 				},
 				Steps: []resource.TestStep{
@@ -99,9 +102,11 @@ func TestVariable_create_refuses_existing_key_without_writing(t *testing.T) {
 			ExpectError: regexp.MustCompile(`(?s)Variable ws1/region already exists.*terraform import\s+wayfinder_variable\.<name>\s+ws1/region`),
 		}},
 	})
+
 	if n := e.fake.CountRequests(http.MethodPut, ""); n != 0 {
 		t.Errorf("PUT requests = %d, want 0", n)
 	}
+
 	got, _ := e.fake.Variable(scope, "region")
 	if !jsonEqual(got, `"set-in-ui"`) {
 		t.Errorf("stored value changed to %s", got)
@@ -118,6 +123,7 @@ func TestVariable_environment_without_workspace_fails_at_plan(t *testing.T) {
 			ExpectError: regexp.MustCompile(`(?s)workspace.*must be specified`),
 		}},
 	})
+
 	if n := len(e.fake.Requests()); n != 0 {
 		t.Errorf("API requests = %d, want 0", n)
 	}
@@ -176,6 +182,7 @@ func TestVariable_import_when_server_pretty_prints_value(t *testing.T) {
 				if got := states[0].Attributes["value"]; got != `{"region":"eu-west-2","zones":["a"]}` {
 					return fmt.Errorf("value = %q", got)
 				}
+
 				return nil
 			},
 		}},

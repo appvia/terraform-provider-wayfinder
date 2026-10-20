@@ -79,6 +79,7 @@ func (r *secretResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 func (r *secretResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	c, diags := clientFrom(req.ProviderData)
 	resp.Diagnostics.Append(diags...)
+
 	if c != nil {
 		r.client = c
 	}
@@ -87,14 +88,17 @@ func (r *secretResource) Configure(_ context.Context, req resource.ConfigureRequ
 // configValue reads the write-only value from configuration (it is absent from plan and state).
 func configValue(ctx context.Context, config tfsdk.Config) (json.RawMessage, diag.Diagnostics) {
 	var v jsontypes.Normalized
+
 	diags := config.GetAttribute(ctx, path.Root("value_wo"), &v)
 	if diags.HasError() {
 		return nil, diags
 	}
+
 	if v.IsNull() || v.IsUnknown() {
 		diags.AddAttributeError(path.Root("value_wo"), "Missing secret value", "value_wo must be set to a known value.")
 		return nil, diags
 	}
+
 	return json.RawMessage(v.ValueString()), diags
 }
 
@@ -103,18 +107,23 @@ func (r *secretResource) Create(ctx context.Context, req resource.CreateRequest,
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &m)...)
 	value, diags := configValue(ctx, req.Config)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
 	resp.Diagnostics.Append(ensureAbsent(ctx, r.client, k, kindSecrets)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	if err := put(ctx, r.client, k, kindSecrets, value); err != nil {
 		resp.Diagnostics.AddError("Unable to create secret "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	m.ValueWO = jsontypes.NewNormalizedNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
@@ -124,19 +133,24 @@ func (r *secretResource) Create(ctx context.Context, req resource.CreateRequest,
 func (r *secretResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var m secretModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
+
 	_, err := get(ctx, r.client, k, kindSecrets)
 	if errors.Is(err, client.ErrNotFound) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
+
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read secret "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	m.ValueWO = jsontypes.NewNormalizedNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
@@ -147,21 +161,26 @@ func (r *secretResource) Update(ctx context.Context, req resource.UpdateRequest,
 	var plan, state secretModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := plan.scoped()
 	if !plan.ValueWOVersion.Equal(state.ValueWOVersion) {
 		value, diags := configValue(ctx, req.Config)
 		resp.Diagnostics.Append(diags...)
+
 		if resp.Diagnostics.HasError() {
 			return
 		}
+
 		if err := put(ctx, r.client, k, kindSecrets, value); err != nil {
 			resp.Diagnostics.AddError("Unable to update secret "+k.ID(), err.Error())
 			return
 		}
 	}
+
 	plan.ID = types.StringValue(k.ID())
 	plan.ValueWO = jsontypes.NewNormalizedNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -170,9 +189,11 @@ func (r *secretResource) Update(ctx context.Context, req resource.UpdateRequest,
 func (r *secretResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var m secretModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	if err := remove(ctx, r.client, m.scoped(), kindSecrets); err != nil {
 		resp.Diagnostics.AddError("Unable to delete secret "+m.scoped().ID(), err.Error())
 	}

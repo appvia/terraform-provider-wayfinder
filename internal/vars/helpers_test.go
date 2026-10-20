@@ -61,6 +61,7 @@ func newEnv(t *testing.T) env {
 	t.Helper()
 	fake := fakeapi.New(t)
 	c := &client.Client{BaseURL: fake.URL, Tenant: tenant, TokenSource: staticToken(fakeapi.DefaultToken)}
+
 	return env{
 		fake: fake,
 		factories: map[string]func() (tfprotov6.ProviderServer, error){
@@ -78,12 +79,15 @@ func scopeHCL(s fakeapi.VarScope) string {
 	if s.Workspace != "" {
 		fmt.Fprintf(&b, "  workspace   = %q\n", s.Workspace)
 	}
+
 	if s.Environment != "" {
 		fmt.Fprintf(&b, "  environment = %q\n", s.Environment)
 	}
+
 	if s.Instance != "" {
 		fmt.Fprintf(&b, "  instance    = %q\n", s.Instance)
 	}
+
 	return b.String()
 }
 
@@ -92,12 +96,15 @@ func scopeID(s fakeapi.VarScope, key string) string {
 	if s.Workspace != "" {
 		parts = append(parts, s.Workspace)
 	}
+
 	if s.Environment != "" {
 		parts = append(parts, s.Environment)
 	}
+
 	if s.Instance != "" {
 		parts = append(parts, s.Instance)
 	}
+
 	return strings.Join(append(parts, key), "/")
 }
 
@@ -106,13 +113,16 @@ func varsBase(s fakeapi.VarScope) string {
 	if s.Workspace != "" {
 		p += "/workspaces/" + s.Workspace
 	}
+
 	if s.Environment != "" {
 		p += "/envs/" + s.Environment
 	}
+
 	if s.Instance != "" {
 		// Instance scope is served under instancevars, without a /vars segment.
 		return p + "/instancevars/" + s.Instance
 	}
+
 	return p + "/vars"
 }
 
@@ -126,15 +136,19 @@ var testScopes = map[string]fakeapi.VarScope{
 // deleteDirect removes a key through the fake's HTTP API (out-of-band change).
 func deleteDirect(t *testing.T, fake *fakeapi.Server, path string) {
 	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, fake.URL+path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	req.Header.Set("Authorization", "Bearer "+fakeapi.DefaultToken)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	_ = resp.Body.Close()
 }
 
@@ -147,6 +161,7 @@ func (a absentFromState) CheckState(_ context.Context, req statecheck.CheckState
 		resp.Error = err
 		return
 	}
+
 	if strings.Contains(string(b), string(a)) {
 		resp.Error = fmt.Errorf("secret literal found in state JSON")
 	}
@@ -161,6 +176,7 @@ func (a absentFromPlan) CheckPlan(_ context.Context, req plancheck.CheckPlanRequ
 		resp.Error = err
 		return
 	}
+
 	if strings.Contains(string(b), string(a)) {
 		resp.Error = fmt.Errorf("secret literal found in plan JSON")
 	}
@@ -172,7 +188,9 @@ func jsonEqual(got json.RawMessage, want string) bool {
 	if json.Unmarshal(got, &a) != nil || json.Unmarshal([]byte(want), &b) != nil {
 		return false
 	}
+
 	ab, _ := json.Marshal(a)
 	bb, _ := json.Marshal(b)
+
 	return string(ab) == string(bb)
 }

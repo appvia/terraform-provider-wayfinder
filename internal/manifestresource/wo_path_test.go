@@ -25,6 +25,7 @@ func TestParseWOPath_whenValid(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if p.String() != tc.canonical {
 				t.Fatalf("canonical = %s, want %s", p.String(), tc.canonical)
 			}
@@ -53,6 +54,7 @@ func TestLookup_whenPresentAbsentOrNil(t *testing.T) {
 			"empty":   nil,
 		},
 	}
+
 	for _, tc := range []struct {
 		path string
 		want any
@@ -71,6 +73,7 @@ func TestLookup_whenPresentAbsentOrNil(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			got, ok := lookup(doc, p)
 			// Then the value and presence match.
 			if ok != tc.ok || got != tc.want {
@@ -83,10 +86,12 @@ func TestLookup_whenPresentAbsentOrNil(t *testing.T) {
 func TestSetAt_whenIntermediateMissing(t *testing.T) {
 	// Given a document without spec. When setting a nested key.
 	doc := map[string]any{}
+
 	p, err := parseWOPath(`spec.headers["X-Api.Key"]`)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	setAt(doc, p, "k")
 	// Then the missing maps are created.
 	want := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-Api.Key": "k"}}}
@@ -96,10 +101,12 @@ func TestSetAt_whenIntermediateMissing(t *testing.T) {
 
 	// Given a list index that does not exist. When setting it.
 	doc = map[string]any{"spec": map[string]any{"rules": []any{}}}
+
 	p, err = parseWOPath("spec.rules[2].token")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	setAt(doc, p, "t")
 	// Then nothing changes.
 	if !reflect.DeepEqual(doc, map[string]any{"spec": map[string]any{"rules": []any{}}}) {
@@ -128,10 +135,12 @@ func TestSetAt_whenPathCannotBeSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			want := tc.want
 			if want == nil {
 				want = deepCopy(tc.doc).(map[string]any)
 			}
+
 			setAt(tc.doc, p, "new")
 			// Then the document is either updated or left exactly unchanged.
 			if !reflect.DeepEqual(tc.doc, want) {

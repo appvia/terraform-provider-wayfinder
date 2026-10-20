@@ -34,21 +34,26 @@ func TestGenerate_whenGoldenManifest(t *testing.T) {
 			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				t.Fatal(err)
 			}
+
 			if err := os.WriteFile(path, got, 0644); err != nil {
 				t.Fatal(err)
 			}
 		}
+
 		want, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !bytes.Equal(got, want) {
 			t.Errorf("golden differs: %s (use -update)", name)
 		}
+
 		if strings.Contains(strings.ToLower(string(got)), "varset") {
 			t.Errorf("private terminology in %s", name)
 		}
 	}
+
 	if len(files) != 14 {
 		t.Fatalf("got %d files, want 4 Go files + 1 generated test + 9 examples", len(files))
 	}
@@ -60,6 +65,7 @@ func TestGenerate_whenReservedSpecName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Spec.Properties["name"] = &manifest.Field{Type: "string", Required: true}
 	// When
 	files, err := render(m)
@@ -78,6 +84,7 @@ func TestGenerate_whenTerraformReservedSpecName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Spec.Properties["dependsOn"] = &manifest.Field{Type: "array", Items: &manifest.Field{Type: "string"}}
 	// When
 	files, err := render(m)
@@ -85,6 +92,7 @@ func TestGenerate_whenTerraformReservedSpecName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !bytes.Contains(files["zz_schemas.go"], []byte(`"spec_depends_on":`)) {
 		t.Fatal("Terraform reserved spec name not prefixed")
 	}
@@ -96,6 +104,7 @@ func TestGenerate_whenEnumValueUndocumented(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Spec.Properties["tier"] = &manifest.Field{Type: "string", Enum: []string{"gold", "bare"},
 		EnumDocs: []manifest.EnumDoc{{Value: "gold", Description: "Top tier."}, {Value: "bare"}}}
 	// When
@@ -116,6 +125,7 @@ func TestGenerate_whenComputedParentHasSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Spec.Properties["source"].Computed = true
 	m.Kinds[0].Spec.Properties["source"].Properties["token"] = &manifest.Field{Type: "string", Sensitive: true}
 	// When
@@ -132,11 +142,14 @@ func TestGenerate_whenKindsBecomeManifestOnlyRemovesStaleExamples(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	dir := t.TempDir()
+
 	o := options{out: filepath.Join(dir, "generated"), examples: filepath.Join(dir, "examples")}
 	if err := generate(m, o); err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Typed = false
 	// When
 	if err := generate(m, o); err != nil {
@@ -154,6 +167,7 @@ func TestGenerate_whenComputedParentHasChildren(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	m.Kinds[0].Spec.Properties["owner"] = &manifest.Field{Type: "object", Computed: true, Properties: map[string]*manifest.Field{
 		"kind": {Type: "string", Required: true},
 	}}

@@ -53,17 +53,21 @@ func (addr importOnlyAdoptsServerKeys) CheckPlan(_ context.Context, req planchec
 		if rc.Address != string(addr) || rc.Change.Actions.NoOp() {
 			continue
 		}
+
 		if !rc.Change.Actions.Update() {
 			resp.Error = fmt.Errorf("%s: import planned %v, want no-op or update", addr, rc.Change.Actions)
 			return
 		}
+
 		before, _ := rc.Change.Before.(map[string]any)
+
 		after, _ := rc.Change.After.(map[string]any)
 		for k := range mergeKeys(before, after) {
 			switch k {
 			case "labels", "annotations", "status", "status_json":
 				continue
 			}
+
 			if b, a := stripWriteOnly(before[k]), stripWriteOnly(after[k]); !reflect.DeepEqual(b, a) {
 				resp.Error = fmt.Errorf("%s: import plans a change to %s: %v -> %v", addr, k, b, a)
 				return
@@ -74,11 +78,13 @@ func (addr importOnlyAdoptsServerKeys) CheckPlan(_ context.Context, req planchec
 
 func mergeKeys(maps ...map[string]any) map[string]bool {
 	out := map[string]bool{}
+
 	for _, m := range maps {
 		for k := range m {
 			out[k] = true
 		}
 	}
+
 	return out
 }
 
@@ -87,17 +93,20 @@ func stripWriteOnly(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
 		out := map[string]any{}
+
 		for k, child := range t {
 			if !strings.HasSuffix(k, "_wo") && !strings.HasSuffix(k, "_wo_version") {
 				out[k] = stripWriteOnly(child)
 			}
 		}
+
 		return out
 	case []any:
 		out := make([]any, len(t))
 		for i, child := range t {
 			out[i] = stripWriteOnly(child)
 		}
+
 		return out
 	default:
 		return v

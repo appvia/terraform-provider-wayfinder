@@ -31,6 +31,7 @@ func ServerRelease(ctx context.Context, c *client.Client) (string, error) {
 	if err := c.DoJSON(ctx, http.MethodGet, serverInfoPath, nil, &info); err != nil {
 		return "", fmt.Errorf("reading server info: %w", err)
 	}
+
 	return info.Version.Release, nil
 }
 
@@ -40,6 +41,7 @@ func VersionWarning(server, generated string) string {
 	if strings.TrimPrefix(server, "v") == strings.TrimPrefix(generated, "v") {
 		return ""
 	}
+
 	return fmt.Sprintf("WARNING: Wayfinder server release %q differs from the provider's generated Wayfinder version %q; failures may come from API differences", server, generated)
 }
 
@@ -47,21 +49,27 @@ func VersionWarning(server, generated string) string {
 // (never failing) when they differ.
 func logServerVersion(t *testing.T) {
 	t.Helper()
+
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		t.Fatalf("loading embedded manifest: %v", err)
 	}
+
 	c, err := NewClient()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
 	release, err := ServerRelease(ctx, c)
 	if err != nil {
 		t.Fatalf("server info: %v", err)
 	}
+
 	t.Logf("Wayfinder server release %q; provider generated from wayfinderVersion %q", release, m.WayfinderVersion)
+
 	if w := VersionWarning(release, m.WayfinderVersion); w != "" {
 		t.Log(w)
 	}

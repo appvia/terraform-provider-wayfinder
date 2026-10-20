@@ -24,6 +24,7 @@ func typeName(k manifest.Kind) string {
 	if name == "" {
 		name = convert.SnakeCase(k.Kind)
 	}
+
 	return "wayfinder_" + strings.TrimPrefix(name, "wayfinder_")
 }
 
@@ -31,74 +32,101 @@ func render(m *manifest.Manifest) (map[string][]byte, error) {
 	files := map[string][]byte{}
 	kinds := m.TypedKinds()
 	slices.SortFunc(kinds, func(a, b manifest.Kind) int { return strings.Compare(typeName(a), typeName(b)) })
+
 	e := emitter{imports: map[string]string{}}
+
 	var schemas, resources, sources, registry strings.Builder
 	resources.WriteString("import (\"github.com/hashicorp/terraform-plugin-framework/resource\"; \"github.com/appvia/terraform-provider-wayfinder/internal/engine\")\n")
 	sources.WriteString("import (\"github.com/hashicorp/terraform-plugin-framework/datasource\"; \"github.com/appvia/terraform-provider-wayfinder/internal/engine\")\n")
 	registry.WriteString("import (\"github.com/hashicorp/terraform-plugin-framework/resource\"; \"github.com/hashicorp/terraform-plugin-framework/datasource\")\n")
+
 	seen := map[string]bool{}
+
 	for _, k := range kinds {
 		if _, err := convert.NewMapping(k); err != nil {
 			return nil, fmt.Errorf("%s: %w", k.Kind, err)
 		}
+
 		name := typeName(k)
 		if seen[name] {
 			return nil, fmt.Errorf("duplicate Terraform type %s", name)
 		}
+
 		seen[name] = true
 		if err := safeText(name); err != nil {
 			return nil, err
 		}
+
 		id := strings.TrimPrefix(name, "wayfinder_")
+
 		for _, ds := range []bool{false, true} {
 			e.dataSource = ds
+
 			body, err := e.kindSchema(k)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", k.Kind, err)
 			}
+
 			prefix, pkg := "Resource", "rschema"
 			if ds {
 				prefix, pkg = "DataSource", "dschema"
 			}
+
 			fmt.Fprintf(&schemas, "func %sSchema_%s(ctx context.Context) %s.Schema { return %s }\n", prefix, id, pkg, body)
 		}
+
 		fmt.Fprintf(&resources, "func NewResource_%s() resource.Resource { k, err := generatedKind(%q, %q); return resourceWithManifestError(engine.NewResource(k, ResourceSchema_%s(context.Background())), err) }\n", id, k.Group, k.Kind, id)
 		fmt.Fprintf(&sources, "func NewDataSource_%s() datasource.DataSource { k, err := generatedKind(%q, %q); return dataSourceWithManifestError(engine.NewDataSource(k, DataSourceSchema_%s(context.Background())), err) }\n", id, k.Group, k.Kind, id)
+
 		for path, data := range exampleFiles(k) {
 			files[path] = []byte(data)
 		}
 	}
+
 	for _, item := range []struct{ plural, singular, typ string }{{"Resources", "Resource", "resource.Resource"}, {"DataSources", "DataSource", "datasource.DataSource"}} {
 		fmt.Fprintf(&registry, "func %s() []func() %s { return []func() %s {", item.plural, item.typ, item.typ)
+
 		for _, k := range kinds {
 			fmt.Fprintf(&registry, "New%s_%s,", item.singular, strings.TrimPrefix(typeName(k), "wayfinder_"))
 		}
+
 		registry.WriteString("} }\n")
 	}
+
 	registry.WriteString("func ResourceTypeNames() []string { return []string{")
+
 	for _, k := range kinds {
 		fmt.Fprintf(&registry, "%q,", typeName(k))
 	}
+
 	registry.WriteString("} }\n")
+
 	var schemaFile strings.Builder
 	schemaFile.WriteString("import (\"context\";")
+
 	for _, alias := range slices.Sorted(maps.Keys(e.imports)) {
 		fmt.Fprintf(&schemaFile, "%s %q;", alias, e.imports[alias])
 	}
+
 	schemaFile.WriteString(")\n")
 	schemaFile.WriteString(schemas.String())
+
 	for name, body := range map[string]string{"zz_schemas.go": schemaFile.String(), "zz_resources.go": strings.Replace(resources.String(), "import (", "import (\"context\";", 1), "zz_datasources.go": strings.Replace(sources.String(), "import (", "import (\"context\";", 1), "zz_registry.go": registry.String()} {
 		data, err := format.Source([]byte(header + "package generated\n" + body))
 		if err != nil {
 			return nil, fmt.Errorf("format %s: %w", name, err)
 		}
+
 		files[name] = data
 	}
+
 	tests, err := renderTests(kinds)
 	if err != nil {
 		return nil, fmt.Errorf("format zz_resources_test.go: %w", err)
 	}
+
 	files["zz_resources_test.go"] = tests
+
 	return files, nil
 }
 
@@ -106,5 +134,6 @@ func safeText(text string) error {
 	if strings.Contains(strings.ToLower(text), "varset") {
 		return fmt.Errorf("user-facing text contains private terminology")
 	}
+
 	return nil
 }

@@ -27,28 +27,35 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				if _, exists := spec["description"]; exists {
 					return fmt.Errorf("removed description still stored")
 				}
+
 				for _, name := range []string{"labels", "annotations"} {
 					keys, err := nestedMap(obj, "metadata", name)
 					if err != nil {
 						return err
 					}
+
 					if _, exists := keys["b"]; exists {
 						return fmt.Errorf("removed %s key b still stored", name)
 					}
+
 					if keys["a"] != "1" {
 						return fmt.Errorf("retained %s key a lost", name)
 					}
 				}
+
 				labels, err := nestedMap(obj, "metadata", "labels")
 				if err != nil {
 					return err
 				}
+
 				if labels["wayfinder.appvia.io/managed-by-fake"] != "true" {
 					return fmt.Errorf("server-added label lost")
 				}
+
 				return nil
 			},
 		},
@@ -63,27 +70,34 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 				if err != nil {
 					return err
 				}
+
 				if _, exists := helm["releaseName"]; exists {
 					return fmt.Errorf("removed nested releaseName still stored")
 				}
+
 				inputs, err := nestedSlice(obj, "spec", "inputs")
 				if err != nil {
 					return err
 				}
+
 				if len(inputs) == 0 {
 					return fmt.Errorf("spec.inputs is empty")
 				}
+
 				input, ok := inputs[0].(map[string]any)
 				if !ok {
 					return fmt.Errorf("spec.inputs[0]: want map, got %T", inputs[0])
 				}
+
 				filter, err := nestedMap(input, "refType", "filter")
 				if err != nil {
 					return err
 				}
+
 				if len(filter) != 1 || filter["a"] != "1" {
 					return fmt.Errorf("removed nested map entry still stored: %#v", filter)
 				}
+
 				return nil
 			},
 		},
@@ -92,10 +106,12 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 			// Given: a real provider against the HTTP fake, with configured fields.
 			e := newTestEnv(t)
 			k := e.kind(t, tc.kind)
+
 			ref := e.ref(k, "", "example")
 			if k.Versioned {
 				ref.ObjectVersion = "1.0.0"
 			}
+
 			cfg := func(fields string) string {
 				return e.providerBlock() + fmt.Sprintf("resource \"wayfinder_%s\" \"example\" {\n name = \"example\"\n %s\n %s\n}\n", tc.kind, tc.identity, fields)
 			}
@@ -112,6 +128,7 @@ func TestProvider_update_whenManagedValuesRemoved(t *testing.T) {
 					if !exists {
 						return fmt.Errorf("updated object missing")
 					}
+
 					return tc.check(obj)
 				}},
 				{Config: cfg(tc.after), PlanOnly: true},

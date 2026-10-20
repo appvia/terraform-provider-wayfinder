@@ -35,9 +35,11 @@ func expectSecret(e env, s fakeapi.VarScope, want string) resource.TestCheckFunc
 		if !ok {
 			return fmt.Errorf("secret not stored in %+v", s)
 		}
+
 		if !jsonEqual(got, fmt.Sprintf("%q", want)) {
 			return fmt.Errorf("stored secret does not match the expected value")
 		}
+
 		return nil
 	}
 }
@@ -47,6 +49,7 @@ func expectPuts(e env, want int) resource.TestCheckFunc {
 		if n := e.fake.CountRequests(http.MethodPut, ""); n != want {
 			return fmt.Errorf("PUT requests = %d, want %d", n, want)
 		}
+
 		return nil
 	}
 }
@@ -64,6 +67,7 @@ func secretAbsent() ([]statecheck.StateCheck, []plancheck.PlanCheck) {
 		sc = append(sc, absentFromState(l))
 		pc = append(pc, absentFromPlan(l))
 	}
+
 	return sc, pc
 }
 
@@ -72,6 +76,7 @@ func TestSecret_lifecycle_at_every_scope(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e := newEnv(t)
 			e.fake.RecordBodies(true)
+
 			stateChecks, planChecks := secretAbsent()
 			resource.UnitTest(t, resource.TestCase{
 				ProtoV6ProviderFactories: e.factories,
@@ -80,6 +85,7 @@ func TestSecret_lifecycle_at_every_scope(t *testing.T) {
 					if _, ok := e.fake.Secret(scope, "db_password"); ok {
 						return fmt.Errorf("secret still present after destroy")
 					}
+
 					return nil
 				},
 				Steps: []resource.TestStep{
@@ -145,10 +151,12 @@ func expectPutBody(t *testing.T, e env, want string) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		for _, r := range e.fake.Requests() {
 			t.Logf("request log: %s %s -> %d", r.Method, r.Path, r.Status)
+
 			if r.Method == http.MethodPut && !strings.Contains(string(r.Body), want) {
 				return fmt.Errorf("PUT body does not carry the rotated value")
 			}
 		}
+
 		return nil
 	}
 }
@@ -165,12 +173,15 @@ func TestSecret_create_refuses_existing_key_without_writing(t *testing.T) {
 			ExpectError: regexp.MustCompile(`(?s)Secret db_password already exists.*terraform import\s+wayfinder_secret\.<name>\s+db_password`),
 		}},
 	})
+
 	for _, r := range e.fake.Requests() {
 		t.Logf("request log: %s %s -> %d", r.Method, r.Path, r.Status)
 	}
+
 	if n := e.fake.CountRequests(http.MethodPut, ""); n != 0 {
 		t.Errorf("PUT requests = %d, want 0", n)
 	}
+
 	got, _ := e.fake.Secret(scope, "db_password")
 	if !jsonEqual(got, `"set-in-ui"`) {
 		t.Error("stored secret was overwritten")
@@ -188,6 +199,7 @@ func TestSecret_environment_without_workspace_fails_at_plan(t *testing.T) {
 			ExpectError: regexp.MustCompile(`(?s)workspace.*must be specified`),
 		}},
 	})
+
 	if n := len(e.fake.Requests()); n != 0 {
 		t.Errorf("API requests = %d, want 0", n)
 	}

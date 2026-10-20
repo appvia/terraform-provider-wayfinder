@@ -26,15 +26,18 @@ import (
 // certificate to a PEM file, returning the server and the file path.
 func tlsServer(t *testing.T) (*httptest.Server, string) {
 	t.Helper()
+
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(srv.Close)
 	file := filepath.Join(t.TempDir(), "ca.pem")
+
 	block := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
 	if err := os.WriteFile(file, block, 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	return srv, file
 }
 
@@ -43,6 +46,7 @@ func get(c *http.Client, url string) error {
 	if err != nil {
 		return err
 	}
+
 	return resp.Body.Close()
 }
 
@@ -91,6 +95,7 @@ func TestNewHTTPClient_whenCAFileHasNoCertificates(t *testing.T) {
 func TestNewHTTPClient_whenProfileCASet(t *testing.T) {
 	// Given a server whose certificate is only in the wf CLI profile's CA PEM.
 	srv, file := tlsServer(t)
+
 	pemBytes, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
@@ -111,14 +116,17 @@ func TestNewHTTPClient_whenProfileCASet(t *testing.T) {
 // server and that certificate as PEM.
 func distinctTLSServer(t *testing.T) (*httptest.Server, []byte) {
 	t.Helper()
+
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 62))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tmpl := &x509.Certificate{
 		SerialNumber:          serial,
 		Subject:               pkix.Name{CommonName: "wayfinder-test-" + serial.String()},
@@ -130,16 +138,19 @@ func distinctTLSServer(t *testing.T) (*httptest.Server, []byte) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	srv.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12}
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
+
 	return srv, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 }
 
@@ -148,10 +159,12 @@ func TestNewHTTPClient_whenCAFileAndProfileCASet(t *testing.T) {
 	// the profile PEM.
 	fileSrv, filePEM := distinctTLSServer(t)
 	profileSrv, profilePEM := distinctTLSServer(t)
+
 	file := filepath.Join(t.TempDir(), "ca.pem")
 	if err := os.WriteFile(file, filePEM, 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	for _, tc := range []struct {
 		name                  string
 		caFile                string

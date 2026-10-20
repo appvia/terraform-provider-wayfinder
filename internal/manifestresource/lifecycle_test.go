@@ -20,9 +20,11 @@ func emptyAfterApply() resource.ConfigPlanChecks {
 
 func countWrites(t *testing.T, f *fakeapi.Server, want map[string]int) {
 	t.Helper()
+
 	for method, n := range want {
 		got := f.CountRequests(method, "")
 		t.Logf("%s request count = %d", method, got)
+
 		if got != n {
 			t.Fatalf("%s count = %d, want %d", method, got, n)
 		}
@@ -67,6 +69,7 @@ func TestLifecycle_whenImportedThenConfigured(t *testing.T) {
 	e := newTestEnv(t)
 	ref := e.ref(t, "Pipeline", "ws", "dev", "build")
 	e.fake.Seed(ref, map[string]any{"apiVersion": "core.appvia.io/v3", "kind": "Pipeline", "spec": map[string]any{"trigger": "manual"}})
+
 	cfg := config("apiVersion: core/v3\nkind: Pipeline\nmetadata: {name: build, workspace: ws, environment: dev}\nspec: {trigger: manual}\n")
 	// When importing it with an import block and applying the matching manifest.
 	resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: e.factories, Steps: []resource.TestStep{

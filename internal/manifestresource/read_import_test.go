@@ -27,8 +27,10 @@ func TestRead_whenGenerationGatesFullImportedView(t *testing.T) {
 			})
 			r := newResource(e.m, engine.DefaultPoll())
 			r.client = &client.Client{BaseURL: e.fake.URL, Tenant: "acme", TokenSource: testToken(fakeapi.DefaultToken)}
+
 			var schemaResp resource.SchemaResponse
 			r.Schema(t.Context(), resource.SchemaRequest{}, &schemaResp)
+
 			state := tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(t.Context()), nil)}
 			for key, value := range map[string]string{
 				"id":       "core.appvia.io/Pipeline/ws/dev/build",
@@ -38,9 +40,11 @@ func TestRead_whenGenerationGatesFullImportedView(t *testing.T) {
 					t.Fatal(d)
 				}
 			}
+
 			resp := resource.ReadResponse{State: state}
 			f := reflect.ValueOf(&resp).Elem().FieldByName("Private")
 			f.Set(reflect.New(f.Type().Elem()))
+
 			if !imported {
 				if d := resp.Private.SetKey(t.Context(), generationKey, []byte("1")); d.HasError() {
 					t.Fatal(d)
@@ -52,14 +56,17 @@ func TestRead_whenGenerationGatesFullImportedView(t *testing.T) {
 			if resp.Diagnostics.HasError() {
 				t.Fatal(resp.Diagnostics)
 			}
+
 			var js jsontypes.Normalized
 			if d := resp.State.GetAttribute(t.Context(), path.Root("object_json"), &js); d.HasError() {
 				t.Fatal(d)
 			}
+
 			obj, err := decodeJSON(js.ValueString())
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			_, present := obj["spec"].(map[string]any)["trigger"]
 			if present != imported {
 				t.Fatalf("trigger present = %v, want %v", present, imported)
@@ -80,6 +87,7 @@ func TestImportedView_whenServerStampedMetadata(t *testing.T) {
 	if !reflect.DeepEqual(got["annotations"], map[string]any{"team": "x"}) || !reflect.DeepEqual(got["labels"], map[string]any{"env": "dev"}) {
 		t.Fatalf("metadata = %v", got)
 	}
+
 	if len(obj["metadata"].(map[string]any)["annotations"].(map[string]any)) != 3 {
 		t.Fatal("source mutated")
 	}

@@ -29,13 +29,17 @@ func (r *manifestResource) writeOnlyFrom(ctx context.Context, config tfsdk.Confi
 	if d.HasError() {
 		return nil, nil, false
 	}
+
 	versions, _ = versionsOf(versionMap)
 	addProblems(d, versionsWithoutWO(text.IsNull(), versions, !versionMap.IsNull()))
+
 	if !text.IsNull() {
 		var problems []woProblem
+
 		wo, problems = validateWriteOnly(&want, text.ValueString(), versions, !versionMap.IsNull())
 		addProblems(d, problems)
 	}
+
 	return wo, versions, !d.HasError()
 }
 
@@ -49,19 +53,24 @@ func (r *manifestResource) ValidateConfig(ctx context.Context, req resource.Vali
 	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest"), &text)...)
 	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest_wo"), &wo)...)
 	d.Append(req.Config.GetAttribute(ctx, path.Root("manifest_wo_version"), &versionMap)...)
+
 	if d.HasError() {
 		return
 	}
+
 	versions, versionsKnown := versionsOf(versionMap)
 	if versionsKnown && wo.IsNull() {
 		addProblems(d, versionsWithoutWO(true, versions, true))
 	}
+
 	var want *desired
+
 	if !text.IsNull() && !text.IsUnknown() && r.ready(d, false) {
 		if w, ok := r.desiredFrom(text, d); ok {
 			want = &w
 		}
 	}
+
 	if !wo.IsNull() && !wo.IsUnknown() {
 		_, problems := validateWriteOnly(want, wo.ValueString(), versions, versionsKnown && !versionMap.IsNull())
 		addProblems(d, problems)
@@ -81,14 +90,17 @@ func versionsOf(m types.Map) (map[string]string, bool) {
 	if m.IsNull() {
 		return nil, true
 	}
+
 	if m.IsUnknown() {
 		return nil, false
 	}
+
 	out := make(map[string]string, len(m.Elements()))
 	for k, v := range m.Elements() {
 		s, _ := v.(types.String)
 		out[k] = s.ValueString()
 	}
+
 	return out, true
 }
 
@@ -97,17 +109,22 @@ func (r *manifestResource) desiredFrom(text types.String, d *diag.Diagnostics) (
 	want, err := parseManifest(r.manifest, text.ValueString())
 	if err != nil {
 		summary := "Invalid manifest"
+
 		var ke *kindError
 		if errors.As(err, &ke) {
 			summary = "Unsupported kind"
 		}
+
 		d.AddAttributeError(path.Root("manifest"), summary, err.Error())
+
 		return desired{}, false
 	}
+
 	secrets := secretValues(want.kind, want.object)
 	for _, s := range secrets {
 		d.AddAttributeError(path.Root("manifest"), "Secret in manifest", secretMessage(want.kind, s))
 	}
+
 	return want, len(secrets) == 0
 }
 
@@ -115,33 +132,43 @@ func (r *manifestResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if req.Plan.Raw.IsNull() || !r.ready(&resp.Diagnostics, false) {
 		return
 	}
+
 	var plan model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	plan.Status = types.ObjectUnknown(statusTypes)
 	if plan.Manifest.IsUnknown() {
 		plan.ID, plan.ObjectJSON = types.StringUnknown(), jsontypes.NewNormalizedUnknown()
 		resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
+
 		return
 	}
+
 	want, ok := r.desiredFrom(plan.Manifest, &resp.Diagnostics)
 	if !ok {
 		return
 	}
+
 	js, err := encodeJSON(want.object)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid manifest", err.Error())
 		return
 	}
+
 	plan.ID, plan.ObjectJSON = types.StringValue(want.importID()), jsontypes.NewNormalizedValue(js)
+
 	if !req.State.Raw.IsNull() {
 		var state model
 		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
 		if resp.Diagnostics.HasError() {
 			return
 		}
+
 		prior, err := decodeJSON(state.ObjectJSON.ValueString())
 		switch {
 		case state.ID.ValueString() != want.importID():
@@ -151,9 +178,11 @@ func (r *manifestResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		case err == nil && matches(prior, want.object):
 			plan.Status = state.Status
 		}
+
 		if !plan.ManifestWOVersion.Equal(state.ManifestWOVersion) {
 			plan.Status = types.ObjectUnknown(statusTypes)
 		}
 	}
+
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
 }

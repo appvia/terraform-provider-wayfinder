@@ -62,11 +62,13 @@ func providerSchema() schema.Schema {
 			attrs[a.name] = schema.BoolAttribute{Optional: true, MarkdownDescription: desc}
 			continue
 		}
+
 		attrs[a.name] = schema.StringAttribute{
 			Optional:            true,
 			Sensitive:           a.sensitive,
 			MarkdownDescription: desc,
 		}
 	}
+
 	return schema.Schema{MarkdownDescription: providerDescription, Attributes: attrs}
 }

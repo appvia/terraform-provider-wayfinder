@@ -24,9 +24,11 @@ func Spec(k manifest.Kind) fakeapi.KindSpec {
 	for _, scope := range k.Scopes {
 		s.Scopes = append(s.Scopes, fakeapi.Scope(scope))
 	}
+
 	if k.Spec != nil {
 		collectSensitive(&s, "spec", k.Spec)
 	}
+
 	return s
 }
 
@@ -44,11 +46,14 @@ func collectSensitive(s *fakeapi.KindSpec, path string, f *manifest.Field) {
 		} else {
 			s.SensitiveStrings = append(s.SensitiveStrings, path)
 		}
+
 		return
 	}
+
 	if f.Items != nil {
 		collectSensitive(s, path, f.Items)
 	}
+
 	for _, name := range orderedNames(f) {
 		collectSensitive(s, path+"."+name, f.Properties[name])
 	}
@@ -58,6 +63,7 @@ func collectSensitive(s *fakeapi.KindSpec, path string, f *manifest.Field) {
 // registration is deterministic.
 func orderedNames(f *manifest.Field) []string {
 	seen := make(map[string]bool, len(f.Properties))
+
 	names := make([]string, 0, len(f.Properties))
 	for _, n := range f.PropertyOrder {
 		if _, ok := f.Properties[n]; ok && !seen[n] {
@@ -65,12 +71,16 @@ func orderedNames(f *manifest.Field) []string {
 			names = append(names, n)
 		}
 	}
+
 	var rest []string
+
 	for n := range f.Properties {
 		if !seen[n] {
 			rest = append(rest, n)
 		}
 	}
+
 	slices.Sort(rest)
+
 	return append(names, rest...)
 }

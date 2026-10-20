@@ -41,6 +41,7 @@ func AddAPIError(d *diag.Diagnostics, err error, t ErrorTarget) {
 			d.AddError("Wayfinder validation failed", validation.Message)
 			return
 		}
+
 		for _, f := range validation.Fields {
 			if t.AttributePath != nil {
 				if p, ok := t.AttributePath(f.Field); ok {
@@ -48,6 +49,7 @@ func AddAPIError(d *diag.Diagnostics, err error, t ErrorTarget) {
 					continue
 				}
 			}
+
 			d.AddError("Wayfinder validation failed", f.Message)
 		}
 	case errors.As(err, &api):

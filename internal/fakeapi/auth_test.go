@@ -33,11 +33,14 @@ func TestToken_client_credentials_mints_usable_token_and_wrong_secret_is_401(t *
 
 	wantCode(t, ok, http.StatusOK)
 	wantCode(t, bad, http.StatusUnauthorized)
+
 	tok, _ := ok.body["access_token"].(string)
 	if tok == "" || ok.body["expires_in"] != float64(90) || ok.body["token_type"] != "Bearer" {
 		t.Fatalf("token response = %s", ok.raw)
 	}
+
 	wantCode(t, callWithToken(t, s, tok, http.MethodGet, identityCollection+"/x", nil), http.StatusNotFound)
+
 	if n := s.Mints(fakeapi.GrantClientCredentials); n != 1 {
 		t.Errorf("mints = %d, want 1", n)
 	}
@@ -46,6 +49,7 @@ func TestToken_client_credentials_mints_usable_token_and_wrong_secret_is_401(t *
 func TestToken_exchange_federated_identity(t *testing.T) {
 	s := newServer(t)
 	s.AddFederatedIdentity("acme:ws1:deployer", "oidc-jwt")
+
 	body := func(subject, typ string) map[string]any {
 		return map[string]any{
 			"grant_type": fakeapi.GrantTokenExchange, "subject_token": subject,
@@ -60,6 +64,7 @@ func TestToken_exchange_federated_identity(t *testing.T) {
 	wantCode(t, ok, http.StatusOK)
 	wantCode(t, wrongSubject, http.StatusUnauthorized)
 	wantCode(t, wrongType, http.StatusBadRequest)
+
 	if s.Mints(fakeapi.GrantTokenExchange) != 1 {
 		t.Errorf("mints = %d", s.Mints(fakeapi.GrantTokenExchange))
 	}
@@ -97,6 +102,7 @@ func TestServerInfo_returns_version_release(t *testing.T) {
 	got := callWithToken(t, s, fakeapi.DefaultToken, http.MethodGet, "/api/v3/general/serverinfo", nil)
 
 	wantCode(t, got, http.StatusOK)
+
 	if dig(got.body, "version", "release") != "v3.3.2" {
 		t.Errorf("body = %s", got.raw)
 	}

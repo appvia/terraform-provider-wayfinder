@@ -17,10 +17,12 @@ func TestProvider_applies_workspace_when_actions_audience_is_discovered(t *testi
 	// Given the documented GitHub Actions environment, with no explicit audience.
 	e := newTestEnv(t)
 	e.fake.AddFederatedIdentity("acme:ci:robot", "subject")
+
 	oidc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Query().Get("audience") != "https://portal.example/t/acme" || req.Header.Get("Authorization") != "Bearer oidc-request-token" {
 			t.Error("unexpected GitHub Actions identity request")
 		}
+
 		if _, err := w.Write([]byte(`{"value":"subject"}`)); err != nil {
 			t.Error(err)
 		}
@@ -48,6 +50,7 @@ resource "wayfinder_workspace" "example" {
 			ConfigPlanChecks: resource.ConfigPlanChecks{PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}},
 		}},
 	})
+
 	if e.fake.Mints(fakeapi.GrantTokenExchange) == 0 || e.fake.CountRequests("", "/api/v3/general/serverinfo") != 0 {
 		t.Fatal("expected token exchange without serverinfo discovery")
 	}

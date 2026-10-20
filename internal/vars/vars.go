@@ -66,12 +66,15 @@ func (k scopedKey) ID() string {
 	if k.Workspace != "" {
 		parts = append(parts, k.Workspace)
 	}
+
 	if k.Environment != "" {
 		parts = append(parts, k.Environment)
 	}
+
 	if k.Instance != "" {
 		parts = append(parts, k.Instance)
 	}
+
 	return strings.Join(append(parts, k.Key), "/")
 }
 
@@ -85,7 +88,9 @@ func parseID(id string) (scopedKey, error) {
 			return scopedKey{}, fmt.Errorf("%q: %w", id, errInvalidID)
 		}
 	}
+
 	var k scopedKey
+
 	switch len(parts) {
 	case 1:
 		k = scopedKey{Key: parts[0]}
@@ -98,9 +103,11 @@ func parseID(id string) (scopedKey, error) {
 	default:
 		return scopedKey{}, fmt.Errorf("%q: %w", id, errInvalidID)
 	}
+
 	if !keyPattern.MatchString(k.Key) {
 		return scopedKey{}, fmt.Errorf("%q: key %q must start with a letter or underscore and contain only letters, digits, underscores and dashes", id, k.Key)
 	}
+
 	return k, nil
 }
 
@@ -117,6 +124,7 @@ func (k scopedKey) itemPath(tenant, kind string) string {
 			}
 		}
 	}
+
 	return p + "/vars/" + kind + "/" + url.PathEscape(k.Key)
 }
 
@@ -141,11 +149,14 @@ func get(ctx context.Context, c *client.Client, k scopedKey, kind string) (rawIt
 	if len(out.Value) == 0 {
 		return out, nil
 	}
+
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, out.Value); err != nil {
 		return out, fmt.Errorf("decoding %s %s value: %w", kind, k.ID(), err)
 	}
+
 	out.Value = compact.Bytes()
+
 	return out, nil
 }
 
@@ -160,6 +171,7 @@ func remove(ctx context.Context, c *client.Client, k scopedKey, kind string) err
 	if errors.Is(err, client.ErrNotFound) {
 		return nil
 	}
+
 	return err
 }
 
@@ -167,6 +179,7 @@ func remove(ctx context.Context, c *client.Client, k scopedKey, kind string) err
 // and would silently overwrite a value managed elsewhere (UI, CLI or another configuration).
 func ensureAbsent(ctx context.Context, c *client.Client, k scopedKey, kind string) diag.Diagnostics {
 	var diags diag.Diagnostics
+
 	_, err := get(ctx, c, k, kind)
 	switch {
 	case errors.Is(err, client.ErrNotFound):
@@ -178,6 +191,7 @@ func ensureAbsent(ctx context.Context, c *client.Client, k scopedKey, kind strin
 			fmt.Sprintf("%s %s already exists. Import it with: terraform import wayfinder_%s.<name> %s",
 				label(kind), k.ID(), resourceSuffix(kind), k.ID()))
 	}
+
 	return diags
 }
 
@@ -185,6 +199,7 @@ func label(kind string) string {
 	if kind == kindSecrets {
 		return "Secret"
 	}
+
 	return "Variable"
 }
 
@@ -192,6 +207,7 @@ func resourceSuffix(kind string) string {
 	if kind == kindSecrets {
 		return "secret"
 	}
+
 	return "variable"
 }
 
@@ -201,9 +217,11 @@ func clientFrom(data any) (*client.Client, diag.Diagnostics) {
 	if data == nil {
 		return nil, diags
 	}
+
 	c, ok := data.(*client.Client)
 	if !ok {
 		diags.AddError("Unexpected provider data", fmt.Sprintf("expected *client.Client, got %T", data))
 	}
+
 	return c, diags
 }

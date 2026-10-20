@@ -31,6 +31,7 @@ func setGeneration(ctx context.Context, p privateState, obj map[string]any, d *d
 		d.AddError("Invalid Wayfinder metadata", err.Error())
 		return
 	}
+
 	d.Append(p.SetKey(ctx, generationKey, []byte(strconv.FormatInt(g, 10)))...)
 }
 
@@ -46,15 +47,19 @@ func apiError(d *diag.Diagnostics, err error, t engine.ErrorTarget, wo map[strin
 	if errors.As(err, &validation) && len(validation.Fields) > 0 {
 		for _, f := range validation.Fields {
 			attr := path.Root("manifest")
+
 			if p, perr := parseWOPath(f.Field); perr == nil {
 				if _, found := lookup(wo, p); found {
 					attr = path.Root("manifest_wo")
 				}
 			}
+
 			d.AddAttributeError(attr, "Wayfinder validation failed", f.Field+": "+f.Message)
 		}
+
 		return
 	}
+
 	engine.AddAPIError(d, err, t)
 }
 

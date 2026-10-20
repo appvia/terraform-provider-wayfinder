@@ -39,13 +39,16 @@ func (r Ref) CollectionPath(tenant string) (string, error) {
 	case r.Environment != "" && r.Workspace == "":
 		return "", fmt.Errorf("%w: environment %q needs a workspace", errInvalidRef, r.Environment)
 	}
+
 	segs := []string{"tenants", tenant}
 	if r.Workspace != "" {
 		segs = append(segs, "workspaces", r.Workspace)
 	}
+
 	if r.Environment != "" {
 		segs = append(segs, "envs", r.Environment)
 	}
+
 	return join(append(segs, r.Group, r.Version, r.APIPath)), nil
 }
 
@@ -56,6 +59,7 @@ func (r Ref) ItemPath(tenant string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	switch {
 	case r.Name == "":
 		return "", fmt.Errorf("%w: name is empty", errInvalidRef)
@@ -64,19 +68,23 @@ func (r Ref) ItemPath(tenant string) (string, error) {
 	case !r.Versioned && r.ObjectVersion != "":
 		return "", fmt.Errorf("%w: %s is not versioned but version %q was given", errInvalidRef, r.APIPath, r.ObjectVersion)
 	}
+
 	item := col + "/" + url.PathEscape(r.Name)
 	if r.Versioned {
 		item += "/versions/" + url.PathEscape(r.ObjectVersion)
 	}
+
 	return item, nil
 }
 
 func join(segs []string) string {
 	var b strings.Builder
 	b.WriteString(resourcesRoot)
+
 	for _, s := range segs {
 		b.WriteByte('/')
 		b.WriteString(url.PathEscape(s))
 	}
+
 	return b.String()
 }

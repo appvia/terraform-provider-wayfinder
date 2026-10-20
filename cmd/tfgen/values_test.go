@@ -28,9 +28,11 @@ func TestSynth_whenFixtureHasOptionalNestedSecrets(t *testing.T) {
 			t.Fatalf("missing %q in\n%s", want, got)
 		}
 	}
+
 	if strings.Contains(got, "user") || len(s.problems) != 0 {
 		t.Fatalf("unexpected optional field or problems %v in\n%s", s.problems, got)
 	}
+
 	if strings.Join(s.writeOnly, ",") != "api.headers_wo,basic.password_wo" {
 		t.Fatalf("writeOnly = %v", s.writeOnly)
 	}

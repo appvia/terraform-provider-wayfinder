@@ -46,6 +46,7 @@ func TestVariable_instance_change_replaces(t *testing.T) {
 						if _, ok := e.fake.Variable(app1, "region"); ok {
 							return fmt.Errorf("variable still present at the previous instance")
 						}
+
 						return nil
 					},
 				),
@@ -84,6 +85,7 @@ func TestSecret_instance_change_replaces(t *testing.T) {
 						if _, ok := e.fake.Secret(app1, "db_password"); ok {
 							return fmt.Errorf("secret still present at the previous instance")
 						}
+
 						return nil
 					},
 				),
@@ -103,6 +105,7 @@ func TestScopeValidation_rejects_invalid_instance_config(t *testing.T) {
 		{"empty_instance", "  workspace = \"ws1\"\n  environment = \"dev\"\n  instance = \"\"\n", `non-empty name without '/'`},
 		{"instance_with_slash", "  workspace = \"ws1\"\n  environment = \"dev\"\n  instance = \"a/b\"\n", `non-empty name without '/'`},
 	}
+
 	schemas := []struct {
 		name      string
 		writeOnly bool
@@ -123,6 +126,7 @@ func TestScopeValidation_rejects_invalid_instance_config(t *testing.T) {
 		for _, c := range scopes {
 			t.Run(sc.name+"/"+c.name, func(t *testing.T) {
 				e := newEnv(t)
+
 				tc := resource.TestCase{
 					ProtoV6ProviderFactories: e.factories,
 					Steps: []resource.TestStep{{
@@ -134,7 +138,9 @@ func TestScopeValidation_rejects_invalid_instance_config(t *testing.T) {
 				if sc.writeOnly {
 					tc.TerraformVersionChecks = writeOnlyVersions
 				}
+
 				resource.UnitTest(t, tc)
+
 				for _, r := range e.fake.Requests() {
 					if strings.Contains(r.Path, "vars") {
 						t.Errorf("unexpected vars request %s %s", r.Method, r.Path)
@@ -170,6 +176,7 @@ func TestVariable_instance_scope_isolation(t *testing.T) {
 	e := newEnv(t)
 	envScope := testScopes["environment"]
 	app1, app2 := instanceScope("app1"), instanceScope("app2")
+
 	e.fake.SetVariable(envScope, "region", []byte(`"env-value"`))
 	e.fake.SetVariable(app1, "region", []byte(`"app1-value"`))
 	e.fake.SetVariable(app2, "region", []byte(`"app2-value"`))
@@ -179,9 +186,11 @@ func TestVariable_instance_scope_isolation(t *testing.T) {
 		if got, _ := e.fake.Variable(envScope, "region"); !jsonEqual(got, `"env-value"`) {
 			return fmt.Errorf("environment value changed to %s", got)
 		}
+
 		if got, _ := e.fake.Variable(app2, "region"); !jsonEqual(got, `"app2-value"`) {
 			return fmt.Errorf("sibling instance value changed to %s", got)
 		}
+
 		return nil
 	}
 	resource.UnitTest(t, resource.TestCase{
@@ -190,6 +199,7 @@ func TestVariable_instance_scope_isolation(t *testing.T) {
 			if _, ok := e.fake.Variable(app1, "region"); ok {
 				return fmt.Errorf("instance variable still present after destroy")
 			}
+
 			return untouched(s)
 		},
 		Steps: []resource.TestStep{
@@ -217,18 +227,23 @@ func TestVariable_instance_scope_isolation(t *testing.T) {
 	})
 
 	var sawInstance bool
+
 	for _, r := range e.fake.Requests() {
 		t.Logf("request log: %s %s -> %d", r.Method, r.Path, r.Status)
+
 		if strings.Contains(r.Path, "/instancevars/app1/variables/") {
 			sawInstance = true
 		}
+
 		if strings.Contains(r.Path, "/instancevars/app2/") || strings.Contains(r.Path, "/envs/dev/vars/") {
 			t.Errorf("request reached another scope: %s %s", r.Method, r.Path)
 		}
 	}
+
 	if !sawInstance {
 		t.Error("no request reached /instancevars/app1/variables/")
 	}
+
 	if n := e.fake.CountRequests(http.MethodPut, ""); n != 1 {
 		t.Errorf("PUT requests = %d, want 1", n)
 	}

@@ -13,6 +13,7 @@ linters:
     - unused
     - misspell
     - unconvert
+    - wsl_v5
   settings:
     goheader:
       # Add missing headers with scripts/license-headers.sh.

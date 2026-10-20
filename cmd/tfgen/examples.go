@@ -28,11 +28,14 @@ func exampleFiles(k manifest.Kind) map[string]string {
 		case "environment":
 			id = "example-workspace/example-environment/example"
 		}
+
 		if k.Versioned {
 			id += "@1.0.0"
 		}
+
 		fmt.Fprintf(&imports, "# %s scope\nterraform import %s.example '%s'\n", scope, name, id)
 	}
+
 	return map[string]string{
 		"resources/" + name + "/resource.tf":       header + fmt.Sprintf("resource %q \"example\" {\n%s%s}\n", name, identity, required.body(k.Spec, true, "  ", "")),
 		"resources/" + name + "/import.sh":         imports.String(),
@@ -45,18 +48,26 @@ func exampleFiles(k manifest.Kind) map[string]string {
 func exampleIdentity(k manifest.Kind) (string, string) {
 	var b strings.Builder
 	b.WriteString("  name = \"example\"\n")
+
 	id := "example"
+
 	if slices.Contains(k.Scopes, "workspace") || slices.Contains(k.Scopes, "environment") {
 		b.WriteString("  workspace = \"example\"\n")
+
 		id = "example/" + id
 	}
+
 	if len(k.Scopes) == 1 && k.Scopes[0] == "environment" {
 		b.WriteString("  environment = \"example\"\n")
+
 		id = "example/" + id
 	}
+
 	if k.Versioned {
 		b.WriteString("  version = \"1.0.0\"\n")
+
 		id += "@1.0.0"
 	}
+
 	return b.String(), id
 }

@@ -24,6 +24,7 @@ func TestOverlay_whenOnlyManagedKeyRemoved(t *testing.T) {
 			if !reflect.DeepEqual(got, expect) {
 				t.Fatalf("overlay = %#v, want %#v", got, expect)
 			}
+
 			if !reflect.DeepEqual(fresh, map[string]any{field: map[string]any{"a": "1", "b": "2", "server": "kept"}}) {
 				t.Fatalf("fresh input mutated: %#v", fresh)
 			}

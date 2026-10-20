@@ -21,6 +21,7 @@ func (e *kindError) Error() string {
 	if e.excluded {
 		return "Kind " + e.kind + " cannot be managed with Terraform."
 	}
+
 	return "Kind " + e.kind + " is not supported by this provider version; upgrade the provider."
 }
 
@@ -31,6 +32,7 @@ func splitAPIVersion(apiVersion string) (group, version string, err error) {
 	if !ok || group == "" || version == "" || strings.Contains(version, "/") {
 		return "", "", fmt.Errorf("apiVersion %q must have the form <group>/<version>, for example org/v3", apiVersion)
 	}
+
 	return group, version, nil
 }
 
@@ -48,10 +50,13 @@ func resolveKind(m *manifest.Manifest, group, version, kind string) (manifest.Ki
 		if k.Kind != kind || !groupMatches(k.Group, group) {
 			continue
 		}
+
 		if version != "" && version != k.Version {
 			return manifest.Kind{}, fmt.Errorf("apiVersion %s/%s is not served for kind %s; use %s/%s", group, version, kind, k.Group, k.Version)
 		}
+
 		return k, nil
 	}
+
 	return manifest.Kind{}, &kindError{kind: kind, excluded: slices.Contains(m.Excluded, kind)}
 }

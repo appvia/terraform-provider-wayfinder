@@ -17,6 +17,7 @@ import (
 
 func nestedMapping(t *testing.T) *convert.Mapping {
 	t.Helper()
+
 	str := &manifest.Field{Type: "string"}
 	k := manifest.Kind{Kind: "Example", Group: "example.io", Version: "v1", Scopes: []string{"tenant"}, Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
 		"name":    str,
@@ -24,10 +25,12 @@ func nestedMapping(t *testing.T) *convert.Mapping {
 		"entries": {Type: "map", Values: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{"displayName": str, "extra": str, "payload": {Type: "json"}, "token": {Type: "string", Sensitive: true}}}},
 		"rules":   {Type: "array", Items: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{"displayName": str, "payload": {Type: "json"}, "token": {Type: "string", Sensitive: true}}}},
 	}}}
+
 	m, err := convert.NewMapping(k)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return m
 }
 
@@ -35,19 +38,23 @@ func TestNestedRoundTrip_whenListMapJSONAndReservedNameConfigured(t *testing.T) 
 	// Given
 	m := nestedMapping(t)
 	attrs := map[string]any{"name": "resource", "spec_name": "spec-value", "token_wo": "secret", "token_wo_version": "1"}
+
 	for key, text := range map[string]string{"rules": `[{"display_name":"second","payload_json":"{\"x\":[true]}","token_wo":null,"token_wo_version":null},{"display_name":"first","payload_json":"[1,2]","token_wo":null,"token_wo_version":null}]`, "entries": `{"key":{"display_name":"map","extra":null,"payload_json":"{\"y\":1}","token_wo":null,"token_wo_version":null}}`} {
 		v, err := fixtureValue(m.TFType().AttributeTypes[key], text)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		attrs[key] = v
 	}
+
 	x := object(t, `{"apiVersion":"example.io/v1","kind":"Example","metadata":{"name":"resource"},"spec":{"name":"spec-value","rules":[{"displayName":"second","payload":{"x":[true]}},{"displayName":"first","payload":[1,2]}],"entries":{"key":{"displayName":"map","payload":{"y":1}}}}}`)
 	// When
 	state, err := convert.FromObject(m, x, config(t, m, attrs))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := convert.ToObject(m, state, convert.ToOpts{})
 	if err != nil {
 		t.Fatal(err)
@@ -67,6 +74,7 @@ func TestTokenCreate_whenWriteOnlyAttributeSelected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !reflect.DeepEqual(got["spec"], map[string]any{"token": "send"}) {
 		t.Fatalf("spec: %#v", got["spec"])
 	}
@@ -75,10 +83,12 @@ func TestTokenCreate_whenWriteOnlyAttributeSelected(t *testing.T) {
 func TestNestedRead_whenOptionalChildNotConfigured(t *testing.T) {
 	// Given
 	m := nestedMapping(t)
+
 	v, err := fixtureValue(m.TFType().AttributeTypes["entries"], `{"key":{"display_name":"map","extra":null,"payload_json":null,"token_wo":"SECRET","token_wo_version":"v1"}}`)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	x := object(t, `{"spec":{"entries":{"key":{"displayName":"new","extra":"server default","token":"LEAK"}}}}`)
 	// When
 	state, err := convert.FromObject(m, x, config(t, m, map[string]any{"entries": v}))
@@ -86,10 +96,12 @@ func TestNestedRead_whenOptionalChildNotConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	entry := values(t, values(t, values(t, state)["entries"])["key"])
 	if !entry["extra"].IsNull() || !entry["token_wo"].IsNull() {
 		t.Fatal("unconfigured child or secret leaked")
 	}
+
 	if !entry["token_wo_version"].Equal(tftypes.NewValue(tftypes.String, "v1")) {
 		t.Fatal("nested version missing")
 	}
@@ -98,10 +110,12 @@ func TestNestedRead_whenOptionalChildNotConfigured(t *testing.T) {
 func TestNestedWriteOnly_whenPathSelected(t *testing.T) {
 	// Given
 	m := nestedMapping(t)
+
 	v, err := fixtureValue(m.TFType().AttributeTypes["rules"], `[{"display_name":"rule","payload_json":null,"token_wo":"new","token_wo_version":"v2"}]`)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	base := object(t, `{"spec":{"rules":[{"displayName":"old","token":"","serverKey":true}]}}`)
 	// When
 	got, err := convert.ToObject(m, config(t, m, map[string]any{"rules": v}), convert.ToOpts{Base: base, IncludeWriteOnly: map[string]bool{"rules[0].token_wo": true}})
@@ -109,6 +123,7 @@ func TestNestedWriteOnly_whenPathSelected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	want := object(t, `{"rules":[{"displayName":"rule","token":"new","serverKey":true}]}`)
 	if !reflect.DeepEqual(got["spec"], want) {
 		t.Fatalf("spec: %#v", got["spec"])
@@ -136,6 +151,7 @@ func TestConversionOmitsUnknown_whenConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(got["spec"].(map[string]any)) != 0 {
 		t.Fatal("unknown or null sent")
 	}
@@ -163,6 +179,7 @@ func TestFrameworkInputsRetained_whenRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, key := range []string{"timeouts", "wait_for_ready"} {
 		if !values(t, state)[key].Equal(values(t, prior)[key]) {
 			t.Fatal(key)
@@ -179,11 +196,13 @@ func TestJSONNumberRoundTrip_whenLargeInteger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := convert.ToObject(m, state, convert.ToOpts{})
 	// Then
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got["spec"].(map[string]any)["timeoutSeconds"] != int64(9007199254740993) {
 		t.Fatal("precision lost")
 	}

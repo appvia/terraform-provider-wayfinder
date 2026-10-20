@@ -24,6 +24,7 @@ func TestCreate_whenAlreadyExistsDoesNotRetry(t *testing.T) {
 	if !resp.Diagnostics.HasError() || !strings.Contains(resp.Diagnostics[0].Detail(), "terraform import wayfinder_workspace.<name> example") {
 		t.Fatalf("diagnostics = %v", resp.Diagnostics)
 	}
+
 	if n := e.fake.CountRequests(http.MethodPost, ""); n != 1 {
 		t.Fatalf("POST = %d", n)
 	}
@@ -43,6 +44,7 @@ func TestValidation_whenServerReturnsMultipleFields(t *testing.T) {
 	if len(resp.Diagnostics) != 2 {
 		t.Fatalf("diagnostics = %v", resp.Diagnostics)
 	}
+
 	for i, want := range []path.Path{path.Root("endpoint"), path.Root("api_key_wo")} {
 		d, ok := resp.Diagnostics[i].(diag.DiagnosticWithPath)
 		if !ok || !d.Path().Equal(want) {
@@ -55,6 +57,7 @@ func TestAPIDiagnostics_whenServerMessageMustRemainVerbatim(t *testing.T) {
 	// Given upstream 5xx and dependency-conflict messages.
 	e := newTestEnv(t, "Workspace")
 	r := directResource(e)
+
 	for _, code := range []int{500, 409} {
 		var d diag.Diagnostics
 		// When reporting the typed upstream error.
@@ -80,9 +83,11 @@ func TestValidation_whenServerReportsBareAndUnknownFields(t *testing.T) {
 	if len(resp.Diagnostics) != 2 {
 		t.Fatalf("diagnostics = %v", resp.Diagnostics)
 	}
+
 	if d, ok := resp.Diagnostics[0].(diag.DiagnosticWithPath); !ok || !d.Path().Equal(path.Root("name")) || d.Detail() != "name invalid" {
 		t.Fatalf("name diagnostic = %v", resp.Diagnostics[0])
 	}
+
 	if _, ok := resp.Diagnostics[1].(diag.DiagnosticWithPath); ok || resp.Diagnostics[1].Detail() != "mystery invalid" {
 		t.Fatalf("unknown diagnostic = %v", resp.Diagnostics[1])
 	}

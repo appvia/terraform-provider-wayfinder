@@ -46,10 +46,12 @@ func TestProvider_lifecycle_whenTenantWriteOnlyAndVersionedKinds(t *testing.T) {
 			cfg := func(spec string) string {
 				return e.providerBlock() + fmt.Sprintf("resource %q \"example\" {\n name = \"example\"\n labels = {\"wayfinder.appvia.io/managed-by-fake\" = \"true\"}\n %s\n %s\n}\n", typ, tc.identity, spec)
 			}
+
 			statusCheck := resource.TestCheckResourceAttrSet(addr, "status.status")
 			if tc.waits {
 				statusCheck = resource.TestCheckResourceAttr(addr, "status.status", "Success")
 			}
+
 			empty := resource.ConfigPlanChecks{PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()}}
 			// When Terraform creates, re-plans, updates, imports and destroys it.
 			resource.UnitTest(t, resource.TestCase{
@@ -79,6 +81,7 @@ func TestProvider_lifecycle_whenTenantWriteOnlyAndVersionedKinds(t *testing.T) {
 					t.Fatalf("%s count = %d, want %d", method, got, want)
 				}
 			}
+
 			t.Logf("%s: empty plan after apply, update, import verify and destroy PASS (POST=1 PUT=1 DELETE=1)", addr)
 		})
 	}
@@ -111,15 +114,19 @@ data "wayfinder_workspace" "read" {
 
 func checkSecretAbsent(t *testing.T) resource.TestCheckFunc {
 	t.Helper()
+
 	return func(s *terraform.State) error {
 		b, err := json.Marshal(s)
 		if err != nil {
 			return fmt.Errorf("marshal state: %w", err)
 		}
+
 		if strings.Contains(string(b), secretLiteral) {
 			return fmt.Errorf("secret literal found in state")
 		}
+
 		t.Log("secret-not-in-state: PASS (marshalled Terraform state)")
+
 		return nil
 	}
 }

@@ -26,9 +26,11 @@ func TestParseManifest_whenAPIVersionUsesShortOrQualifiedGroup(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if d.importID() != tc.wantID {
 				t.Fatalf("id = %s", d.importID())
 			}
+
 			if d.object["apiVersion"] != d.kind.Group+"/"+d.kind.Version {
 				t.Fatalf("apiVersion = %v", d.object["apiVersion"])
 			}
@@ -67,11 +69,13 @@ func TestParseID_whenGroupKindAndIdentity(t *testing.T) {
 	if err != nil || k.Kind != "Pipeline" || i.Workspace != "ws" || i.Environment != "dev" || i.Name != "p" {
 		t.Fatalf("got %v %v %v", k.Kind, i, err)
 	}
+
 	for _, bad := range []string{"plat", "core/Workspace", "core/Workspace/ws/plat", "core/Run/x"} {
 		if _, _, err := parseID(m, bad); err == nil {
 			t.Fatalf("%s accepted", bad)
 		}
 	}
+
 	var ke *kindError
 	if _, _, err := parseID(m, "core/Run/x"); !errors.As(err, &ke) {
 		t.Fatalf("err = %v", err)
@@ -122,6 +126,7 @@ func TestSecretValues_whenSensitivePathsSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			s := secretValues(d.kind, d.object)
 			// Then one secret is reported with the write-only attribute to use.
 			if len(s) != 1 || !strings.HasPrefix(secretMessage(d.kind, s[0]), tc.want) {

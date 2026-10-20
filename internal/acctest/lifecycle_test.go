@@ -57,7 +57,9 @@ func run(t *testing.T, lc lifecycle) {
 	t.Helper()
 	stateDir := t.TempDir()
 	t.Setenv("TF_ACC_TEMP_DIR", stateDir)
+
 	secretPlan := []plancheck.PlanCheck{absentFromPlan(lc.secrets)}
+
 	steps := []resource.TestStep{
 		{
 			Config: lc.create, ConfigPlanChecks: emptyAfterApply(secretPlan...),
@@ -78,10 +80,12 @@ func run(t *testing.T, lc lifecycle) {
 			ImportStateVerify: true, ImportStateVerifyIgnore: append(append([]string{}, defaultIgnore...), i.ignore...),
 		})
 	}
+
 	checkDestroy := lc.checkDestroy
 	if checkDestroy == nil {
 		checkDestroy = checkDestroyed
 	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { PreCheck(t) },
 		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
@@ -98,26 +102,32 @@ func checkDestroyed(s *terraform.State) error {
 	if err != nil {
 		return err
 	}
+
 	byType := map[string]manifest.Kind{}
 	for _, k := range m.TypedKinds() {
 		byType[k.TerraformName] = k
 	}
+
 	c, err := NewClient()
 	if err != nil {
 		return err
 	}
+
 	for _, rs := range s.RootModule().Resources {
 		k, ok := byType[rs.Type]
 		if !ok || rs.Primary == nil {
 			continue
 		}
+
 		a := rs.Primary.Attributes
+
 		ref := client.Ref{Group: k.Group, Version: k.Version, APIPath: k.APIPath, Workspace: a["workspace"],
 			Environment: a["environment"], Name: a["name"], ObjectVersion: a["version"], Versioned: k.Versioned}
 		if _, err := c.Get(context.Background(), ref); !errors.Is(err, client.ErrNotFound) {
 			return fmt.Errorf("%s %s still exists after destroy (err=%v)", k.Kind, rs.Primary.ID, err)
 		}
 	}
+
 	return nil
 }
 
@@ -127,6 +137,7 @@ func containsAny(b []byte, secrets []string) error {
 			return fmt.Errorf("secret literal of length %d found", len(s))
 		}
 	}
+
 	return nil
 }
 
@@ -144,6 +155,7 @@ func (s secretCheck) CheckPlan(_ context.Context, req plancheck.CheckPlanRequest
 	if err == nil {
 		err = containsAny(b, s)
 	}
+
 	resp.Error = err
 }
 
@@ -153,6 +165,7 @@ func (s secretCheck) CheckState(_ context.Context, req statecheck.CheckStateRequ
 	if err == nil {
 		err = containsAny(b, s)
 	}
+
 	resp.Error = err
 }
 
@@ -162,24 +175,31 @@ func absentFromStateFile(dir string, secrets []string) resource.TestCheckFunc {
 		if len(secrets) == 0 {
 			return nil
 		}
+
 		found := 0
+
 		err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasPrefix(d.Name(), "terraform.tfstate") {
 				return err
 			}
+
 			b, err := os.ReadFile(p)
 			if err != nil {
 				return err
 			}
+
 			found++
+
 			if err := containsAny(b, secrets); err != nil {
 				return fmt.Errorf("%s: %w", p, err)
 			}
+
 			return nil
 		})
 		if err == nil && found == 0 {
 			err = fmt.Errorf("no terraform.tfstate file under %s", dir)
 		}
+
 		return err
 	}
 }

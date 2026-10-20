@@ -35,6 +35,7 @@ func TestProvider_manifestUpdate_whenOnlyManagedKeysRemoved(t *testing.T) {
 			cfg := func(text string) string {
 				return e.providerBlock() + fmt.Sprintf("resource \"wayfinder_manifest\" \"example\" {\n manifest = %q\n}\n", text)
 			}
+
 			steps := []resource.TestStep{{Config: cfg(initial)}}
 			for _, text := range tc.manifests {
 				// When: applying an edit that only removes a managed key.
@@ -51,28 +52,36 @@ func TestProvider_manifestUpdate_whenOnlyManagedKeysRemoved(t *testing.T) {
 						if !exists {
 							return fmt.Errorf("updated Workspace missing")
 						}
+
 						labels, err := nestedMap(obj, "metadata", "labels")
 						if err != nil {
 							return err
 						}
+
 						spec, err := nestedMap(obj, "spec")
 						if err != nil {
 							return err
 						}
+
 						_, hasB := labels["b"]
 						_, hasDescription := spec["description"]
+
 						puts := e.fake.CountRequests(http.MethodPut, "")
 						if hasB != (text == specRemoved) || hasDescription != (text == labelRemoved) || puts != 1 {
 							return fmt.Errorf("removal-only edit: label b present=%t, description present=%t, PUT count=%d; want label b=%t, description=%t, PUT=1", hasB, hasDescription, puts, text == specRemoved, text == labelRemoved)
 						}
+
 						if labels["a"] != "1" || labels[fakeapi.ManagedByLabel] != "true" {
 							return fmt.Errorf("retained or server-added label lost: %#v", labels)
 						}
+
 						t.Logf("removal-only edit reached server: PUT=1, removed keys absent, server-added label preserved")
+
 						return nil
 					},
 				})
 			}
+
 			resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: e.factories, Steps: steps})
 		})
 	}

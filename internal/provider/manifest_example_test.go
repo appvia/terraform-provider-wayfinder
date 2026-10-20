@@ -24,6 +24,7 @@ func TestManifestExample_yamlencode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	e := newTestEnv(t)
 
 	// When: applying it against the fake API, supplying the ephemeral webhook_secret variable.
@@ -46,23 +47,28 @@ func TestManifestExample_yamlencode(t *testing.T) {
 func checkExampleWebhookSecretStored(e testEnv) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		var k manifest.Kind
+
 		for _, c := range e.m.Kinds {
 			if c.Kind == "Webhook" {
 				k = c
 				break
 			}
 		}
+
 		obj, ok := e.fake.Object(e.ref(k, "plat", "github"))
 		if !ok {
 			return fmt.Errorf("fake has no Webhook plat/github")
 		}
+
 		security, err := nestedMap(obj, "spec", "security")
 		if err != nil {
 			return err
 		}
+
 		if got := security["secret"]; got != exampleWebhookSecret {
 			return fmt.Errorf("stored webhook secret = %v; want the value supplied via webhook_secret", got)
 		}
+
 		return nil
 	}
 }

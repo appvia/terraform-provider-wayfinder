@@ -47,6 +47,7 @@ func (d *variableDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 func (d *variableDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	c, diags := clientFrom(req.ProviderData)
 	resp.Diagnostics.Append(diags...)
+
 	if c != nil {
 		d.client = c
 	}
@@ -55,19 +56,24 @@ func (d *variableDataSource) Configure(_ context.Context, req datasource.Configu
 func (d *variableDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var m variableModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
+
 	item, err := get(ctx, d.client, k, kindVariables)
 	if errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Variable not found", "Variable "+k.ID()+" not found.")
 		return
 	}
+
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read variable "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	m.Value = jsontypes.NewNormalizedValue(string(item.Value))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
