@@ -70,5 +70,16 @@ if [ "$rc" -eq 1 ] && grep -qF 'incomplete license header: spdx-only.tf' "$TMP/d
   ok "partial: flagged, completed without duplicates, check rc 0"
 else bad "partial scenario (rc=$rc)"; cat "$TMP/d.out" spdx-only.tf copyright-only.go >&2; fi
 
+# (e) boundary: a lone copyright line on line 10 is repaired once and then passes.
+{ for i in 1 2 3 4 5 6 7 8 9; do echo "# note $i"; done; echo '# Copyright 2025 Appvia Ltd.'; echo 'x: 1'; } >edge.yml
+git add edge.yml
+"$HEADERS" >/dev/null
+first="$(cat edge.yml)"
+"$HEADERS" >"$TMP/e.out"
+if [ "$(sed -n 11p edge.yml)" = '# SPDX-License-Identifier: Apache-2.0' ] && [ ! -s "$TMP/e.out" ] &&
+  [ "$(cat edge.yml)" = "$first" ] && "$HEADERS" --check; then
+  ok "boundary: SPDX added after line-10 copyright, rerun no-op, check rc 0"
+else bad "boundary scenario"; cat edge.yml "$TMP/e.out" >&2; fi
+
 echo "passed=$pass failed=$failures"
 [ "$failures" -eq 0 ]
