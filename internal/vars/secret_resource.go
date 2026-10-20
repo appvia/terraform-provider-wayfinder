@@ -33,11 +33,12 @@ type secretModel struct {
 	Key            types.String         `tfsdk:"key"`
 	Workspace      types.String         `tfsdk:"workspace"`
 	Environment    types.String         `tfsdk:"environment"`
+	Instance       types.String         `tfsdk:"instance"`
 	ValueWO        jsontypes.Normalized `tfsdk:"value_wo"`
 	ValueWOVersion types.String         `tfsdk:"value_wo_version"`
 }
 
-func (m secretModel) scoped() scopedKey { return keyOf(m.Key, m.Workspace, m.Environment) }
+func (m secretModel) scoped() scopedKey { return keyOf(m.Key, m.Workspace, m.Environment, m.Instance) }
 
 func (r *secretResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_secret"
@@ -62,7 +63,7 @@ func (r *secretResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 	}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages one secret in Wayfinder's variable and secret hierarchy, at tenant, " +
-			"workspace or environment scope. The secret value is write-only: Terraform sends it to " +
+			"workspace, environment or stack instance scope. The secret value is write-only: Terraform sends it to " +
 			"Wayfinder but never stores or reads it back, so changes made outside Terraform to the value " +
 			"are not detected; only the existence of the secret is.\n\n" +
 			"Creating a secret whose key already exists at the same scope fails with an import hint " +

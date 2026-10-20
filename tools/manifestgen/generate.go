@@ -45,6 +45,12 @@ func (g generator) generate(kinds KindsFile, fields FieldsFile) (*manifest.Manif
 	}
 	m := &manifest.Manifest{ManifestVersion: manifest.ManifestVersion, WayfinderVersion: g.version,
 		WayfinderCommit: g.commit, Kinds: []manifest.Kind{}}
+	for _, entry := range kinds.VarScopes {
+		if entry.Class == ClassTyped {
+			m.VarScopes = append(m.VarScopes, entry.Scope)
+		}
+	}
+	slices.Sort(m.VarScopes)
 	for _, entry := range kinds.Kinds {
 		switch entry.Class {
 		case ClassExclude:

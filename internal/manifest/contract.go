@@ -40,6 +40,7 @@ var (
 	terraformNameRE = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 	propertyNameRE  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 	commitRE        = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	varScopeRE      = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 )
 
 // Manifest is the document produced by the generator.
@@ -49,6 +50,7 @@ type Manifest struct {
 	WayfinderCommit  string   `json:"wayfinderCommit,omitempty"`
 	Kinds            []Kind   `json:"kinds"`
 	Excluded         []string `json:"excluded,omitempty"`
+	VarScopes        []string `json:"varScopes,omitempty"`
 }
 
 // Kind describes one Wayfinder object kind. Spec describes the spec subtree only
@@ -318,6 +320,14 @@ func (m *Manifest) Validate() error {
 		}
 		if _, ok := kindNames[name]; ok {
 			return fmt.Errorf("excluded[%d]: %q is also listed in kinds", i, name)
+		}
+	}
+	for i, scope := range m.VarScopes {
+		if !varScopeRE.MatchString(scope) {
+			return fmt.Errorf("varScopes[%d]: invalid scope %q", i, scope)
+		}
+		if i > 0 && m.VarScopes[i-1] >= scope {
+			return fmt.Errorf("varScopes[%d]: must be sorted and unique, got %q after %q", i, scope, m.VarScopes[i-1])
 		}
 	}
 	return nil

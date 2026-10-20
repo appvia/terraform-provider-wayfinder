@@ -35,7 +35,7 @@ func (d *variableDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 	})
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Reads one variable from Wayfinder's variable and secret hierarchy at tenant, " +
-			"workspace or environment scope. Only the value stored at exactly that scope is returned. " +
+			"workspace, environment or stack instance scope. Only the value stored at exactly that scope is returned. " +
 			"Secrets cannot be read.",
 		Attributes: attrs,
 	}

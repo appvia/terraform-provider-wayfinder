@@ -9,7 +9,7 @@ import (
 
 // VarScope identifies where a per-key variable or secret lives (R16).
 type VarScope struct {
-	Tenant, Workspace, Environment string
+	Tenant, Workspace, Environment, Instance string
 }
 
 // varEntry mirrors secretsv3.SecretEntry / VariableEntry
@@ -25,7 +25,11 @@ type varSet struct {
 	Variables []varEntry `json:"variables,omitempty"`
 }
 
-// parseVarsPath parses /api/v3/general/tenants/{t}[/workspaces/{ws}[/envs/{env}]]/vars[/{secrets|variables}/{key}].
+// parseVarsPath parses the vars scopes served under a tenant:
+//   - /api/v3/general/tenants/{t}[/workspaces/{ws}[/envs/{env}]]/vars[/{secrets|variables}/{key}]
+//   - /api/v3/general/tenants/{t}/workspaces/{ws}/envs/{env}/instancevars/{instance}[/{secrets|variables}/{key}]
+//
+// The instance scope has no /vars segment: its base is the instancevars/{instance} path itself.
 func parseVarsPath(r *http.Request) (scope VarScope, kind, key string, ok bool) {
 	segs, ok := splitEscaped(strings.TrimPrefix(r.URL.EscapedPath(), tenantsPrefix))
 	if !ok || len(segs) < 2 {
@@ -38,7 +42,17 @@ func parseVarsPath(r *http.Request) (scope VarScope, kind, key string, ok bool) 
 			scope.Environment, segs = segs[1], segs[2:]
 		}
 	}
+	instance := scope.Environment != "" && len(segs) >= 2 && segs[0] == "instancevars"
+	if instance {
+		scope.Instance, segs = segs[1], segs[2:]
+	}
 	switch {
+	case instance && len(segs) == 0:
+		return scope, "", "", true
+	case instance && len(segs) == 2 && (segs[0] == "secrets" || segs[0] == "variables"):
+		return scope, segs[0], segs[1], true
+	case instance:
+		return VarScope{}, "", "", false
 	case len(segs) == 1 && segs[0] == "vars":
 		return scope, "", "", true
 	case len(segs) == 3 && segs[0] == "vars" && (segs[1] == "secrets" || segs[1] == "variables"):

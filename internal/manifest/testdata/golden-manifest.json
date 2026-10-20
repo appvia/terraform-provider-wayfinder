@@ -303,5 +303,11 @@
   "excluded": [
     "Run",
     "Session"
+  ],
+  "varScopes": [
+    "environment",
+    "instance",
+    "tenant",
+    "workspace"
   ]
 }

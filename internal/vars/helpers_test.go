@@ -78,6 +78,9 @@ func scopeHCL(s fakeapi.VarScope) string {
 	if s.Environment != "" {
 		fmt.Fprintf(&b, "  environment = %q\n", s.Environment)
 	}
+	if s.Instance != "" {
+		fmt.Fprintf(&b, "  instance    = %q\n", s.Instance)
+	}
 	return b.String()
 }
 
@@ -88,6 +91,9 @@ func scopeID(s fakeapi.VarScope, key string) string {
 	}
 	if s.Environment != "" {
 		parts = append(parts, s.Environment)
+	}
+	if s.Instance != "" {
+		parts = append(parts, s.Instance)
 	}
 	return strings.Join(append(parts, key), "/")
 }
@@ -100,6 +106,10 @@ func varsBase(s fakeapi.VarScope) string {
 	if s.Environment != "" {
 		p += "/envs/" + s.Environment
 	}
+	if s.Instance != "" {
+		// Instance scope is served under instancevars, without a /vars segment.
+		return p + "/instancevars/" + s.Instance
+	}
 	return p + "/vars"
 }
 
@@ -107,6 +117,7 @@ var testScopes = map[string]fakeapi.VarScope{
 	"tenant":      {Tenant: tenant},
 	"workspace":   {Tenant: tenant, Workspace: "ws1"},
 	"environment": {Tenant: tenant, Workspace: "ws1", Environment: "dev"},
+	"instance":    {Tenant: tenant, Workspace: "ws1", Environment: "dev", Instance: "app1"},
 }
 
 // deleteDirect removes a key through the fake's HTTP API (out-of-band change).

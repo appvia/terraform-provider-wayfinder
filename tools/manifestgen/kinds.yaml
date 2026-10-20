@@ -12,6 +12,10 @@
 #       reason: <text>              # required for exclude and for noWait
 #       name: wayfinder_<snake>     # optional Terraform type name override
 #       noWait: true                # optional; skip waiting for reconciliation
+#   varScopes:
+#     - scope: <vars API scope>     # sorted, unique; must match registered handlers
+#       class: typed|exclude        # typed -> supported by hand-written resources
+#       reason: <text>              # required for exclude
 #
 # Rules enforced by the generator: unknown keys are rejected; entries are
 # sorted by group then kind with no duplicates; the list must match the
@@ -266,3 +270,13 @@ kinds:
     kind: StackInstance
     class: exclude
     reason: created by deploying a Wayfinder.yaml (wf deploy / wf up); not created directly
+
+varScopes:
+  - scope: environment
+    class: typed
+  - scope: instance
+    class: typed
+  - scope: tenant
+    class: typed
+  - scope: workspace
+    class: typed

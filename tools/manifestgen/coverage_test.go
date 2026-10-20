@@ -98,6 +98,11 @@ func TestCommittedKinds_cover_pinned_registry(t *testing.T) {
 
 	require.NoError(t, CheckCoverage(kinds, registry, "the pinned tag"))
 	require.NoError(t, CheckFieldKinds(kinds, fields))
+	root, err := checkoutRoot()
+	require.NoError(t, err)
+	scopes, err := varScopeInventory(root)
+	require.NoError(t, err)
+	require.NoError(t, CheckVarScopeCoverage(kinds, scopes, "the pinned tag"))
 
 	typed := 0
 	class := make(map[GroupKind]KindClass, len(kinds.Kinds))

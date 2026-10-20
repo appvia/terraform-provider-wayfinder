@@ -1,8 +1,8 @@
 // Package vars implements the wayfinder_variable and wayfinder_secret resources and the
 // wayfinder_variable data source over Wayfinder's per-key variables API (plan R16).
 //
-// Variables and secrets live in Wayfinder's variable and secret hierarchy: tenant, workspace
-// or environment scope. Each Terraform object manages exactly one key at one scope; nothing in
+// Variables and secrets live in Wayfinder's variable and secret hierarchy: tenant, workspace,
+// environment or instance scope. Each Terraform object manages exactly one key at one scope; nothing in
 // this package reads or writes a scope's full collection.
 //
 // ProviderData contract: the provider's Configure must set ResourceData and DataSourceData to a
@@ -41,33 +41,40 @@ func DataSources() []func() datasource.DataSource {
 // keyPattern is the server's key rule (server/org/handlers/internal/varset/validate.go:29-30).
 var keyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
 
+// supportedScopes lists the variable and secret scopes this package implements. It must equal the
+// manifest's varScopes and the keys of the tests' testScopes.
+var supportedScopes = []string{"environment", "instance", "tenant", "workspace"}
+
 // API collection names in the per-key routes.
 const (
 	kindVariables = "variables"
 	kindSecrets   = "secrets"
 )
 
-// scopedKey is one key at one scope; empty Workspace means tenant scope and empty Environment
-// means workspace scope.
+// scopedKey is one key at one scope; empty Workspace means tenant scope, empty Environment
+// means workspace scope and empty Instance means environment scope.
 type scopedKey struct {
-	Workspace, Environment, Key string
+	Workspace, Environment, Instance, Key string
 }
 
-// ID renders the import ID `[workspace/[environment/]]key`.
+// ID renders the import ID `[workspace/[environment/[instance/]]]key`.
 func (k scopedKey) ID() string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
 	if k.Workspace != "" {
 		parts = append(parts, k.Workspace)
 	}
 	if k.Environment != "" {
 		parts = append(parts, k.Environment)
 	}
+	if k.Instance != "" {
+		parts = append(parts, k.Instance)
+	}
 	return strings.Join(append(parts, k.Key), "/")
 }
 
-var errInvalidID = errors.New("expected an ID of the form key, workspace/key or workspace/environment/key")
+var errInvalidID = errors.New("expected an ID of the form key, workspace/key, workspace/environment/key or workspace/environment/instance/key")
 
-// parseID parses `[workspace/[environment/]]key`; the number of `/` decides the scope.
+// parseID parses `[workspace/[environment/[instance/]]]key`; the number of `/` decides the scope.
 func parseID(id string) (scopedKey, error) {
 	parts := strings.Split(id, "/")
 	for _, p := range parts {
@@ -83,6 +90,8 @@ func parseID(id string) (scopedKey, error) {
 		k = scopedKey{Workspace: parts[0], Key: parts[1]}
 	case 3:
 		k = scopedKey{Workspace: parts[0], Environment: parts[1], Key: parts[2]}
+	case 4:
+		k = scopedKey{Workspace: parts[0], Environment: parts[1], Instance: parts[2], Key: parts[3]}
 	default:
 		return scopedKey{}, fmt.Errorf("%q: %w", id, errInvalidID)
 	}
@@ -92,13 +101,17 @@ func parseID(id string) (scopedKey, error) {
 	return k, nil
 }
 
-// itemPath is the escaped per-key route for kind (variables or secrets) under tenant.
+// itemPath is the escaped per-key route for kind (variables or secrets) under tenant. Instance
+// scope is served under instancevars with no /vars segment, as upstream registers it.
 func (k scopedKey) itemPath(tenant, kind string) string {
 	p := "/api/v3/general/tenants/" + url.PathEscape(tenant)
 	if k.Workspace != "" {
 		p += "/workspaces/" + url.PathEscape(k.Workspace)
 		if k.Environment != "" {
 			p += "/envs/" + url.PathEscape(k.Environment)
+			if k.Instance != "" {
+				return p + "/instancevars/" + url.PathEscape(k.Instance) + "/" + kind + "/" + url.PathEscape(k.Key)
+			}
 		}
 	}
 	return p + "/vars/" + kind + "/" + url.PathEscape(k.Key)

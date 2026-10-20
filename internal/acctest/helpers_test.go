@@ -145,31 +145,42 @@ func TestSweepKind_whenTestAndOtherObjectsExist(t *testing.T) {
 }
 
 func TestSweepVars_whenTestAndOtherKeysExist(t *testing.T) {
-	// Given tfacc and other keys at tenant and tfacc-workspace scope.
+	// Given tfacc and other keys at tenant, tfacc-workspace and tfacc-environment scope,
+	// plus an environment-scope tfacc key in a workspace the tests did not create.
 	f, c, m := sweepEnv(t)
 	f.Seed(kindRef(t, m, "Workspace", "", "tfacc-ws"), map[string]any{"spec": map[string]any{}})
-	for _, ws := range []string{"", "tfacc-ws"} {
-		scope := fakeapi.VarScope{Tenant: fakeTenant, Workspace: ws}
+	f.Seed(kindRef(t, m, "Environment", "tfacc-ws", "tfacc-env"), map[string]any{"spec": map[string]any{}})
+	f.Seed(kindRef(t, m, "Workspace", "", "keep-ws"), map[string]any{"spec": map[string]any{}})
+	f.Seed(kindRef(t, m, "Environment", "keep-ws", "tfacc-env"), map[string]any{"spec": map[string]any{}})
+	swept := []fakeapi.VarScope{
+		{Tenant: fakeTenant}, {Tenant: fakeTenant, Workspace: "tfacc-ws"},
+		{Tenant: fakeTenant, Workspace: "tfacc-ws", Environment: "tfacc-env"},
+	}
+	for _, scope := range swept {
 		f.SetVariable(scope, "tfacc-v", json.RawMessage(`"x"`))
 		f.SetSecret(scope, "tfacc-s", json.RawMessage(`"x"`))
 		f.SetVariable(scope, "keep", json.RawMessage(`"x"`))
 	}
+	other := fakeapi.VarScope{Tenant: fakeTenant, Workspace: "keep-ws", Environment: "tfacc-env"}
+	f.SetVariable(other, "tfacc-v", json.RawMessage(`"x"`))
 	// When sweeping variables and secrets.
 	if err := sweepVars(context.Background(), c); err != nil {
 		t.Fatal(err)
 	}
-	// Then only the tfacc keys are gone.
-	for _, ws := range []string{"", "tfacc-ws"} {
-		scope := fakeapi.VarScope{Tenant: fakeTenant, Workspace: ws}
+	// Then only the tfacc keys in tenant and tfacc workspaces are gone.
+	for _, scope := range swept {
 		if _, ok := f.Variable(scope, "tfacc-v"); ok {
-			t.Fatalf("%q tfacc-v survived", ws)
+			t.Fatalf("%+v tfacc-v survived", scope)
 		}
 		if _, ok := f.Secret(scope, "tfacc-s"); ok {
-			t.Fatalf("%q tfacc-s survived", ws)
+			t.Fatalf("%+v tfacc-s survived", scope)
 		}
 		if _, ok := f.Variable(scope, "keep"); !ok {
-			t.Fatalf("%q keep was deleted", ws)
+			t.Fatalf("%+v keep was deleted", scope)
 		}
+	}
+	if _, ok := f.Variable(other, "tfacc-v"); !ok {
+		t.Fatalf("%+v tfacc-v in a non-test workspace was deleted", other)
 	}
 }
 
