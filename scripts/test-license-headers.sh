@@ -2,7 +2,7 @@
 # Copyright 2026 Appvia Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
-# Scenario tests for license-headers.sh: check mode, insertion, shebangs and idempotence.
+# Scenario tests for license-headers.sh: check mode, insertion, shebangs, idempotence and partial headers.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -52,6 +52,23 @@ before="$(cat main.go run.sh)"
 if [ ! -s "$TMP/c.out" ] && [ "$(cat main.go run.sh)" = "$before" ] && "$HEADERS" --check; then
   ok "idempotent: rerun is a no-op, check rc 0"
 else bad "idempotent scenario"; fi
+
+# (d) partial headers: check flags them; fix adds only the missing line, in the file's comment style.
+printf '# SPDX-License-Identifier: Apache-2.0\nlocals {}\n' >spdx-only.tf
+printf '// Copyright 2025 Appvia Ltd.\n\npackage partial\n' >copyright-only.go
+git add spdx-only.tf copyright-only.go
+set +e
+"$HEADERS" --check >"$TMP/d.out" 2>&1
+rc=$?
+set -e
+want_tf="# Copyright $YEAR Appvia Ltd."$'\n'"# SPDX-License-Identifier: Apache-2.0"$'\n'"locals {}"
+want_go2="// Copyright 2025 Appvia Ltd."$'\n'"// SPDX-License-Identifier: Apache-2.0"$'\n\n'"package partial"
+if [ "$rc" -eq 1 ] && grep -qF 'incomplete license header: spdx-only.tf' "$TMP/d.out" &&
+  grep -qF 'incomplete license header: copyright-only.go' "$TMP/d.out" &&
+  "$HEADERS" >/dev/null && [ "$(cat spdx-only.tf)" = "$want_tf" ] &&
+  [ "$(cat copyright-only.go)" = "$want_go2" ] && "$HEADERS" --check; then
+  ok "partial: flagged, completed without duplicates, check rc 0"
+else bad "partial scenario (rc=$rc)"; cat "$TMP/d.out" spdx-only.tf copyright-only.go >&2; fi
 
 echo "passed=$pass failed=$failures"
 [ "$failures" -eq 0 ]
