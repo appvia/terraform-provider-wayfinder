@@ -94,12 +94,17 @@ func removeStale(files map[string][]byte, o options) error {
 }
 
 // isGenerated reports whether the file's leading comment block carries the tfgen marker, in Go/HCL
-// (//) or shell (#) form.
+// (//) or shell (#) form. Scanning stops at the first code line, so a hand-written file that merely
+// quotes the marker (e.g. in a fixture) is never treated as generated.
 func isGenerated(data []byte) bool {
-	for line := range bytes.Lines(data[:min(len(data), 512)]) {
+	for line := range bytes.Lines(data) {
 		line = bytes.TrimRight(line, "\n")
 		if string(line) == "// "+generatedMarker || string(line) == "# "+generatedMarker {
 			return true
+		}
+
+		if len(bytes.TrimSpace(line)) > 0 && !bytes.HasPrefix(line, []byte("//")) && !bytes.HasPrefix(line, []byte("#")) {
+			return false
 		}
 	}
 
