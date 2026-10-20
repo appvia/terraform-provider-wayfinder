@@ -6,9 +6,10 @@
 #
 # Runs every scenario in a throwaway clone of this repository (HEAD plus the
 # working-tree copies of scripts/, Makefile and cmd/tfgen/), against a
-# synthetic file:// Wayfinder source that carries the pinned commit under the
-# extra tags v3.3.1 and v3.3.3. The cached .wayfinder-src is copied into the
-# clone so no network access is needed. The real working tree is never touched.
+# synthetic file:// Wayfinder source that carries the pinned commit under two
+# extra tags derived from the pin: one newer (patch + 1) and one older. The
+# cached .wayfinder-src is copied into the clone so no network access is
+# needed. The real working tree is never touched.
 #
 # Set BUMP_TEST_SUCCESS=1 to also run a full successful bump (slow: go test).
 set -euo pipefail
@@ -21,6 +22,8 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com
 export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
 unset WAYFINDER_READ_TOKEN BUMP_TEST_FAIL_AFTER_GENERATE || true
+# Keep the supported-minimum guard out of the way of the derived older tag.
+export WAYFINDER_MIN_REF=v1.0.0
 
 pass=0
 failures=0
@@ -38,12 +41,19 @@ if [ ! -d "$ROOT/.wayfinder-src/.git" ]; then
   exit 1
 fi
 
+# Fake tags around the pin, so the scenarios survive every bump.
+IFS=. read -r major minor patch <<<"${pin#v}"
+newer="v$major.$minor.$((patch + 1))"
+if [ "$patch" -gt 0 ]; then older="v$major.$minor.$((patch - 1))"
+elif [ "$minor" -gt 0 ]; then older="v$major.$((minor - 1)).0"
+else older="v$((major - 1)).0.0"; fi
+
 # --- Given: synthetic Wayfinder source with the pinned commit under 3 tags ---
 SRC="$TMP/wayfinder"
 git init -q "$SRC"
 git -C "$SRC" fetch -q --update-shallow "$ROOT/.wayfinder-src" "refs/tags/$pin:refs/tags/$pin"
-git -C "$SRC" tag v3.3.1 "$pin"
-git -C "$SRC" tag v3.3.3 "$pin"
+git -C "$SRC" tag "$older" "$pin"
+git -C "$SRC" tag "$newer" "$pin"
 pin_commit="$(git -C "$SRC" rev-parse "$pin^{commit}")"
 export WAYFINDER_GIT_URL="file://$SRC"
 
@@ -77,13 +87,13 @@ expect() { # <label> <want-rc: 0|nonzero> <message>
 bump develop
 expect "branch develop rejected (D-PIN)" nonzero "WAYFINDER_REF must be a Wayfinder release tag like v3.3.2"
 check "tree clean after develop" clean_tree
-bump v3.2.0
-expect "older tag refused" nonzero "refusing to downgrade from $pin to v3.2.0"
+bump "$older"
+expect "older tag refused" nonzero "refusing to downgrade from $pin to $older"
 bump "$pin"
 expect "same tag is a no-op" 0 "already at $pin"
-bump v3.3.3 --dry-run
+bump "$newer" --dry-run
 expect "dry-run names current and target" 0 "current: $pin ($pin_commit)"
-check "dry-run names target commit" grep -qF "target:  v3.3.3 ($pin_commit)" "$OUT"
+check "dry-run names target commit" grep -qF "target:  $newer ($pin_commit)" "$OUT"
 check "tree clean after dry-run" clean_tree
 
 # --- generator failure (kind missing from kinds.yaml) restores everything ---
@@ -92,7 +102,7 @@ awk 'BEGIN { skip = 0; done = 0 }
   /^  - group:/ { if (!done && seen++) { skip = 1; done = 1 } else { skip = 0 } }
   !skip' "$kinds" > "$TMP/kinds.yaml"
 cp "$TMP/kinds.yaml" "$kinds"
-bump v3.3.1 --allow-downgrade
+bump "$older" --allow-downgrade
 expect "missing kind fails at make manifest" nonzero "failed at step: make manifest"
 if [ "$(git -C "$C" status --porcelain)" = " M tools/manifestgen/kinds.yaml" ]; then
   ok "only the scratch kinds.yaml remains modified"
@@ -108,7 +118,7 @@ if git -C "$C" ls-files --error-unmatch docs >/dev/null 2>&1; then
 fi
 [ ! -e "$C/docs" ] || bad "precondition: docs/ should be absent at HEAD"
 export BUMP_TEST_FAIL_AFTER_GENERATE=1
-bump v3.3.3
+bump "$newer"
 expect "hook failure (docs absent)" nonzero "failed at step: test hook BUMP_TEST_FAIL_AFTER_GENERATE"
 if clean_tree && [ ! -e "$C/docs" ] && [ "$(cat "$C/WAYFINDER_REF")" = "$pin" ]; then
   ok "restored: tree clean, docs/ removed, WAYFINDER_REF=$pin"
@@ -119,7 +129,7 @@ mkdir -p "$C/docs"
 echo "tracked doc" > "$C/docs/x.md"
 git -C "$C" add docs/x.md
 git -C "$C" commit -qm "tracked docs"
-bump v3.3.3
+bump "$newer"
 expect "hook failure (docs tracked)" nonzero "failed at step: test hook BUMP_TEST_FAIL_AFTER_GENERATE"
 if clean_tree && [ ! -e "$C/docs/resources" ] && [ "$(cat "$C/docs/x.md")" = "tracked doc" ]; then
   ok "restored: tree clean, docs/resources removed, docs/x.md kept"
@@ -128,7 +138,7 @@ unset BUMP_TEST_FAIL_AFTER_GENERATE
 
 # --- preflight refuses local changes under docs/ ---
 echo "local edit" >> "$C/docs/x.md"
-bump v3.3.3
+bump "$newer"
 expect "preflight refuses modified docs/" nonzero "generated paths have local changes"
 if [ "$(git -C "$C" status --porcelain)" = " M docs/x.md" ] && grep -qF "local edit" "$C/docs/x.md"; then
   ok "preflight left the local edit untouched"
@@ -137,10 +147,10 @@ git -C "$C" checkout -- docs/x.md
 
 # --- optional: full successful bump ---
 if [ "${BUMP_TEST_SUCCESS:-}" = 1 ]; then
-  bump v3.3.3
-  expect "successful bump to v3.3.3" 0 "summary in bump-summary.md"
-  if [ "$(cat "$C/WAYFINDER_REF")" = v3.3.3 ] && [ -s "$C/bump-summary.md" ] \
-    && [ "$(jq -r .wayfinderVersion "$C/schema/wayfinder-manifest.json")" = v3.3.3 ]; then
+  bump "$newer"
+  expect "successful bump to $newer" 0 "summary in bump-summary.md"
+  if [ "$(cat "$C/WAYFINDER_REF")" = "$newer" ] && [ -s "$C/bump-summary.md" ] \
+    && [ "$(jq -r .wayfinderVersion "$C/schema/wayfinder-manifest.json")" = "$newer" ]; then
     ok "WAYFINDER_REF, manifest and bump-summary.md updated"
   else bad "success outputs missing"; fi
   check "bump-summary.md is gitignored" git -C "$C" check-ignore -q bump-summary.md
