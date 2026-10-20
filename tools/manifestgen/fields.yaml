@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Terraform-only per-field overrides for typed/manifest kinds. Read by
 # tools/manifestgen; see DEVELOPMENT.md.
 #

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -41,6 +44,7 @@ func TestLifecycle_whenGoldenKindsAtEveryScope(t *testing.T) {
 				if got := e.fake.CountRequests(method, ""); got != want {
 					t.Fatalf("%s count = %d, want %d", method, got, want)
 				}
+
 				t.Logf("%s request count = %d", method, want)
 			}
 		})
@@ -53,10 +57,13 @@ func checkSecretAbsent(t *testing.T) resource.TestCheckFunc {
 		if err != nil {
 			return fmt.Errorf("marshal state: %w", err)
 		}
+
 		if strings.Contains(string(b), "secret-literal-") {
 			return fmt.Errorf("secret literal in state")
 		}
+
 		t.Log("secret-not-in-state: PASS (marshalled Terraform state)")
+
 		return nil
 	}
 }

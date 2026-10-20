@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package acctest runs the provider's acceptance tests (TF_ACC=1) against a real Wayfinder API
 // and sweeps the objects they leave behind. Every object a test creates is named with
 // NamePrefix so the sweepers can find it.
@@ -52,6 +55,7 @@ func (e Env) Missing() []string {
 	if e.Server == "" {
 		out = append(out, "WAYFINDER_SERVER")
 	}
+
 	clientCredentials := e.ClientID != "" && e.ClientSecret != ""
 	switch {
 	case e.Token == "" && !clientCredentials:
@@ -59,6 +63,7 @@ func (e Env) Missing() []string {
 	case e.Token != "" && e.Tenant == "":
 		out = append(out, "WAYFINDER_TENANT")
 	}
+
 	return out
 }
 
@@ -66,10 +71,12 @@ func (e Env) Missing() []string {
 // release next to the Wayfinder version the provider was generated from.
 func PreCheck(t *testing.T) {
 	t.Helper()
+
 	if missing := LoadEnv(os.Getenv).Missing(); len(missing) > 0 {
 		t.Fatalf("acceptance tests need %s (and %s for a custom certificate authority bundle)",
 			strings.Join(missing, ", "), provider.CAFileEnv)
 	}
+
 	logServerVersion(t)
 }
 
@@ -84,10 +91,12 @@ func NewClient() (*client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	resolved, err := auth.Resolve(auth.Config{HTTP: httpClient, CLIHTTP: provider.CLIHTTPClient})
 	if err != nil {
 		return nil, fmt.Errorf("resolving Wayfinder credentials: %w", err)
 	}
+
 	return &client.Client{
 		BaseURL: resolved.Server, Tenant: resolved.Tenant, TokenSource: resolved.TokenSource,
 		HTTP: resolved.HTTP, UserAgent: client.UserAgent("acc"),

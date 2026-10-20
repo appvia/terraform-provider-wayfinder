@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -23,14 +26,17 @@ import (
 // spec.bearerToken.token.
 func testManifest(t *testing.T) *manifest.Manifest {
 	t.Helper()
+
 	m, err := manifest.Load("../manifest/testdata/golden-manifest.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for i := range m.Kinds {
 		// The historical fixture predates the relative apiPath contract.
 		m.Kinds[i].APIPath = strings.TrimPrefix(m.Kinds[i].APIPath, "/api/v3/")
 	}
+
 	str := func() *manifest.Field { return &manifest.Field{Type: "string"} }
 	subject := &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{"kind": str(), "name": str()}}
 	m.Kinds = append(m.Kinds,
@@ -47,17 +53,21 @@ func testManifest(t *testing.T) *manifest.Manifest {
 				"usableFor":   {Type: "array", Items: str()},
 			}}},
 	)
+
 	return m
 }
 
 func findKind(t *testing.T, m *manifest.Manifest, name string) manifest.Kind {
 	t.Helper()
+
 	for _, k := range m.Kinds {
 		if k.Kind == name {
 			return k
 		}
 	}
+
 	t.Fatalf("kind %s missing", name)
+
 	return manifest.Kind{}
 }
 
@@ -98,29 +108,36 @@ func newTestEnv(t *testing.T, specs ...func(*fakeapi.KindSpec)) testEnv {
 	t.Helper()
 	m := testManifest(t)
 	f := fakeapi.New(t)
+
 	for _, k := range m.Kinds {
 		s := fakeapi.KindSpec{Kind: k.Kind, Group: k.Group, Version: k.Version, APIPath: k.APIPath, Versioned: k.Versioned, HasStatus: k.HasStatus}
 		for _, scope := range k.Scopes {
 			s.Scopes = append(s.Scopes, fakeapi.Scope(scope))
 		}
+
 		switch k.Kind {
 		case "Integration":
 			s.SensitiveStrings, s.SensitiveMaps = []string{"spec.apiKey"}, []string{"spec.headers"}
 		case "ExternalIdentity":
 			s.SensitiveStrings = []string{"spec.bearerToken.token"}
 		}
+
 		for _, fn := range specs {
 			fn(&s)
 		}
+
 		f.RegisterKind(s)
 	}
+
 	c := &client.Client{BaseURL: f.URL, Tenant: "acme", TokenSource: testToken(fakeapi.DefaultToken)}
+
 	return testEnv{fake: f, m: m, factories: map[string]func() (tfprotov6.ProviderServer, error){"wayfinder": providerserver.NewProtocol6WithError(&testProvider{c: c, m: m})}}
 }
 
 func (e testEnv) ref(t *testing.T, kind, workspace, environment, name string) fakeapi.Ref {
 	t.Helper()
 	k := findKind(t, e.m, kind)
+
 	return fakeapi.Ref{Tenant: "acme", Workspace: workspace, Environment: environment, Group: k.Group, Version: k.Version, APIPath: k.APIPath, Name: name}
 }
 
@@ -134,5 +151,6 @@ func indent(text string) string {
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
 		b.WriteString("    " + line + "\n")
 	}
+
 	return b.String()
 }

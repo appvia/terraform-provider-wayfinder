@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Scenario tests for ci-quiet.sh: output withholding, exit status and cleanup.
 set -euo pipefail
 

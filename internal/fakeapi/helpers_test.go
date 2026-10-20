@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi_test
 
 import (
@@ -52,10 +55,12 @@ func identityObject(name string) map[string]any {
 
 func newServer(t *testing.T, kinds ...fakeapi.KindSpec) *fakeapi.Server {
 	t.Helper()
+
 	s := fakeapi.New(t)
 	for _, k := range kinds {
 		s.RegisterKind(k)
 	}
+
 	return s
 }
 
@@ -73,35 +78,46 @@ func call(t *testing.T, s *fakeapi.Server, method, path string, body any) respon
 
 func callWithToken(t *testing.T, s *fakeapi.Server, token, method, path string, body any) response {
 	t.Helper()
+
 	var rd io.Reader
+
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		rd = bytes.NewReader(b)
 	}
+
 	req, err := http.NewRequest(method, s.URL+path, rd)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
+
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	out := response{code: resp.StatusCode, header: resp.Header, raw: raw}
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &out.body)
 	}
+
 	return out
 }
 
@@ -113,13 +129,16 @@ func dig(obj map[string]any, path ...string) any {
 		if !ok {
 			return nil
 		}
+
 		cur = m[p]
 	}
+
 	return cur
 }
 
 func wantCode(t *testing.T, r response, code int) {
 	t.Helper()
+
 	if r.code != code {
 		t.Fatalf("status = %d, want %d; body=%s", r.code, code, r.raw)
 	}

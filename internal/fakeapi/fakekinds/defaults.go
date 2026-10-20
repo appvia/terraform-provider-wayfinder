@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakekinds
 
 import "github.com/appvia/terraform-provider-wayfinder/internal/manifest"
@@ -13,12 +16,14 @@ func ServerDefaults(k manifest.Kind) map[string]any {
 	if k.Spec != nil {
 		collectDefaults(out, "spec", k.Spec)
 	}
+
 	return out
 }
 
 func collectDefaults(out map[string]any, path string, f *manifest.Field) {
 	for name, child := range f.Properties {
 		p := path + "." + name
+
 		switch {
 		case child.Computed && !child.Sensitive:
 			if v, ok := defaultValue(child); ok {
@@ -34,6 +39,7 @@ func defaultValue(f *manifest.Field) (any, bool) {
 	if len(f.Enum) > 0 {
 		return f.Enum[0], true
 	}
+
 	switch f.Type {
 	case "string":
 		return "server-default", true
@@ -47,14 +53,17 @@ func defaultValue(f *manifest.Field) (any, bool) {
 	case "object":
 		// Only reached inside a computed container: the server fills the whole value.
 		obj := map[string]any{}
+
 		for name, child := range f.Properties {
 			if child.Sensitive {
 				continue
 			}
+
 			if v, ok := defaultValue(child); ok {
 				obj[name] = v
 			}
 		}
+
 		return obj, len(obj) > 0
 	default:
 		return nil, false

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package generated
 
 import (
@@ -18,13 +21,16 @@ func generatedKind(group, name string) (manifest.Kind, error) {
 	if err != nil {
 		return manifest.Kind{}, err
 	}
+
 	k, ok := m.FindKind(group, name)
 	if !ok {
 		return manifest.Kind{}, fmt.Errorf("generated kind %s/%s absent from embedded manifest; regenerate the provider", group, name)
 	}
+
 	copy := *k
 	// The engine consumes a suffix, while real manifests carry the full type name.
 	copy.TerraformName = strings.TrimPrefix(copy.TerraformName, "wayfinder_")
+
 	return copy, nil
 }
 
@@ -37,6 +43,7 @@ func resourceWithManifestError(r resource.Resource, err error) resource.Resource
 	if err == nil {
 		return r
 	}
+
 	return resourceManifestError{r, err}
 }
 
@@ -54,6 +61,7 @@ func dataSourceWithManifestError(s datasource.DataSource, err error) datasource.
 	if err == nil {
 		return s
 	}
+
 	return dataSourceManifestError{s, err}
 }
 

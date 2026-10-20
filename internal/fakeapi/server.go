@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package fakeapi is an in-process fake of the Wayfinder API used by the provider's tests.
 //
 // It reproduces the server semantics the provider depends on (plan reference R9), verified
@@ -75,6 +78,7 @@ func New(t testing.TB) *Server {
 	s.srv = httptest.NewServer(s)
 	s.URL = s.srv.URL
 	t.Cleanup(s.srv.Close)
+
 	return s
 }
 
@@ -83,17 +87,21 @@ func New(t testing.TB) *Server {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if err != nil {
 		writeError(rec, r, http.StatusBadRequest, "unreadable body")
 	} else {
 		s.route(rec, r, body)
 	}
+
 	logged := Request{Method: r.Method, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Status: rec.status}
 	if s.recordBodies {
 		logged.Body = body
 	}
+
 	s.requests = append(s.requests, logged)
 }
 
@@ -113,16 +121,19 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, body []byte) {
 			ResourceAPI string `json:"resourceAPI"`
 			UI          string `json:"ui"`
 		}{GeneralAPI: "/api/v3/general", ResourceAPI: "/api/v3/resources", UI: "https://portal.example/"})
+
 		return
 	case path == tokenPath && r.Method == http.MethodPost:
 		// Unauthenticated by design (pkg/wfclient/refresh.go:98-100 uses Unauthenticated()).
 		s.handleToken(w, r, body)
 		return
 	}
+
 	if !s.authorized(r) {
 		writeError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+
 	switch {
 	case path == serverInfoPath && r.Method == http.MethodGet:
 		// Like every other endpoint, serverinfo needs a token (a real server answers 401).
@@ -149,6 +160,7 @@ func (s *Server) handleServerInfo(w http.ResponseWriter) {
 func (s *Server) SetServerVersion(release string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.serverVersion = release
 }
 
@@ -156,6 +168,7 @@ func (s *Server) SetServerVersion(release string) {
 func (s *Server) RecordBodies(enabled bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.recordBodies = enabled
 }
 
@@ -163,6 +176,7 @@ func (s *Server) RecordBodies(enabled bool) {
 func (s *Server) Requests() []Request {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return append([]Request(nil), s.requests...)
 }
 
@@ -170,6 +184,7 @@ func (s *Server) Requests() []Request {
 func (s *Server) ResetRequests() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.requests = nil
 }
 
@@ -177,12 +192,15 @@ func (s *Server) ResetRequests() {
 func (s *Server) CountRequests(method, pathPrefix string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	n := 0
+
 	for _, r := range s.requests {
 		if (method == "" || r.Method == method) && strings.HasPrefix(r.Path, pathPrefix) {
 			n++
 		}
 	}
+
 	return n
 }
 

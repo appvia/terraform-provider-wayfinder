@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert
 
 import (
@@ -15,6 +18,7 @@ func TestAttributePath_whenNestedValidationField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, tc := range []struct {
 		json string
 		want path.Path

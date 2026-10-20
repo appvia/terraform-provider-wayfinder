@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Shallow checkout of exactly the release tag in WAYFINDER_REF into .wayfinder-src/.
 # Last stdout line: WAYFINDER_COMMIT=<peeled 40-hex commit sha>.
 set -euo pipefail

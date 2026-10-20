@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifest
 
 import (
@@ -24,26 +27,32 @@ func nonStdlibImports(src []byte) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var bad []string
+
 	for _, spec := range f.Imports {
 		p, err := strconv.Unquote(spec.Path.Value)
 		if err != nil {
 			return nil, err
 		}
+
 		first := strings.SplitN(p, "/", 2)[0]
 		if strings.Contains(first, ".") {
 			bad = append(bad, p)
 		}
 	}
+
 	return bad, nil
 }
 
 func mustRead(t *testing.T, path string) []byte {
 	t.Helper()
+
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
+
 	return b
 }
 
@@ -54,10 +63,12 @@ func TestGoldenRoundTripIsByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode golden: %v", err)
 	}
+
 	got, err := Encode(m)
 	if err != nil {
 		t.Fatalf("Encode golden: %v", err)
 	}
+
 	if !bytes.Equal(got, raw) {
 		t.Fatalf("golden round-trip differs\n--- want (%d bytes)\n%s\n--- got (%d bytes)\n%s",
 			len(raw), raw, len(got), got)
@@ -75,20 +86,25 @@ func TestGoldenHasExpectedShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode golden: %v", err)
 	}
+
 	if len(m.Kinds) != 4 {
 		t.Fatalf("golden kinds = %d, want 4", len(m.Kinds))
 	}
+
 	var typed, manifestOnly, versioned int
+
 	for _, k := range m.Kinds {
 		if k.Typed {
 			typed++
 		} else {
 			manifestOnly++
 		}
+
 		if k.Versioned {
 			versioned++
 		}
 	}
+
 	if manifestOnly != 1 || versioned != 1 || typed != 3 {
 		t.Fatalf("golden typed=%d manifestOnly=%d versioned=%d, want 3/1/1", typed, manifestOnly, versioned)
 	}
@@ -99,6 +115,7 @@ func TestContractImportsAreStdlib(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse %s: %v", contractSrc, err)
 	}
+
 	if len(bad) != 0 {
 		t.Fatalf("%s imports non-stdlib packages: %v", contractSrc, bad)
 	}
@@ -106,10 +123,12 @@ func TestContractImportsAreStdlib(t *testing.T) {
 
 func TestImportCheckRejectsThirdPartyImport(t *testing.T) {
 	src := "package manifest\n\nimport \"github.com/x/y\"\n"
+
 	bad, err := nonStdlibImports([]byte(src))
 	if err != nil {
 		t.Fatalf("parse scratch: %v", err)
 	}
+
 	if len(bad) != 1 || bad[0] != "github.com/x/y" {
 		t.Fatalf("bad imports = %v, want [github.com/x/y]", bad)
 	}
@@ -117,10 +136,12 @@ func TestImportCheckRejectsThirdPartyImport(t *testing.T) {
 
 func TestImportCheckAcceptsStdlibImports(t *testing.T) {
 	src := "package manifest\n\nimport (\n\t\"encoding/json\"\n\t\"go/parser\"\n)\n"
+
 	bad, err := nonStdlibImports([]byte(src))
 	if err != nil {
 		t.Fatalf("parse scratch: %v", err)
 	}
+
 	if len(bad) != 0 {
 		t.Fatalf("stdlib imports flagged: %v", bad)
 	}
@@ -128,15 +149,19 @@ func TestImportCheckAcceptsStdlibImports(t *testing.T) {
 
 func TestImportCheckFailsOnScratchCopyOfContract(t *testing.T) {
 	orig := mustRead(t, contractSrc)
+
 	marker := "import ("
 	if !bytes.Contains(orig, []byte(marker)) {
 		t.Fatalf("%s has no import block to mutate", contractSrc)
 	}
+
 	mutated := bytes.Replace(orig, []byte(marker), []byte(marker+"\n\t\"github.com/x/y\""), 1)
+
 	bad, err := nonStdlibImports(mutated)
 	if err != nil {
 		t.Fatalf("parse mutated copy: %v", err)
 	}
+
 	if len(bad) == 0 {
 		t.Fatalf("mutated contract copy with third-party import was not flagged")
 	}
@@ -144,17 +169,21 @@ func TestImportCheckFailsOnScratchCopyOfContract(t *testing.T) {
 
 func TestFieldPropertyOrderFollowsDocument(t *testing.T) {
 	in := `{"type":"object","properties":{"zeta":{"type":"string"},"alpha":{"type":"string"}}}`
+
 	var f Field
 	if err := f.UnmarshalJSON([]byte(in)); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if got := strings.Join(f.PropertyOrder, ","); got != "zeta,alpha" {
 		t.Fatalf("PropertyOrder = %q, want zeta,alpha", got)
 	}
+
 	out, err := f.MarshalJSON()
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if string(out) != in {
 		t.Fatalf("marshal = %s, want %s", out, in)
 	}
@@ -165,10 +194,12 @@ func TestFieldWithoutPropertyOrderMarshalsSorted(t *testing.T) {
 		"b": {Type: "string"},
 		"a": {Type: "string"},
 	}}
+
 	out, err := f.MarshalJSON()
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	want := `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}}}`
 	if string(out) != want {
 		t.Fatalf("marshal = %s, want %s", out, want)
@@ -219,9 +250,11 @@ func TestValidate_whenPatternInvalid_wrapsRegexpError(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate() = nil, want invalid pattern error")
 	}
+
 	if !strings.Contains(err.Error(), "foo") || !strings.Contains(err.Error(), "pattern: invalid regular expression") {
 		t.Fatalf("Validate() error = %q, want field path and pattern message", err)
 	}
+
 	var synErr *syntax.Error
 	if !errors.As(err, &synErr) {
 		t.Fatalf("Validate() error = %v, want it to wrap *syntax.Error", err)
@@ -267,10 +300,12 @@ func TestValidateNegativeCases(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			m := baseManifest()
 			tc.mutate(m)
+
 			err := m.Validate()
 			if err == nil {
 				t.Fatalf("Validate() = nil, want error containing %q", tc.wantErr)
 			}
+
 			if !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("Validate() error = %q, want it to contain %q", err, tc.wantErr)
 			}
@@ -286,10 +321,12 @@ func TestVarScopes_roundTripsThroughEncodeDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encode: %v", err)
 	}
+
 	got, err := Parse(raw)
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
+
 	if strings.Join(got.VarScopes, ",") != "instance,tenant" {
 		t.Fatalf("VarScopes = %v, want [instance tenant]", got.VarScopes)
 	}
@@ -297,13 +334,16 @@ func TestVarScopes_roundTripsThroughEncodeDecode(t *testing.T) {
 
 func TestVarScopes_absentFieldIsValid(t *testing.T) {
 	m := baseManifest()
+
 	raw, err := Encode(m)
 	if err != nil {
 		t.Fatalf("Encode: %v", err)
 	}
+
 	if bytes.Contains(raw, []byte("varScopes")) {
 		t.Fatalf("absent VarScopes must not be emitted, got %s", raw)
 	}
+
 	if _, err := Parse(raw); err != nil {
 		t.Fatalf("manifest without varScopes should parse: %v", err)
 	}
@@ -324,10 +364,12 @@ func TestVarScopes_rejectsInvalidLists(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			m := baseManifest()
 			m.VarScopes = tc.scopes
+
 			err := m.Validate()
 			if err == nil {
 				t.Fatalf("Validate() = nil, want error containing %q", tc.wantErr)
 			}
+
 			if !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("Validate() error = %q, want it to contain %q", err, tc.wantErr)
 			}

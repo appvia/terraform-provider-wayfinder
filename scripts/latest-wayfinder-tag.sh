@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Prints the newest STABLE Wayfinder release tag (vX.Y.Z, no suffix) at
 # ${WAYFINDER_GIT_URL}. Token transport: see wayfinder-checkout.sh.
 set -euo pipefail

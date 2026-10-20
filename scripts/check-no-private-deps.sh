@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Guards that the provider module never depends on the private Wayfinder module.
 set -euo pipefail
 
@@ -26,14 +29,14 @@ done < <(find . \
   \( -path ./.wayfinder-src -o -path ./.git -o -path ./.omo -o -path ./.codegraph -o -path ./tools/manifestgen \) -prune \
   -o -type f -name '*.go' -print)
 
-# (c) every .go under tools/manifestgen starts with the build tag
+# (c) every .go under tools/manifestgen carries the build tag in its header (before `package`)
 has_gen_go=0
 if [ -d tools/manifestgen ]; then
   while IFS= read -r f; do
     has_gen_go=1
-    first="$(head -n 1 "$f")"
-    if [ "$first" != "//go:build wfmanifestgen" ]; then
-      err "(c) ${f} must start with '//go:build wfmanifestgen'"
+    head_lines="$(sed '/^package /q' "$f")"
+    if ! grep -qx '//go:build wfmanifestgen' <<<"$head_lines"; then
+      err "(c) ${f} must have '//go:build wfmanifestgen' before its package clause"
     fi
   done < <(find tools/manifestgen -type f -name '*.go' -print)
 fi

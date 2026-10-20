@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert_test
 
 import (
@@ -23,8 +26,10 @@ func TestFromObject_whenPopulateAllReadsGoldenOptionalFields(t *testing.T) {
 				x := object(t, `{"metadata":{"name":"example","labels":{"server":"yes"},"annotations":{"controller":"yes"}},"spec":`+tc.spec+`}`)
 				prior := config(t, m, nil)
 				// When reading with the explicit import option (or the existing API).
-				var got tftypes.Value
-				var err error
+				var (
+					got tftypes.Value
+					err error
+				)
 				if populate {
 					got, err = convert.FromObjectOpts(m, x, prior, convert.FromOpts{PopulateAll: true})
 				} else {
@@ -34,19 +39,23 @@ func TestFromObject_whenPopulateAllReadsGoldenOptionalFields(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				a := values(t, got)
 				if !a["timeouts"].IsNull() {
 					t.Fatal("import must not populate timeouts")
 				}
+
 				if ready, exists := a["wait_for_ready"]; exists {
 					wantReady := tftypes.NewValue(tftypes.Bool, nil)
 					if populate {
 						wantReady = tftypes.NewValue(tftypes.Bool, true)
 					}
+
 					if !ready.Equal(wantReady) {
 						t.Fatalf("wait_for_ready = %s, want %s", ready, wantReady)
 					}
 				}
+
 				want := tftypes.NewValue(m.TFType().AttributeTypes[tc.attr], nil)
 				if populate {
 					want, err = fixtureValue(want.Type(), tc.want)
@@ -59,9 +68,11 @@ func TestFromObject_whenPopulateAllReadsGoldenOptionalFields(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
+
 				if !a[tc.attr].Equal(want) {
 					t.Fatalf("%s = %s, want %s", tc.attr, a[tc.attr], want)
 				}
+
 				for _, key := range []string{"labels", "annotations"} {
 					if a[key].IsNull() == populate {
 						t.Fatalf("%s null = %v", key, a[key].IsNull())
@@ -83,12 +94,14 @@ func TestFromObject_whenPopulateAllClearsWriteOnlyPairs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	a := values(t, got)
 	for _, key := range []string{"api_key_wo", "api_key_wo_version", "headers_wo", "headers_wo_version"} {
 		if !a[key].IsNull() {
 			t.Fatalf("%s should be null", key)
 		}
 	}
+
 	if !a["last_synced_at"].Equal(tftypes.NewValue(tftypes.String, "today")) {
 		t.Fatal("computed value missing")
 	}
@@ -104,6 +117,7 @@ func TestFromObject_whenPopulateAllRecursesIntoListsAndMaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for key, text := range map[string]string{
 		"rules":   `[{"display_name":"rule","payload_json":"{\"x\":1}","token_wo":null,"token_wo_version":null}]`,
 		"entries": `{"key":{"display_name":"entry","extra":"default","payload_json":null,"token_wo":null,"token_wo_version":null}}`,
@@ -112,6 +126,7 @@ func TestFromObject_whenPopulateAllRecursesIntoListsAndMaps(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !values(t, got)[key].Equal(want) {
 			t.Fatalf("%s = %s, want %s", key, values(t, got)[key], want)
 		}
@@ -132,14 +147,17 @@ func TestFromObject_whenPopulateAllSkipsServerManagedMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		a := values(t, got)
 		wantL, _ := fixtureValue(m.TFType().AttributeTypes["labels"], `{"team":"x"}`)
+
 		wantA, _ := fixtureValue(m.TFType().AttributeTypes["annotations"], `{"appvia.io/resourceSuffix":"s","note":"y"}`)
 		if populate {
 			// Then import adopts only non-server keys.
 			if !a["labels"].Equal(wantL) || !a["annotations"].Equal(wantA) {
 				t.Fatalf("labels=%s annotations=%s", a["labels"], a["annotations"])
 			}
+
 			continue
 		}
 		// Then ordinary refresh rules are unchanged: configured keys still read, even server-style ones.

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package vars
 
 import (
@@ -48,6 +51,7 @@ func instanceValidators() []validator.String {
 // scopeAttributes are the resource attributes shared by wayfinder_variable and wayfinder_secret.
 func scopeAttributes() map[string]schema.Attribute {
 	replace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
+
 	return map[string]schema.Attribute{
 		"id": schema.StringAttribute{
 			Computed:            true,
@@ -97,5 +101,6 @@ func optional(s string) types.String {
 	if s == "" {
 		return types.StringNull()
 	}
+
 	return types.StringValue(s)
 }

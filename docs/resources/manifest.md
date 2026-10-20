@@ -37,6 +37,9 @@ Secret fields the provider knows about are rejected at plan time when they're se
 ## Example Usage
 
 ```terraform
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 resource "wayfinder_manifest" "developers" {
   manifest = yamlencode({
     apiVersion = "org/v3"
@@ -128,6 +131,9 @@ The import ID is `<group>/<Kind>/[workspace/[environment/]]name[@version]`, wher
 
 ```shell
 #!/bin/sh
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 set -eu
 # <group>/<Kind>/[workspace/[environment/]]name[@version]
 terraform import wayfinder_manifest.developers 'org/Group/developers'

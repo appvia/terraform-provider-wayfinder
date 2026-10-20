@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi
 
 import (
@@ -44,10 +47,13 @@ func (s *Server) authorized(r *http.Request) bool {
 	if !ok || tok == "" {
 		return false
 	}
+
 	if s.auth.static[tok] {
 		return true
 	}
+
 	exp, ok := s.auth.minted[tok]
+
 	return ok && now().Before(exp)
 }
 
@@ -74,7 +80,9 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request, body []byte
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
+
 	var valid bool
+
 	switch req.GrantType {
 	case GrantClientCredentials:
 		id, secret := req.ClientID, req.ClientSecret
@@ -82,10 +90,12 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request, body []byte
 			// Basic auth is accepted too (login.go:488-493).
 			id, secret, _ = r.BasicAuth()
 		}
+
 		if id == "" || secret == "" {
 			writeValidation(w, "invalid client credentials", []FieldError{{Field: "client_id", ErrCode: "required", Message: "client_id and client_secret are required"}})
 			return
 		}
+
 		want, ok := s.auth.clients[id]
 		valid = ok && want == secret
 	case GrantTokenExchange:
@@ -93,6 +103,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request, body []byte
 			writeValidation(w, "invalid token exchange", []FieldError{{Field: "subject_token_type", ErrCode: "invalidValue", Message: "subject_token_type must be " + SubjectTokenTypeJWT}})
 			return
 		}
+
 		want, ok := s.auth.federated[req.ServiceAccount]
 		valid = ok && req.SubjectToken != "" && want == req.SubjectToken
 	case GrantRefreshToken:
@@ -100,15 +111,18 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request, body []byte
 			writeValidation(w, "invalid refresh", []FieldError{{Field: "refresh_token", ErrCode: "required", Message: "refresh token is required"}})
 			return
 		}
+
 		valid = s.auth.refresh[req.RefreshToken]
 	default:
 		writeValidation(w, "invalid refresh", []FieldError{{Field: "grant_type", ErrCode: "invalidValue", Message: "invalid grant type"}})
 		return
 	}
+
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, s.mint(req.GrantType))
 }
 
@@ -123,6 +137,7 @@ func (s *Server) mint(grant string) map[string]any {
 	claims, _ := json.Marshal(map[string]any{"sub": "fake", "iat": issued.Unix(), "exp": exp.Unix(), "jti": s.auth.mintCounter})
 	tok := header + "." + enc.EncodeToString(claims) + "." + enc.EncodeToString([]byte("fake"))
 	s.auth.minted[tok] = exp
+
 	return map[string]any{
 		"access_token": tok,
 		"token_type":   "Bearer",
@@ -134,6 +149,7 @@ func (s *Server) mint(grant string) map[string]any {
 func (s *Server) withAuth(fn func(a *authState)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	fn(&s.auth)
 }
 
@@ -171,5 +187,6 @@ func (s *Server) ExpireMintedTokens() { s.withAuth(func(a *authState) { clear(a.
 func (s *Server) Mints(grant string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.auth.mints[grant]
 }

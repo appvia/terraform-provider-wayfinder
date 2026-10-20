@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -11,6 +14,7 @@ func TestRewordAppliesRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if want := "Defaults to the canonical Wayfinder audience for the tenant."; got != want {
 		t.Fatalf("reword = %q, want %q", got, want)
 	}
@@ -42,21 +46,26 @@ func TestRemoveStaleKeepsHandWrittenExamples(t *testing.T) {
 	dir := t.TempDir()
 	o := options{out: filepath.Join(dir, "gen"), examples: filepath.Join(dir, "examples")}
 	hand := filepath.Join(o.examples, "resources", "wayfinder_variable", "resource.tf")
+
 	stale := filepath.Join(o.examples, "resources", "wayfinder_gone", "resource.tf")
 	for path, body := range map[string]string{hand: "resource \"wayfinder_variable\" \"x\" {}\n", stale: header + "x\n"} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
+
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
+
 	if err := removeStale(map[string][]byte{}, o); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := os.Stat(hand); err != nil {
 		t.Fatalf("hand-written example removed: %v", err)
 	}
+
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Fatalf("stale generated example kept: %v", err)
 	}

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package generated_test
 
 import (
@@ -58,6 +61,7 @@ func TestMain(m *testing.M) {
 	if err := os.Setenv("WAYFINDER_USE_CLI", "false"); err != nil {
 		panic(err)
 	}
+
 	os.Exit(m.Run())
 }
 
@@ -67,6 +71,7 @@ func TestGenerated(t *testing.T) {
 			if c.Skip != "" {
 				t.Skip(c.Skip)
 			}
+
 			t.Parallel()
 			runCase(t, c, nil)
 		})
@@ -76,12 +81,15 @@ func TestGenerated(t *testing.T) {
 func TestGenerated_skipBudget(t *testing.T) {
 	// Given the generated cases, When counting skips, Then at most 10% of kinds are skipped.
 	var skipped []string
+
 	for _, c := range generatedCases {
 		if c.Skip != "" {
 			skipped = append(skipped, c.Type+": "+c.Skip)
 		}
 	}
+
 	t.Logf("generated plan-stability cases: %d kinds, %d skipped %v", len(generatedCases), len(skipped), skipped)
+
 	if len(skipped)*10 > len(generatedCases) {
 		t.Fatalf("%d of %d kinds skipped, budget is 10%%", len(skipped), len(generatedCases))
 	}
@@ -99,23 +107,30 @@ type caseEnv struct {
 
 func newCaseEnv(t *testing.T, c generatedCase) caseEnv {
 	t.Helper()
+
 	m, err := embedded()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	f := fakeapi.New(t)
+
 	var kind *manifest.Kind
+
 	for i, k := range m.Kinds {
 		s := fakekinds.Spec(k)
 		s.Defaults = fakekinds.ServerDefaults(k)
 		f.RegisterKind(s)
+
 		if k.Group == c.Group && k.Kind == c.Kind {
 			kind = &m.Kinds[i]
 		}
 	}
+
 	if kind == nil {
 		t.Fatalf("embedded manifest has no kind %s/%s", c.Group, c.Kind)
 	}
+
 	return caseEnv{fake: f, ref: refFor(*kind, c.ImportID), addr: c.Type + ".example",
 		provider: fmt.Sprintf("provider \"wayfinder\" {\n server = %q\n tenant = %q\n token = %q\n}\n", f.URL, testTenant, fakeapi.DefaultToken),
 		factories: map[string]func() (tfprotov6.ProviderServer, error){
@@ -128,13 +143,16 @@ func refFor(k manifest.Kind, id string) fakeapi.Ref {
 	r := fakeapi.Ref{Tenant: testTenant, Group: k.Group, Version: k.Version, APIPath: k.APIPath}
 	id, r.ObjectVersion, _ = strings.Cut(id, "@")
 	parts := strings.Split(id, "/")
+
 	r.Name = parts[len(parts)-1]
 	if len(parts) > 1 {
 		r.Workspace = parts[0]
 	}
+
 	if len(parts) > 2 {
 		r.Environment = parts[1]
 	}
+
 	return r
 }
 
@@ -155,10 +173,12 @@ func runCase(t *testing.T, c generatedCase, hook leakHook) {
 	// written by create keeps only configured keys (D-DRIFT); the post-import plan step below
 	// proves the adopted keys do not produce a diff.
 	ignore := []string{"wait_for_ready", "timeouts", "status_json", "labels", "annotations"}
+
 	for _, p := range c.WriteOnly {
 		states = append(states, statecheck.ExpectKnownValue(e.addr, jsonPath(p), knownvalue.Null()))
 		ignore = append(ignore, p, p+"_version")
 	}
+
 	steps := []resource.TestStep{{
 		Config:            cfg,
 		ConfigPlanChecks:  resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{noLeak}, PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan(), noLeak}},
@@ -174,6 +194,7 @@ func runCase(t *testing.T, c generatedCase, hook leakHook) {
 	if hook != nil {
 		steps = append(steps, hook(e, cfg)...)
 	}
+
 	steps = append(steps,
 		resource.TestStep{Config: cfg, ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan(), noLeak}}, ConfigStateChecks: states},
 		resource.TestStep{Config: cfg, ResourceName: e.addr, ImportState: true, ImportStateId: c.ImportID, ImportStateVerify: true, ImportStateVerifyIgnore: ignore},
@@ -197,6 +218,7 @@ func runCase(t *testing.T, c generatedCase, hook leakHook) {
 			if _, ok := e.fake.Object(e.ref); ok {
 				return fmt.Errorf("%s still exists after destroy", e.addr)
 			}
+
 			return nil
 		},
 	})
@@ -209,10 +231,12 @@ func (e caseEnv) serverLabelPresent(*terraform.State) error {
 	if !ok {
 		return fmt.Errorf("%s not stored at %+v", e.addr, e.ref)
 	}
+
 	labels, _ := obj["metadata"].(map[string]any)["labels"].(map[string]any)
 	if labels[fakeapi.ManagedByLabel] != "true" {
 		return fmt.Errorf("server label %s missing: %v", fakeapi.ManagedByLabel, labels)
 	}
+
 	return nil
 }
 
@@ -221,15 +245,18 @@ func (e caseEnv) serverLabelPresent(*terraform.State) error {
 func (e caseEnv) secretsStored(secrets []string) resource.TestCheckFunc {
 	return func(*terraform.State) error {
 		obj, _ := e.fake.Object(e.ref)
+
 		b, err := json.Marshal(obj)
 		if err != nil {
 			return err
 		}
+
 		for _, s := range secrets {
 			if !strings.Contains(string(b), s) {
 				return fmt.Errorf("write-only literal %q was not sent to the API", s)
 			}
 		}
+
 		return nil
 	}
 }
@@ -237,6 +264,7 @@ func (e caseEnv) secretsStored(secrets []string) resource.TestCheckFunc {
 // jsonPath turns a flatmap path (a.0.b) into a state JSON path; numeric segments index lists.
 func jsonPath(p string) tfjsonpath.Path {
 	segs := strings.Split(p, ".")
+
 	path := tfjsonpath.New(segs[0])
 	for _, s := range segs[1:] {
 		if i, err := strconv.Atoi(s); err == nil {
@@ -245,6 +273,7 @@ func jsonPath(p string) tfjsonpath.Path {
 			path = path.AtMapKey(s)
 		}
 	}
+
 	return path
 }
 
@@ -254,8 +283,10 @@ func findSecret(doc any, secrets []string, where string) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", where, err)
 	}
+
 	if i := slices.IndexFunc(secrets, func(s string) bool { return strings.Contains(string(b), s) }); i >= 0 {
 		return fmt.Errorf("write-only literal %q found in %s", secrets[i], where)
 	}
+
 	return nil
 }

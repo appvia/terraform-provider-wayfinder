@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package client is a minimal REST client for the Wayfinder resource API (plan R8-R10).
 //
 // It never sends query parameters on resource routes (no apply, force or withSensitiveData),
@@ -61,6 +64,7 @@ func (c *Client) Create(ctx context.Context, ref Ref, obj map[string]any) (map[s
 	if err != nil {
 		return nil, err
 	}
+
 	return c.object(ctx, http.MethodPost, path, obj)
 }
 
@@ -70,6 +74,7 @@ func (c *Client) Get(ctx context.Context, ref Ref) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return c.object(ctx, http.MethodGet, path, nil)
 }
 
@@ -80,6 +85,7 @@ func (c *Client) Update(ctx context.Context, ref Ref, obj map[string]any) (map[s
 	if err != nil {
 		return nil, err
 	}
+
 	return c.object(ctx, http.MethodPut, path, obj)
 }
 
@@ -90,6 +96,7 @@ func (c *Client) Delete(ctx context.Context, ref Ref) error {
 	if err != nil {
 		return err
 	}
+
 	return c.DoJSON(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -100,10 +107,12 @@ func (c *Client) object(ctx context.Context, method, path string, obj map[string
 	if obj != nil {
 		body = obj
 	}
+
 	out := map[string]any{}
 	if err := c.DoJSON(ctx, method, path, body, &out); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -112,30 +121,38 @@ func (c *Client) object(ctx context.Context, method, path string, obj map[string
 // Non-2xx responses map to *ValidationError or *APIError. Only GET is retried.
 func (c *Client) DoJSON(ctx context.Context, method, path string, body, out any) error {
 	var payload []byte
+
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("encoding %s %s request: %w", method, path, err)
 		}
+
 		payload = b
 	}
+
 	for attempt := 0; ; attempt++ {
 		resp, respBody, err := c.send(ctx, method, path, payload)
 		if err != nil {
 			return err
 		}
+
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			if out == nil || len(bytes.TrimSpace(respBody)) == 0 {
 				return nil
 			}
+
 			if err := json.Unmarshal(respBody, out); err != nil {
 				return fmt.Errorf("decoding %s %s response: %w", method, path, err)
 			}
+
 			return nil
 		}
+
 		if method != http.MethodGet || attempt >= maxRetries || !retryable(resp.StatusCode) {
 			return decodeError(method, path, resp, respBody)
 		}
+
 		if err := sleep(ctx, c.retryDelay(resp, attempt)); err != nil {
 			return fmt.Errorf("retrying %s %s: %w", method, path, err)
 		}
@@ -148,30 +165,39 @@ func (c *Client) send(ctx context.Context, method, path string, payload []byte) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("obtaining Wayfinder token: %w", err)
 	}
+
 	var rd io.Reader
 	if payload != nil {
 		rd = bytes.NewReader(payload)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(c.BaseURL, "/")+path, rd)
 	if err != nil {
 		return nil, nil, fmt.Errorf("building %s %s request: %w", method, path, err)
 	}
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", c.userAgent())
+
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("wayfinder API %s %s: %w", method, path, err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
+
 	respBody, err := readLimited(resp.Body, maxResponseBytes)
 	tflog.Debug(ctx, "wayfinder API request", map[string]any{"method": method, "path": path, "status": resp.StatusCode})
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading %s %s response: %w", method, path, err)
 	}
+
 	return resp, respBody, nil
 }
 
@@ -181,9 +207,11 @@ func readLimited(r io.Reader, max int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if int64(len(b)) > max {
 		return nil, fmt.Errorf("%w: exceeds %d bytes", errResponseTooLarge, max)
 	}
+
 	return b, nil
 }
 
@@ -191,6 +219,7 @@ func (c *Client) httpClient() *http.Client {
 	if c.HTTP != nil {
 		return c.HTTP
 	}
+
 	return http.DefaultClient
 }
 
@@ -198,6 +227,7 @@ func (c *Client) userAgent() string {
 	if c.UserAgent != "" {
 		return c.UserAgent
 	}
+
 	return UserAgent("dev")
 }
 
@@ -206,6 +236,7 @@ func retryable(status int) bool {
 	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		return true
 	}
+
 	return false
 }
 
@@ -215,20 +246,24 @@ func (c *Client) retryDelay(resp *http.Response, attempt int) time.Duration {
 		if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
 			return time.Duration(secs) * time.Second
 		}
+
 		if t, err := http.ParseTime(ra); err == nil {
 			return max(time.Until(t), 0)
 		}
 	}
+
 	base := c.RetryBaseDelay
 	if base <= 0 {
 		base = DefaultRetryBaseDelay
 	}
+
 	return min(base<<attempt, maxBackoff)
 }
 
 func sleep(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
 	defer t.Stop()
+
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)

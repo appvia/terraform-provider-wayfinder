@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -24,8 +27,10 @@ type ErrorTarget struct {
 // Terraform get import instructions, validation errors one diagnostic per field, and any
 // other server message is passed through verbatim.
 func AddAPIError(d *diag.Diagnostics, err error, t ErrorTarget) {
-	var validation *client.ValidationError
-	var api *client.APIError
+	var (
+		validation *client.ValidationError
+		api        *client.APIError
+	)
 	switch {
 	case errors.Is(err, client.ErrAlreadyExists):
 		d.AddError("Resource already exists", fmt.Sprintf("A %s named %s already exists. Import it with: terraform import %s %s", t.Kind, t.ID, t.Address, t.ID))
@@ -36,6 +41,7 @@ func AddAPIError(d *diag.Diagnostics, err error, t ErrorTarget) {
 			d.AddError("Wayfinder validation failed", validation.Message)
 			return
 		}
+
 		for _, f := range validation.Fields {
 			if t.AttributePath != nil {
 				if p, ok := t.AttributePath(f.Field); ok {
@@ -43,6 +49,7 @@ func AddAPIError(d *diag.Diagnostics, err error, t ErrorTarget) {
 					continue
 				}
 			}
+
 			d.AddError("Wayfinder validation failed", f.Message)
 		}
 	case errors.As(err, &api):

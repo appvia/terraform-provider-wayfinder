@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -13,6 +16,7 @@ func TestPlan_whenPersistedImportHasMatchingOptionalFields(t *testing.T) {
 	e.fake.Seed(e.ref("ws", "", "1.2.3"), map[string]any{
 		"spec": map[string]any{"source": map[string]any{"repository": "https://example.com/repo", "ref": "main"}},
 	})
+
 	cfg := `resource "wayfinder_blueprint" "example" {
  name = "example"
  workspace = "ws"

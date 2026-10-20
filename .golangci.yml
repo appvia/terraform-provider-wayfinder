@@ -1,14 +1,28 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 version: "2"
 linters:
   default: none
   enable:
     - errcheck
+    - goheader
     - govet
     - ineffassign
     - staticcheck
     - unused
     - misspell
     - unconvert
+    - wsl_v5
+  settings:
+    goheader:
+      # Add missing headers with scripts/license-headers.sh.
+      values:
+        regexp:
+          copyright-year: 20\d{2}
+      template: |-
+        Copyright {{ copyright-year }} Appvia Ltd.
+        SPDX-License-Identifier: Apache-2.0
 formatters:
   enable:
     - gofmt

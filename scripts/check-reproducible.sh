@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Clean-room reproducibility check: refetch the pinned Wayfinder tag, regenerate
 # manifest, Go code and docs, and fail if anything differs from what is committed.
 # CHECK_REPRODUCIBLE_ALLOW_DIRTY=1 permits a dirty start; the before/after

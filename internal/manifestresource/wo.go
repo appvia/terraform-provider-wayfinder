@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -24,11 +27,13 @@ var (
 // The YAML parser's error is never copied into a problem: it can echo the secret value.
 func parseWriteOnly(text string) (map[string]any, []woProblem) {
 	docs := 0
+
 	for _, doc := range documentSep.Split(text, -1) {
 		if strings.TrimSpace(doc) != "" {
 			docs++
 		}
 	}
+
 	if docs > 1 {
 		return nil, []woProblem{{
 			attr:    "manifest_wo",
@@ -36,14 +41,17 @@ func parseWriteOnly(text string) (map[string]any, []woProblem) {
 			detail:  fmt.Sprintf("manifest_wo holds %d YAML documents; it must be one object.", docs),
 		}}
 	}
+
 	raw, err := yaml.YAMLToJSON([]byte(text))
 	if err != nil {
 		detail := "manifest_wo is not valid YAML or JSON"
 		if m := yamlLinePattern.FindStringSubmatch(err.Error()); m != nil {
 			detail += " (line " + m[1] + ")"
 		}
+
 		return nil, []woProblem{{attr: "manifest_wo", summary: "Invalid manifest_wo", detail: detail}}
 	}
+
 	var obj map[string]any
 	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
 		return nil, []woProblem{{
@@ -52,8 +60,11 @@ func parseWriteOnly(text string) (map[string]any, []woProblem) {
 			detail:  "manifest_wo must be one YAML or JSON object.",
 		}}
 	}
+
 	obj, _ = withoutNulls(obj).(map[string]any)
+
 	var problems []woProblem
+
 	for _, key := range woForbiddenKeys {
 		if _, set := obj[key]; set {
 			problems = append(problems, woProblem{
@@ -63,20 +74,26 @@ func parseWriteOnly(text string) (map[string]any, []woProblem) {
 			})
 		}
 	}
+
 	return obj, problems
 }
 
 // mergeWriteOnly applies wo to a private copy, allowing blank placeholders only at secret paths.
 func mergeWriteOnly(k manifest.Kind, base, wo map[string]any) (map[string]any, []woProblem) {
-	var problems []woProblem
-	var merge func(any, any, bool, woPath) any
+	var (
+		problems []woProblem
+		merge    func(any, any, bool, woPath) any
+	)
+
 	merge = func(base, value any, exists bool, p woPath) any {
 		if value == nil {
 			return base
 		}
+
 		if !exists {
 			return deepCopy(value)
 		}
+
 		switch b := base.(type) {
 		case map[string]any:
 			if w, ok := value.(map[string]any); ok {
@@ -84,13 +101,16 @@ func mergeWriteOnly(k manifest.Kind, base, wo map[string]any) (map[string]any, [
 				for key := range w {
 					keys = append(keys, key)
 				}
+
 				slices.Sort(keys)
+
 				for _, key := range keys {
 					child, present := b[key]
 					if w[key] != nil {
 						b[key] = merge(child, w[key], present, append(p, segment{key: key}))
 					}
 				}
+
 				return b
 			}
 		case []any:
@@ -101,25 +121,32 @@ func mergeWriteOnly(k manifest.Kind, base, wo map[string]any) (map[string]any, [
 						summary: "Invalid manifest_wo",
 						detail:  fmt.Sprintf("%s has %d items in manifest_wo but %d in manifest; give both the same length, using null for items with nothing to add.", p, len(w), len(b)),
 					})
+
 					return b
 				}
+
 				for i := range w {
 					b[i] = merge(b[i], w[i], true, append(p, segment{index: i, isIndex: true}))
 				}
+
 				return b
 			}
 		}
+
 		if !isSet(base) && isSecretPath(k, p) {
 			return deepCopy(value)
 		}
+
 		problems = append(problems, woProblem{
 			attr:    "manifest_wo",
 			summary: "Conflicting manifest_wo value",
 			detail:  fmt.Sprintf("%s is set in both manifest and manifest_wo. Set it in one place; manifest may keep a blank placeholder only for secret fields.", p),
 		})
+
 		return base
 	}
 	out := merge(deepCopy(base), wo, true, nil).(map[string]any)
+
 	return out, problems
 }
 
@@ -128,37 +155,45 @@ func isSecretPath(k manifest.Kind, p woPath) bool {
 	if k.Spec == nil {
 		return true
 	}
+
 	if len(p) == 0 || p[0].isIndex || p[0].key != "spec" {
 		return false
 	}
+
 	field := k.Spec
 	for _, seg := range p[1:] {
 		if field.Sensitive {
 			return true
 		}
+
 		switch field.Type {
 		case "object":
 			if seg.isIndex {
 				return false
 			}
+
 			field = field.Properties[seg.key]
 		case "array":
 			if !seg.isIndex {
 				return false
 			}
+
 			field = field.Items
 		case "map":
 			if seg.isIndex {
 				return false
 			}
+
 			field = field.Values
 		default:
 			return false
 		}
+
 		if field == nil {
 			return false
 		}
 	}
+
 	return field.Sensitive
 }
 
@@ -167,25 +202,32 @@ func isSecretPath(k manifest.Kind, p woPath) bool {
 // are skipped; validation reports them.
 func selectWriteOnly(wo map[string]any, planned, stored map[string]string) (map[string]any, []woPath) {
 	out := map[string]any{}
+
 	var paths []woPath
+
 	for _, key := range slices.Sorted(maps.Keys(planned)) {
 		if sv, ok := stored[key]; ok && sv == planned[key] {
 			continue
 		}
+
 		p, err := parseWOPath(key)
 		if err != nil {
 			continue
 		}
+
 		value, ok := lookup(wo, p)
 		if !ok {
 			continue
 		}
+
 		out = putAt(out, wo, p, deepCopy(value)).(map[string]any)
 		paths = append(paths, p)
 	}
+
 	if len(paths) == 0 {
 		return nil, nil
 	}
+
 	return out, paths
 }
 
@@ -195,26 +237,34 @@ func putAt(cur, src any, p woPath, v any) any {
 	if len(p) == 0 {
 		return v
 	}
+
 	seg := p[0]
 	if seg.isIndex {
 		srcList, _ := src.([]any)
+
 		list, _ := cur.([]any)
 		if list == nil {
 			list = make([]any, len(srcList))
 		}
+
 		var srcNext any
 		if seg.index < len(srcList) {
 			srcNext = srcList[seg.index]
 		}
+
 		list[seg.index] = putAt(list[seg.index], srcNext, p[1:], v)
+
 		return list
 	}
+
 	m, _ := cur.(map[string]any)
 	if m == nil {
 		m = map[string]any{}
 	}
+
 	srcMap, _ := src.(map[string]any)
 	m[seg.key] = putAt(m[seg.key], srcMap[seg.key], p[1:], v)
+
 	return m
 }
 
@@ -227,6 +277,7 @@ func versionsWithoutWO(woNull bool, versions map[string]string, versionsSet bool
 			detail:  "manifest_wo_version is set but manifest_wo is not.",
 		}}
 	}
+
 	return nil
 }
 
@@ -237,33 +288,40 @@ func validateWriteOnly(want *desired, woText string, versions map[string]string,
 	if len(problems) > 0 {
 		return nil, problems
 	}
+
 	if versionsSet {
 		seen := map[string]string{}
+
 		for _, key := range slices.Sorted(maps.Keys(versions)) {
 			p, err := parseWOPath(key)
 			if err != nil {
 				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Invalid manifest_wo_version key", detail: err.Error()})
 				continue
 			}
+
 			canon := p.String()
 			if other, dup := seen[canon]; dup {
 				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Duplicate manifest_wo_version key", detail: fmt.Sprintf("%s and %s name the same manifest_wo path.", key, other)})
 				continue
 			}
+
 			seen[canon] = key
 			if _, ok := lookup(wo, p); !ok {
 				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Unknown manifest_wo_version key", detail: fmt.Sprintf("%s does not match a value in manifest_wo.", key)})
 				continue
 			}
+
 			if want != nil && indexesMissingList(want.object, p) {
 				problems = append(problems, woProblem{attr: "manifest_wo_version", summary: "Unknown manifest_wo_version key", detail: fmt.Sprintf("%s indexes a list that manifest does not have; version the whole list instead.", key)})
 			}
 		}
 	}
+
 	if want != nil {
 		_, mergeProblems := mergeWriteOnly(want.kind, want.object, wo)
 		problems = append(problems, mergeProblems...)
 	}
+
 	return wo, problems
 }
 
@@ -276,6 +334,7 @@ func indexesMissingList(doc map[string]any, p woPath) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -290,15 +349,19 @@ func withoutWriteOnly(prior, wo map[string]any) map[string]any {
 			out[k] = deepCopy(v)
 			continue
 		}
+
 		pm, pOK := v.(map[string]any)
+
 		wm, wOK := wv.(map[string]any)
 		if pOK && wOK {
 			pruned := withoutWriteOnly(pm, wm)
 			if len(pruned) == 0 && len(pm) > 0 {
 				continue
 			}
+
 			out[k] = pruned
 		}
 	}
+
 	return out
 }

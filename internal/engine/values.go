@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -33,10 +36,12 @@ func inspectObject(obj map[string]any) (objectStatus, error) {
 	if err != nil {
 		return objectStatus{}, fmt.Errorf("encode object metadata: %w", err)
 	}
+
 	var s objectStatus
 	if err := json.Unmarshal(b, &s); err != nil {
 		return s, fmt.Errorf("decode object metadata: %w", err)
 	}
+
 	return s, nil
 }
 
@@ -45,19 +50,25 @@ func identityOf(k manifest.Kind, v tftypes.Value) (convert.Identity, error) {
 	if err := v.As(&attrs); err != nil {
 		return convert.Identity{}, fmt.Errorf("decode identity: %w", err)
 	}
+
 	values := map[string]string{}
+
 	for _, name := range []string{"name", "workspace", "environment", "version"} {
 		a, ok := attrs[name]
 		if !ok || a.IsNull() || !a.IsKnown() {
 			continue
 		}
+
 		var value string
 		if err := a.As(&value); err != nil {
 			return convert.Identity{}, fmt.Errorf("decode %s: %w", name, err)
 		}
+
 		values[name] = value
 	}
+
 	i := convert.Identity{Name: values["name"], Workspace: values["workspace"], Environment: values["environment"], Version: values["version"]}
+
 	return convert.ParseImportID(k, i.ID())
 }
 

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package auth_test
 
 import (
@@ -26,9 +29,11 @@ func TestResolve_when_credentials_compete(t *testing.T) {
 			s := fakeapi.New(t)
 			s.AddClientCredential("acme:robot:key", "secret")
 			s.AddFederatedIdentity("acme:ci:robot", "subject")
+
 			cfg := tc.cfg
 			cfg.Server, cfg.Getenv = s.URL, emptyEnv
 			cfg.FederatedTokenFile = subjectFile(t, "subject")
+
 			resolved, err := auth.Resolve(cfg)
 			if err != nil {
 				t.Fatal(err)
@@ -39,9 +44,11 @@ func TestResolve_when_credentials_compete(t *testing.T) {
 			if err != nil || token == "" {
 				t.Fatalf("Token failed: %v", err)
 			}
+
 			if resolved.Tenant != "acme" {
 				t.Errorf("tenant = %q", resolved.Tenant)
 			}
+
 			if tc.grant == "" {
 				if token != "bearer" || len(s.Requests()) != 0 {
 					t.Fatal("bearer was exchanged")
@@ -80,12 +87,14 @@ func TestResolve_when_tenant_or_credentials_missing(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
+
 			if tc.name == "missing credentials" {
 				for _, name := range []string{"WAYFINDER_SERVICE_ACCOUNT", "WAYFINDER_CLIENT_ID", "WAYFINDER_CLIENT_SECRET"} {
 					if !strings.Contains(err.Error(), name) {
 						t.Errorf("missing diagnostic %s", name)
 					}
 				}
+
 				t.Logf("no credentials: %s", err)
 			}
 		})
@@ -102,6 +111,7 @@ func TestResolve_when_attributes_override_environment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	token, err := r.TokenSource.Token(context.Background())
 	if err != nil || token != "attr-token" || r.Server != cfg.Server || r.Tenant != cfg.Tenant {
 		t.Fatal("attributes did not win")
@@ -119,6 +129,7 @@ func TestResolve_when_default_server_and_environment_token(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	token, err := r.TokenSource.Token(context.Background())
 	if err != nil || token != "env-token" || r.Server != "https://api.on.wayfinder.run" || r.Tenant != "acme" {
 		t.Fatal("default environment resolution failed")
@@ -132,15 +143,18 @@ func TestResolve_when_credential_attributes_override_environment(t *testing.T) {
 			s := fakeapi.New(t)
 			s.AddClientCredential("acme:robot", "attr-secret")
 			s.AddFederatedIdentity("acme:robot", "attr-subject")
+
 			env := map[string]string{"WAYFINDER_CLIENT_ID": "wrong:robot", "WAYFINDER_CLIENT_SECRET": "wrong-secret"}
 			cfg := auth.Config{Server: s.URL, ClientID: "acme:robot", ClientSecret: "attr-secret", Getenv: func(k string) string { return env[k] }}
 			grant := fakeapi.GrantClientCredentials
+
 			if variant == "federated file" {
 				env["WAYFINDER_SERVICE_ACCOUNT"] = "wrong:robot"
 				env["WAYFINDER_FEDERATED_TOKEN_FILE"] = subjectFile(t, "wrong-subject")
 				cfg.ServiceAccount, cfg.FederatedTokenFile = "acme:robot", subjectFile(t, "attr-subject")
 				grant = fakeapi.GrantTokenExchange
 			}
+
 			r, err := auth.Resolve(cfg)
 			if err != nil {
 				t.Fatal(err)
@@ -163,6 +177,7 @@ func TestResolve_when_actions_fallback_is_incomplete(t *testing.T) {
 				if k == key {
 					return "present"
 				}
+
 				return ""
 			}}
 			// When

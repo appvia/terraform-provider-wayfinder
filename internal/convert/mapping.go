@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package convert maps manifest-defined Terraform values to Wayfinder JSON.
 package convert
 
@@ -38,15 +41,19 @@ type node struct {
 // SnakeCase preserves acronym boundaries: HTTPServer becomes http_server.
 func SnakeCase(name string) string {
 	runes := []rune(name)
+
 	var out strings.Builder
+
 	for i, r := range runes {
 		if unicode.IsUpper(r) && i > 0 && runes[i-1] != '_' &&
 			(unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1]) ||
 				(i+1 < len(runes) && unicode.IsLower(runes[i+1]) && !pluralAcronym(runes, i))) {
 			out.WriteByte('_')
 		}
+
 		out.WriteRune(unicode.ToLower(r))
 	}
+
 	return out.String()
 }
 
@@ -79,6 +86,7 @@ func AttrName(jsonName string) string {
 	if IsReserved(name) {
 		return "spec_" + name
 	}
+
 	return name
 }
 
@@ -89,13 +97,16 @@ func NewMapping(kind manifest.Kind) (*Mapping, error) {
 	if spec == nil {
 		spec = &manifest.Field{Type: "object"}
 	}
+
 	if spec.Type != "object" {
 		return nil, fmt.Errorf("spec: expected object: %w", ErrMapping)
 	}
+
 	n, err := compile(spec, true, map[*manifest.Field]bool{})
 	if err != nil {
 		return nil, fmt.Errorf("spec: %w", err)
 	}
+
 	attrs := map[string]tftypes.Type{
 		"id": tftypes.String, "name": tftypes.String,
 		"labels":      tftypes.Map{ElementType: tftypes.String},
@@ -107,23 +118,30 @@ func NewMapping(kind manifest.Kind) (*Mapping, error) {
 	if slices.Contains(kind.Scopes, "workspace") || slices.Contains(kind.Scopes, "environment") {
 		attrs["workspace"] = tftypes.String
 	}
+
 	if slices.Contains(kind.Scopes, "environment") {
 		attrs["environment"] = tftypes.String
 	}
+
 	if kind.Versioned {
 		attrs["version"] = tftypes.String
 	}
+
 	if kind.HasStatus {
 		attrs["wait_for_ready"] = tftypes.Bool
 	}
+
 	for name, typ := range n.typ.(tftypes.Object).AttributeTypes {
 		if _, exists := attrs[name]; exists {
 			return nil, fmt.Errorf("spec.%s: attribute collision: %w", name, ErrMapping)
 		}
+
 		attrs[name] = typ
 	}
+
 	kind.Scopes = slices.Clone(kind.Scopes)
 	kind.Spec = nil
+
 	return &Mapping{kind: kind, spec: n, typ: tftypes.Object{AttributeTypes: attrs}}, nil
 }
 
@@ -145,6 +163,7 @@ func copyType(typ tftypes.Type) tftypes.Type {
 		for name, child := range t.AttributeTypes {
 			attrs[name] = copyType(child)
 		}
+
 		return tftypes.Object{AttributeTypes: attrs}
 	case tftypes.List:
 		return tftypes.List{ElementType: copyType(t.ElementType)}
@@ -159,11 +178,14 @@ func compile(f *manifest.Field, top bool, ancestors map[*manifest.Field]bool) (*
 	if f == nil {
 		return nil, fmt.Errorf("missing field: %w", ErrMapping)
 	}
+
 	if ancestors[f] {
 		return nil, fmt.Errorf("recursive field must use json: %w", ErrMapping)
 	}
+
 	ancestors[f] = true
 	defer delete(ancestors, f)
+
 	n := &node{kind: f.Type, required: f.Required, computed: f.Computed, sensitive: f.Sensitive}
 	switch f.Type {
 	case "string", "json":
@@ -174,44 +196,56 @@ func compile(f *manifest.Field, top bool, ancestors map[*manifest.Field]bool) (*
 		n.typ = tftypes.Number
 	case "object":
 		attrs := map[string]tftypes.Type{}
+
 		for _, name := range slices.Sorted(maps.Keys(f.Properties)) {
 			child, err := compile(f.Properties[name], false, ancestors)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", name, err)
 			}
+
 			child.jsonName = name
+
 			child.attr = SnakeCase(name)
 			if top {
 				child.attr = AttrName(name)
 			}
+
 			if child.kind == "json" {
 				child.attr += "_json"
 			}
+
 			if child.sensitive {
 				child.attr += "_wo"
 			}
+
 			for _, attr := range child.attrs() {
 				if _, exists := attrs[attr]; exists {
 					return nil, fmt.Errorf("%s: attribute %s collides: %w", name, attr, ErrMapping)
 				}
+
 				attrs[attr] = child.typ
 				if attr != child.attr {
 					attrs[attr] = tftypes.String
 				}
 			}
+
 			n.children = append(n.children, child)
 		}
+
 		n.typ = tftypes.Object{AttributeTypes: attrs}
 	case "array", "map":
 		field := f.Items
 		if f.Type == "map" {
 			field = f.Values
 		}
+
 		child, err := compile(field, false, ancestors)
 		if err != nil {
 			return nil, fmt.Errorf("element: %w", err)
 		}
+
 		n.element = child
+
 		child.required = true
 		if f.Type == "array" {
 			n.typ = tftypes.List{ElementType: child.typ}
@@ -221,6 +255,7 @@ func compile(f *manifest.Field, top bool, ancestors map[*manifest.Field]bool) (*
 	default:
 		return nil, fmt.Errorf("unsupported type %q: %w", f.Type, ErrMapping)
 	}
+
 	return n, nil
 }
 
@@ -228,5 +263,6 @@ func (n *node) attrs() []string {
 	if n.sensitive {
 		return []string{n.attr, n.attr + "_version"}
 	}
+
 	return []string{n.attr}
 }

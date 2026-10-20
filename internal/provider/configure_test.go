@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package provider
 
 import (
@@ -38,6 +41,7 @@ func TestAuthConfig_whenUseCLIAndProfileSet(t *testing.T) {
 			if d.HasError() || cfg.CLIProfile != "work" {
 				t.Fatalf("cfg = %+v, diagnostics = %v", cfg, d)
 			}
+
 			if (cfg.UseCLI == nil) != (tc.want == nil) || (cfg.UseCLI != nil && *cfg.UseCLI != *tc.want) {
 				t.Fatalf("UseCLI = %v, want %v", cfg.UseCLI, tc.want)
 			}

@@ -1,3 +1,6 @@
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 name: Bump Wayfinder
 
 # Opens (or updates) ONE PR moving WAYFINDER_REF to the newest stable Wayfinder

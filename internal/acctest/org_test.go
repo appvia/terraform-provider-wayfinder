@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package acctest
 
 import (
@@ -75,11 +78,14 @@ func groupHCL(label, name, description, managers string, members ...string) stri
 		for _, m := range members {
 			list += fmt.Sprintf("    { kind = \"Group\", name = %s },\n", m)
 		}
+
 		list += "  ]\n"
 	}
+
 	if managers != "" {
 		managers = "  managers = " + managers + "\n"
 	}
+
 	return fmt.Sprintf(`
 resource "wayfinder_group" %q {
   name        = %q

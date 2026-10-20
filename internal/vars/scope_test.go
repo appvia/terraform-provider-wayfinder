@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package vars
 
 import (
@@ -18,9 +21,11 @@ func TestScopeID_round_trips_for_every_scope(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseID(%q) error: %v", id, err)
 			}
+
 			if got != want {
 				t.Errorf("parseID(%q) = %+v, want %+v", id, got, want)
 			}
+
 			if got.ID() != id {
 				t.Errorf("ID() = %q, want %q", got.ID(), id)
 			}

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -25,7 +28,9 @@ func secretValues(k manifest.Kind, obj map[string]any) []secretValue {
 	if k.Spec != nil {
 		walkSecrets(k.Spec, obj["spec"], walkPos{path: "spec", top: true}, &out)
 	}
+
 	slices.SortFunc(out, func(a, b secretValue) int { return cmp.Compare(a.path, b.path) })
+
 	return out
 }
 
@@ -43,13 +48,16 @@ func walkSecrets(f *manifest.Field, v any, at walkPos, out *[]secretValue) {
 			if !known {
 				continue
 			}
+
 			next := walkPos{path: at.path + "." + name, attr: childAttr(at, name, field)}
 			if field.Sensitive {
 				if isSet(child) {
 					*out = append(*out, secretValue{path: next.path, attr: next.attr + "_wo"})
 				}
+
 				continue
 			}
+
 			walkSecrets(field, child, next, out)
 		}
 	case "array":
@@ -72,12 +80,15 @@ func childAttr(at walkPos, name string, f *manifest.Field) string {
 	if at.top {
 		attr = convert.AttrName(name)
 	}
+
 	if f.Type == "json" {
 		attr += "_json"
 	}
+
 	if at.attr == "" {
 		return attr
 	}
+
 	return at.attr + "." + attr
 }
 
@@ -93,6 +104,7 @@ func isSet(v any) bool {
 				return true
 			}
 		}
+
 		return false
 	case []any:
 		return slices.ContainsFunc(t, isSet)
@@ -106,5 +118,6 @@ func secretMessage(k manifest.Kind, s secretValue) string {
 	if k.Typed && k.TerraformName != "" {
 		return fmt.Sprintf("%s is a secret. Set it with the wayfinder_%s.%s attribute, or in manifest_wo, so it is never stored in state.", s.path, k.TerraformName, s.attr)
 	}
+
 	return fmt.Sprintf("%s is a secret, and wayfinder_manifest never stores secrets in state. Set it in manifest_wo instead, leaving it out of manifest or blank (\"\").", s.path)
 }

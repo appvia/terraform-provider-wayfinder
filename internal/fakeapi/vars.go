@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi
 
 import (
@@ -35,6 +38,7 @@ func parseVarsPath(r *http.Request) (scope VarScope, kind, key string, ok bool) 
 	if !ok || len(segs) < 2 {
 		return VarScope{}, "", "", false
 	}
+
 	scope.Tenant, segs = segs[0], segs[1:]
 	if len(segs) >= 2 && segs[0] == "workspaces" {
 		scope.Workspace, segs = segs[1], segs[2:]
@@ -42,10 +46,12 @@ func parseVarsPath(r *http.Request) (scope VarScope, kind, key string, ok bool) 
 			scope.Environment, segs = segs[1], segs[2:]
 		}
 	}
+
 	instance := scope.Environment != "" && len(segs) >= 2 && segs[0] == "instancevars"
 	if instance {
 		scope.Instance, segs = segs[1], segs[2:]
 	}
+
 	switch {
 	case instance && len(segs) == 0:
 		return scope, "", "", true
@@ -66,6 +72,7 @@ func (v *varSet) list(kind string) *[]varEntry {
 	if kind == "secrets" {
 		return &v.Secrets
 	}
+
 	return &v.Variables
 }
 
@@ -82,16 +89,21 @@ func (s *Server) handleVars(w http.ResponseWriter, r *http.Request, body []byte)
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
 	set := s.vars[scope]
+
 	switch {
 	case kind == "" && r.Method == http.MethodGet:
 		masked := varSet{}
+
 		if set != nil {
 			for _, e := range set.Secrets {
 				masked.Secrets = append(masked.Secrets, varEntry{Name: e.Name})
 			}
+
 			masked.Variables = set.Variables
 		}
+
 		writeJSON(w, http.StatusOK, masked)
 	case kind != "" && r.Method == http.MethodGet:
 		e := lookupVar(set, kind, key)
@@ -99,10 +111,12 @@ func (s *Server) handleVars(w http.ResponseWriter, r *http.Request, body []byte)
 			writeError(w, r, http.StatusNotFound, "not found")
 			return
 		}
+
 		item := map[string]any{"key": key, "value": nil}
 		if kind == "variables" {
 			item["value"] = e.Value
 		}
+
 		writeJSON(w, http.StatusOK, item)
 	case kind != "" && r.Method == http.MethodPut:
 		var req struct {
@@ -112,6 +126,7 @@ func (s *Server) handleVars(w http.ResponseWriter, r *http.Request, body []byte)
 			writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+
 		s.setVar(scope, kind, key, req.Value)
 		writeJSON(w, http.StatusOK, map[string]any{"key": key})
 	case kind != "" && r.Method == http.MethodDelete:
@@ -119,8 +134,10 @@ func (s *Server) handleVars(w http.ResponseWriter, r *http.Request, body []byte)
 			writeError(w, r, http.StatusNotFound, "not found")
 			return
 		}
+
 		l := set.list(kind)
 		*l = slices.DeleteFunc(*l, func(e varEntry) bool { return e.Name == key })
+
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		writeError(w, r, http.StatusMethodNotAllowed, "method not allowed")
@@ -131,10 +148,12 @@ func lookupVar(set *varSet, kind, key string) *varEntry {
 	if set == nil {
 		return nil
 	}
+
 	l := *set.list(kind)
 	if i := slices.IndexFunc(l, func(e varEntry) bool { return e.Name == key }); i >= 0 {
 		return &l[i]
 	}
+
 	return nil
 }
 
@@ -144,10 +163,12 @@ func (s *Server) setVar(scope VarScope, kind, key string, value json.RawMessage)
 		set = &varSet{}
 		s.vars[scope] = set
 	}
+
 	if e := lookupVar(set, kind, key); e != nil {
 		e.Value = slices.Clone(value)
 		return
 	}
+
 	l := set.list(kind)
 	*l = append(*l, varEntry{Name: key, Value: slices.Clone(value)})
 }
@@ -155,9 +176,11 @@ func (s *Server) setVar(scope VarScope, kind, key string, value json.RawMessage)
 func (s *Server) getVar(scope VarScope, kind, key string) (json.RawMessage, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if e := lookupVar(s.vars[scope], kind, key); e != nil {
 		return slices.Clone(e.Value), true
 	}
+
 	return nil, false
 }
 
@@ -175,6 +198,7 @@ func (s *Server) Variable(scope VarScope, key string) (json.RawMessage, bool) {
 func (s *Server) SetSecret(scope VarScope, key string, value json.RawMessage) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.setVar(scope, "secrets", key, value)
 }
 
@@ -182,5 +206,6 @@ func (s *Server) SetSecret(scope VarScope, key string, value json.RawMessage) {
 func (s *Server) SetVariable(scope VarScope, key string, value json.RawMessage) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.setVar(scope, "variables", key, value)
 }

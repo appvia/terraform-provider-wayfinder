@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Fails when a generated resource or data source page has no example, which happens
 # when examples/<kind>/<type>/ is missing its resource.tf or data-source.tf.
 set -euo pipefail

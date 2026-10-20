@@ -33,6 +33,9 @@ OpenTofu uses the same block. `source = "appvia/wayfinder"` resolves through the
 ## Example Usage
 
 ```terraform
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 terraform {
   required_version = ">= 1.11"
 

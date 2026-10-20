@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -39,6 +42,7 @@ func (p *testProvider) Resources(context.Context) []func() resource.Resource {
 			return newResource(k, testSchema(k), pollOptions{initial: time.Millisecond, maximum: 2 * time.Millisecond})
 		})
 	}
+
 	return out
 }
 
@@ -47,6 +51,7 @@ func (p *testProvider) DataSources(context.Context) []func() datasource.DataSour
 	for _, k := range p.kinds {
 		out = append(out, func() datasource.DataSource { return NewDataSource(k, testDataSchema(k)) })
 	}
+
 	return out
 }
 
@@ -64,6 +69,7 @@ func newTestEnv(t *testing.T, name string) testEnv {
 	f.RecordBodies(true)
 	f.RegisterKind(kindSpec(k))
 	c := &client.Client{BaseURL: f.URL, Tenant: "acme", TokenSource: testToken(fakeapi.DefaultToken)}
+
 	return testEnv{fake: f, c: c, k: k, factories: map[string]func() (tfprotov6.ProviderServer, error){"wayfinder": providerserver.NewProtocol6WithError(&testProvider{c: c, kinds: []manifest.Kind{k}})}}
 }
 
@@ -72,10 +78,12 @@ func kindSpec(k manifest.Kind) fakeapi.KindSpec {
 	for _, scope := range k.Scopes {
 		s.Scopes = append(s.Scopes, fakeapi.Scope(scope))
 	}
+
 	if k.Kind == "Integration" {
 		s.SensitiveStrings = []string{"spec.apiKey"}
 		s.SensitiveMaps = []string{"spec.headers"}
 	}
+
 	return s
 }
 

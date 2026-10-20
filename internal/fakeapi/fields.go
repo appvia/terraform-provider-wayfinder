@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi
 
 import (
@@ -12,10 +15,12 @@ func deepCopy(obj map[string]any) map[string]any {
 	if err != nil {
 		panic("fakeapi: object is not JSON-serialisable: " + err.Error())
 	}
+
 	out := map[string]any{}
 	if err := json.Unmarshal(b, &out); err != nil {
 		panic("fakeapi: " + err.Error())
 	}
+
 	return out
 }
 
@@ -26,6 +31,7 @@ func child(m map[string]any, key string, create bool) map[string]any {
 		c = map[string]any{}
 		m[key] = c
 	}
+
 	return c
 }
 
@@ -62,6 +68,7 @@ func eachLeaf(v any, parts []string, fn func(parent map[string]any, key string))
 			fn(node, parts[0])
 			return
 		}
+
 		eachLeaf(node[parts[0]], parts[1:], fn)
 	}
 }
@@ -72,11 +79,13 @@ func eachLeafPair(dst, src any, parts []string, fn func(d, s map[string]any, key
 	switch node := dst.(type) {
 	case []any:
 		srcArr, _ := src.([]any)
+
 		for i, el := range node {
 			var se any
 			if i < len(srcArr) {
 				se = srcArr[i]
 			}
+
 			eachLeafPair(el, se, parts, fn)
 		}
 	case map[string]any:
@@ -85,10 +94,12 @@ func eachLeafPair(dst, src any, parts []string, fn func(d, s map[string]any, key
 			fn(node, srcMap, parts[0])
 			return
 		}
+
 		var next any
 		if srcMap != nil {
 			next = srcMap[parts[0]]
 		}
+
 		eachLeafPair(node[parts[0]], next, parts[1:], fn)
 	}
 }
@@ -108,6 +119,7 @@ func sanitize(k *KindSpec, obj map[string]any) {
 			}
 		})
 	}
+
 	for _, p := range k.SensitiveMaps {
 		eachLeaf(obj, split(p), func(m map[string]any, key string) {
 			if vals, ok := m[key].(map[string]any); ok {
@@ -136,14 +148,17 @@ func mergeSecrets(k *KindSpec, dst, src map[string]any) {
 			}
 		})
 	}
+
 	for _, p := range k.SensitiveMaps {
 		eachLeafPair(dst, src, split(p), func(d, s map[string]any, key string) {
 			vals, _ := d[key].(map[string]any)
 			stored, _ := s[key].(map[string]any)
+
 			for vk, v := range vals {
 				if v != "" {
 					continue
 				}
+
 				if sv, ok := stored[vk]; ok {
 					vals[vk] = sv
 				}
@@ -156,10 +171,12 @@ func mergeSecrets(k *KindSpec, dst, src map[string]any) {
 func applyDefaults(k *KindSpec, obj map[string]any) {
 	for path, val := range k.Defaults {
 		parts := split(path)
+
 		m := obj
 		for _, p := range parts[:len(parts)-1] {
 			m = child(m, p, true)
 		}
+
 		last := parts[len(parts)-1]
 		if _, set := m[last]; !set {
 			m[last] = deepCopy(map[string]any{"v": val})["v"]

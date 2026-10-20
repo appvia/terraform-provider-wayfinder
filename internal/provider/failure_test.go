@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package provider
 
 import (
@@ -31,9 +34,11 @@ func TestProvider_configure_whenTenantMissing(t *testing.T) {
 		Config:      fmt.Sprintf(cfg, "First"),
 		ExpectError: regexp.MustCompile(regexp.QuoteMeta("Set tenant in the provider block or WAYFINDER_TENANT.")),
 	}}})
+
 	if n := len(e.fake.Requests()); n != 0 {
 		t.Fatalf("requests = %d, want 0", n)
 	}
+
 	t.Log("missing tenant: error \"Set tenant in the provider block or WAYFINDER_TENANT.\" PASS")
 }
 
@@ -54,6 +59,7 @@ func TestProvider_configure_whenClientCredentialsFromEnvironment(t *testing.T) {
 	if n := e.fake.Mints(fakeapi.GrantClientCredentials); n < 1 {
 		t.Fatalf("client-credential mints = %d", n)
 	}
+
 	if n := e.fake.CountRequests(http.MethodPost, "/api/v3/resources/tenants/"+testTenant+"/"); n != 1 {
 		t.Fatalf("POST to tenant %s = %d, want 1", testTenant, n)
 	}
@@ -82,8 +88,10 @@ func TestProvider_update_whenChangedOutsideTerraform(t *testing.T) {
 	for _, r := range e.fake.Requests() {
 		t.Logf("request log after outside edit: %s %s -> %d", r.Method, r.Path, r.Status)
 	}
+
 	if n := e.fake.CountRequests(http.MethodPut, ""); n != 0 {
 		t.Fatalf("PUT after outside edit = %d, want 0", n)
 	}
+
 	t.Log("external change: \"was changed outside Terraform\" with PUT=0 PASS")
 }

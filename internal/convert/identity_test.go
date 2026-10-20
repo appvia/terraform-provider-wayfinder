@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert_test
 
 import (
@@ -39,11 +42,14 @@ func TestParseImportID_whenScopeAndVersionVary(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error")
 				}
+
 				return
 			}
+
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if got != tc.want || got.ID() != tc.id {
 				t.Fatalf("identity: %#v", got)
 			}
@@ -64,11 +70,14 @@ func TestStatusHelpers_whenStatusPresentOrAbsent(t *testing.T) {
 				if ok || s != "" || m != "" || d != "" {
 					t.Fatal("unexpected status")
 				}
+
 				return
 			}
+
 			if s != "Failure" || m != "failed" || d != "why" || !ok {
 				t.Fatal("summary missing")
 			}
+
 			if !reflect.DeepEqual(object(t, j), x["status"]) {
 				t.Fatal("status JSON incomplete")
 			}

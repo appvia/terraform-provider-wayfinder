@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -49,6 +52,7 @@ func woAbsentFlatmap(lits []string) resource.TestCheckFunc {
 				}
 			}
 		}
+
 		return nil
 	}
 }
@@ -62,6 +66,7 @@ func woAbsentImported(lits []string) resource.ImportStateCheckFunc {
 				return err
 			}
 		}
+
 		return nil
 	}
 }
@@ -74,6 +79,7 @@ func woAbsentAttributes(attrs map[string]string, lits []string) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -82,9 +88,11 @@ func findWOLiteral(doc any, lits []string, where string) error {
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", where, err)
 	}
+
 	if i := slices.IndexFunc(lits, func(s string) bool { return strings.Contains(string(b), s) }); i >= 0 {
 		return fmt.Errorf("write-only literal %q found in %s", lits[i], where)
 	}
+
 	return nil
 }
 
@@ -96,7 +104,9 @@ func expectDetected(t *testing.T, leaked *regexp.Regexp, check resource.TestChec
 		if err == nil || !leaked.MatchString(err.Error()) {
 			return fmt.Errorf("secret-in-state check did not detect the leak: %v", err)
 		}
+
 		t.Logf("detected as expected: %v", err)
+
 		return nil
 	}
 }
@@ -110,6 +120,7 @@ type loggedState struct {
 
 func (l loggedState) CheckState(ctx context.Context, req statecheck.CheckStateRequest, resp *statecheck.CheckStateResponse) {
 	l.check.CheckState(ctx, req, resp)
+
 	if resp.Error != nil {
 		l.t.Logf("detected as expected: %v", resp.Error)
 	}
@@ -122,6 +133,7 @@ type loggedPlan struct {
 
 func (l loggedPlan) CheckPlan(ctx context.Context, req plancheck.CheckPlanRequest, resp *plancheck.CheckPlanResponse) {
 	l.check.CheckPlan(ctx, req, resp)
+
 	if resp.Error != nil {
 		l.t.Logf("detected as expected: %v", resp.Error)
 	}
@@ -141,6 +153,7 @@ func woObjectJSONClean(lits []string) resource.TestCheckFunc {
 				return fmt.Errorf("write-only literal %q found in object_json", lit)
 			}
 		}
+
 		return nil
 	})
 }
@@ -206,16 +219,20 @@ func TestWO_whenOnlyGenerationInPrivateState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var withSetKey []string
+
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
+
 		b, err := os.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if strings.Contains(string(b), "SetKey(") {
 			withSetKey = append(withSetKey, name)
 		}

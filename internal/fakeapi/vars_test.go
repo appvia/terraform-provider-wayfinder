@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi_test
 
 import (
@@ -27,20 +30,26 @@ func TestVars_per_key_api_at_every_scope_masks_secrets(t *testing.T) {
 			list := call(t, s, http.MethodGet, base, nil)
 
 			wantCode(t, setVar, http.StatusOK)
+
 			if setVar.body["key"] != "region" || setSec.body["key"] != "db" {
 				t.Errorf("set responses = %s / %s", setVar.raw, setSec.raw)
 			}
+
 			if getVar.body["value"] != "eu-west-2" {
 				t.Errorf("variable = %s", getVar.raw)
 			}
+
 			if getSec.body["key"] != "db" || getSec.body["value"] != nil {
 				t.Errorf("secret not masked: %s", getSec.raw)
 			}
+
 			secs, _ := list.body["secrets"].([]any)
+
 			vars, _ := list.body["variables"].([]any)
 			if len(secs) != 1 || dig(secs[0].(map[string]any), "value") != nil || len(vars) != 1 {
 				t.Errorf("list = %s", list.raw)
 			}
+
 			raw, ok := s.Secret(scope, "db")
 			if !ok || !jsonEqual(raw, `{"password":"pw"}`) {
 				t.Errorf("recorded secret = %s", raw)
@@ -48,6 +57,7 @@ func TestVars_per_key_api_at_every_scope_masks_secrets(t *testing.T) {
 
 			wantCode(t, call(t, s, http.MethodDelete, base+"/secrets/db", nil), http.StatusNoContent)
 			wantCode(t, call(t, s, http.MethodGet, base+"/secrets/db", nil), http.StatusNotFound)
+
 			if _, ok := s.Secret(scope, "db"); ok {
 				t.Error("secret still recorded after delete")
 			}
@@ -60,7 +70,9 @@ func jsonEqual(raw json.RawMessage, want string) bool {
 	if json.Unmarshal(raw, &a) != nil || json.Unmarshal([]byte(want), &b) != nil {
 		return false
 	}
+
 	ab, _ := json.Marshal(a)
 	bb, _ := json.Marshal(b)
+
 	return string(ab) == string(bb)
 }

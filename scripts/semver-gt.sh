@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Appvia Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
 # Usage: semver-gt.sh A B — exit 0 iff release tag A is strictly newer than B.
 # Numeric major/minor/patch comparison; a pre-release sorts below the release
 # of the same version; two pre-releases compare lexically. No `sort -V`.

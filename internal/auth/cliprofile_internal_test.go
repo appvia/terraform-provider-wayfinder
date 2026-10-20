@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package auth
 
 import (
@@ -59,22 +62,27 @@ servers:
 
 func writeCLIProfiles(t *testing.T, contents string) string {
 	t.Helper()
+
 	var dir string
+
 	t.Cleanup(func() {
 		if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("temporary profiles directory was not removed: %v", err)
 		}
 	})
 	dir = t.TempDir()
+
 	path := filepath.Join(dir, "profiles")
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	return path
 }
 
 func TestCLIProfile_whenStoredCredentialsSelected(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name string
 		want cliProfile
@@ -92,10 +100,12 @@ func TestCLIProfile_whenStoredCredentialsSelected(t *testing.T) {
 		if name == "" {
 			name = "current-profile"
 		}
+
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			// Given
 			path := writeCLIProfiles(t, cliProfilesFixture)
+
 			want := tc.want
 			if want.Server == "https://staging.example/" {
 				want.CAPEM = []byte("-----BEGIN CERTIFICATE-----\nfake-ca\n-----END CERTIFICATE-----\n")
@@ -106,12 +116,14 @@ func TestCLIProfile_whenStoredCredentialsSelected(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if got.Name != want.Name || got.Server != want.Server || got.Tenant != want.Tenant ||
 				got.RefreshToken != want.RefreshToken || got.Token != want.Token ||
 				got.ClientID != want.ClientID || got.ClientSecret != want.ClientSecret ||
 				!bytes.Equal(got.CAPEM, want.CAPEM) || !reflect.DeepEqual(got.Federated, want.Federated) {
 				t.Fatal("resolved profile did not match selected credentials, endpoint, tenant and CA")
 			}
+
 			after, err := os.ReadFile(path)
 			if err != nil || !bytes.Equal(after, []byte(cliProfilesFixture)) {
 				t.Fatalf("profiles file changed: %v", err)
@@ -122,6 +134,7 @@ func TestCLIProfile_whenStoredCredentialsSelected(t *testing.T) {
 
 func TestCLIProfile_whenConfigurationInvalid(t *testing.T) {
 	t.Parallel()
+
 	const secret = "credential-must-never-appear"
 	for _, tc := range []struct {
 		name, contents, selection, want string
@@ -146,6 +159,7 @@ func TestCLIProfile_whenConfigurationInvalid(t *testing.T) {
 			t.Parallel()
 			// Given
 			path := writeCLIProfiles(t, tc.contents)
+
 			want := tc.want
 			if strings.Contains(want, "%s") {
 				want = fmt.Sprintf(want, path)
@@ -156,12 +170,15 @@ func TestCLIProfile_whenConfigurationInvalid(t *testing.T) {
 			if err == nil {
 				t.Fatal("invalid profiles were accepted")
 			}
+
 			if strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), "fake-") {
 				t.Fatal("profile error leaked credentials")
 			}
+
 			if err.Error() != want {
 				t.Fatalf("error = %q, want %q", err.Error(), want)
 			}
+
 			if tc.parseError {
 				var safe *safeError
 				if !errors.As(err, &safe) || errors.Unwrap(safe) == nil {
@@ -200,6 +217,7 @@ func TestCLIProfile_whenFileUnreadable(t *testing.T) {
 
 func TestCLIProfilePath_whenEnvironmentInjected(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name   string
 		values map[string]string
@@ -230,6 +248,7 @@ func TestCLIProfilePath_whenEnvironmentInjected(t *testing.T) {
 
 func TestCLIProfileHome_whenOperatingSystemSelectsEnvironment(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name, goos string
 		values     map[string]string
@@ -250,8 +269,10 @@ func TestCLIProfileHome_whenOperatingSystemSelectsEnvironment(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("home = %q, want %q", got, tc.want)
 			}
+
 			if tc.goos == runtime.GOOS {
 				path, err := cliConfigPath(getenv)
+
 				want, absErr := filepath.Abs(filepath.Join(tc.want, ".wayfinder", "profiles"))
 				if err != nil || absErr != nil || path != want {
 					t.Fatalf("default path = %q, err = %v; want %q, err = %v", path, err, want, absErr)

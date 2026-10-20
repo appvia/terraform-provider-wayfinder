@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package manifest defines the wire contract between the Wayfinder API
 // manifest generator and the Terraform provider.
 //
@@ -137,8 +140,10 @@ func (f Field) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		w.Properties = raw
 	}
+
 	return json.Marshal(w)
 }
 
@@ -146,11 +151,14 @@ func (f Field) MarshalJSON() ([]byte, error) {
 // property names in document order.
 func (f *Field) UnmarshalJSON(data []byte) error {
 	var w fieldWire
+
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
+
 	if err := dec.Decode(&w); err != nil {
 		return err
 	}
+
 	*f = Field{
 		Type: w.Type, Description: w.Description, Required: w.Required,
 		Computed: w.Computed, Immutable: w.Immutable, Sensitive: w.Sensitive,
@@ -162,40 +170,51 @@ func (f *Field) UnmarshalJSON(data []byte) error {
 	if len(w.Properties) == 0 || string(bytes.TrimSpace(w.Properties)) == "null" {
 		return nil
 	}
+
 	props, order, err := decodeOrderedProperties(w.Properties)
 	if err != nil {
 		return err
 	}
+
 	f.Properties = props
 	f.PropertyOrder = order
+
 	return nil
 }
 
 func marshalProperties(props map[string]*Field, order []string) (json.RawMessage, error) {
 	names := orderedNames(props, order)
+
 	var buf bytes.Buffer
 	buf.WriteByte('{')
+
 	for i, name := range names {
 		if i > 0 {
 			buf.WriteByte(',')
 		}
+
 		child := props[name]
 		if child == nil {
 			return nil, fmt.Errorf("property %q is nil", name)
 		}
+
 		key, err := json.Marshal(name)
 		if err != nil {
 			return nil, err
 		}
+
 		val, err := json.Marshal(child)
 		if err != nil {
 			return nil, err
 		}
+
 		buf.Write(key)
 		buf.WriteByte(':')
 		buf.Write(val)
 	}
+
 	buf.WriteByte('}')
+
 	return buf.Bytes(), nil
 }
 
@@ -203,68 +222,87 @@ func marshalProperties(props map[string]*Field, order []string) (json.RawMessage
 // occurrence wins), followed by the remaining names in sorted order.
 func orderedNames(props map[string]*Field, order []string) []string {
 	seen := make(map[string]struct{}, len(props))
+
 	names := make([]string, 0, len(props))
 	for _, name := range order {
 		if _, ok := props[name]; !ok {
 			continue
 		}
+
 		if _, dup := seen[name]; dup {
 			continue
 		}
+
 		seen[name] = struct{}{}
 		names = append(names, name)
 	}
+
 	rest := make([]string, 0, len(props)-len(names))
 	for name := range props {
 		if _, ok := seen[name]; !ok {
 			rest = append(rest, name)
 		}
 	}
+
 	sort.Strings(rest)
+
 	return append(names, rest...)
 }
 
 func decodeOrderedProperties(raw json.RawMessage) (map[string]*Field, []string, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
+
 	tok, err := dec.Token()
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if d, ok := tok.(json.Delim); !ok || d != '{' {
 		return nil, nil, fmt.Errorf("properties: expected object")
 	}
+
 	props := map[string]*Field{}
+
 	var order []string
+
 	for dec.More() {
 		tok, err := dec.Token()
 		if err != nil {
 			return nil, nil, err
 		}
+
 		name, ok := tok.(string)
 		if !ok {
 			return nil, nil, fmt.Errorf("properties: expected string key")
 		}
+
 		if _, dup := props[name]; dup {
 			return nil, nil, fmt.Errorf("properties: duplicate key %q", name)
 		}
+
 		var child Field
 		if err := dec.Decode(&child); err != nil {
 			return nil, nil, fmt.Errorf("properties.%s: %w", name, err)
 		}
+
 		props[name] = &child
 		order = append(order, name)
 	}
+
 	return props, order, nil
 }
 
 // Decode strictly decodes a manifest document without validating it.
 func Decode(data []byte) (*Manifest, error) {
 	var m Manifest
+
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
+
 	if err := dec.Decode(&m); err != nil {
 		return nil, err
 	}
+
 	return &m, nil
 }
 
@@ -274,6 +312,7 @@ func Encode(m *Manifest) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return append(out, '\n'), nil
 }
 
@@ -283,9 +322,11 @@ func Parse(data []byte) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := m.Validate(); err != nil {
 		return nil, err
 	}
+
 	return m, nil
 }
 
@@ -295,41 +336,51 @@ func (m *Manifest) Validate() error {
 	if m.ManifestVersion != ManifestVersion {
 		return fmt.Errorf("manifestVersion: must be %d, got %d", ManifestVersion, m.ManifestVersion)
 	}
+
 	if m.WayfinderVersion == "" {
 		return fmt.Errorf("wayfinderVersion: required")
 	}
+
 	if m.WayfinderCommit != "" && !commitRE.MatchString(m.WayfinderCommit) {
 		return fmt.Errorf("wayfinderCommit: must be 40 lowercase hex characters or empty, got %q", m.WayfinderCommit)
 	}
+
 	for i := range m.Kinds {
 		if err := m.Kinds[i].validate(fmt.Sprintf("kinds[%d]", i)); err != nil {
 			return err
 		}
+
 		if i > 0 && (m.Kinds[i-1].Group > m.Kinds[i].Group || (m.Kinds[i-1].Group == m.Kinds[i].Group && m.Kinds[i-1].Kind >= m.Kinds[i].Kind)) {
 			return fmt.Errorf("kinds[%d].kind: kinds must be sorted by group, kind and unique, got %q after %q",
 				i, m.Kinds[i].Kind, m.Kinds[i-1].Kind)
 		}
 	}
+
 	kindNames := make(map[string]struct{}, len(m.Kinds))
 	for _, k := range m.Kinds {
 		kindNames[k.Kind] = struct{}{}
 	}
+
 	for i, name := range m.Excluded {
 		if i > 0 && m.Excluded[i-1] >= name {
 			return fmt.Errorf("excluded[%d]: must be sorted and unique, got %q after %q", i, name, m.Excluded[i-1])
 		}
+
 		if _, ok := kindNames[name]; ok {
 			return fmt.Errorf("excluded[%d]: %q is also listed in kinds", i, name)
 		}
 	}
+
 	for i, scope := range m.VarScopes {
 		if !varScopeRE.MatchString(scope) {
 			return fmt.Errorf("varScopes[%d]: invalid scope %q", i, scope)
 		}
+
 		if i > 0 && m.VarScopes[i-1] >= scope {
 			return fmt.Errorf("varScopes[%d]: must be sorted and unique, got %q after %q", i, scope, m.VarScopes[i-1])
 		}
 	}
+
 	return nil
 }
 
@@ -337,50 +388,65 @@ func (k *Kind) validate(path string) error {
 	if !kindNameRE.MatchString(k.Kind) {
 		return fmt.Errorf("%s.kind: invalid kind name %q", path, k.Kind)
 	}
+
 	if k.Group == "" {
 		return fmt.Errorf("%s.group: required", path)
 	}
+
 	if k.Version == "" {
 		return fmt.Errorf("%s.version: required", path)
 	}
+
 	if len(k.APIPath) == 0 {
 		return fmt.Errorf("%s.apiPath: required, got %q", path, k.APIPath)
 	}
+
 	if len(k.Scopes) == 0 {
 		return fmt.Errorf("%s.scopes: at least one scope required", path)
 	}
+
 	seenScope := make(map[string]struct{}, len(k.Scopes))
 	for i, s := range k.Scopes {
 		sp := fmt.Sprintf("%s.scopes[%d]", path, i)
 		if _, ok := knownScopes[s]; !ok {
 			return fmt.Errorf("%s: unknown scope %q", sp, s)
 		}
+
 		if _, dup := seenScope[s]; dup {
 			return fmt.Errorf("%s: duplicate scope %q", sp, s)
 		}
+
 		seenScope[s] = struct{}{}
 	}
+
 	if k.WaitForReady && !k.HasStatus {
 		return fmt.Errorf("%s.waitForReady: requires hasStatus", path)
 	}
+
 	if !k.Typed {
 		if k.TerraformName != "" {
 			return fmt.Errorf("%s.terraformName: must be empty for manifest-only kinds", path)
 		}
+
 		if k.Spec != nil {
 			return k.Spec.validate(path + ".spec")
 		}
+
 		return nil
 	}
+
 	if !terraformNameRE.MatchString(k.TerraformName) {
 		return fmt.Errorf("%s.terraformName: invalid name %q", path, k.TerraformName)
 	}
+
 	if k.Spec == nil {
 		return fmt.Errorf("%s.spec: required for typed kinds", path)
 	}
+
 	if k.Spec.Type != "object" {
 		return fmt.Errorf("%s.spec.type: must be \"object\", got %q", path, k.Spec.Type)
 	}
+
 	return k.Spec.validate(path + ".spec")
 }
 
@@ -388,36 +454,45 @@ func (f *Field) validate(path string) error {
 	if _, ok := knownTypes[f.Type]; !ok {
 		return fmt.Errorf("%s.type: unknown type %q", path, f.Type)
 	}
+
 	if len(f.Properties) > 0 || len(f.PropertyOrder) > 0 {
 		if f.Type != "object" {
 			return fmt.Errorf("%s.properties: only allowed when type is \"object\"", path)
 		}
 	}
+
 	if f.Items != nil && f.Type != "array" {
 		return fmt.Errorf("%s.items: only allowed when type is \"array\"", path)
 	}
+
 	if f.Values != nil && f.Type != "map" {
 		return fmt.Errorf("%s.values: only allowed when type is \"map\"", path)
 	}
+
 	if f.Type == "array" && f.Items == nil {
 		return fmt.Errorf("%s.items: required when type is \"array\"", path)
 	}
+
 	if f.Type == "map" && f.Values == nil {
 		return fmt.Errorf("%s.values: required when type is \"map\"", path)
 	}
+
 	if err := f.validateProperties(path); err != nil {
 		return err
 	}
+
 	if f.Items != nil {
 		if err := f.Items.validate(path + ".items"); err != nil {
 			return err
 		}
 	}
+
 	if f.Values != nil {
 		if err := f.Values.validate(path + ".values"); err != nil {
 			return err
 		}
 	}
+
 	return f.validateConstraints(path)
 }
 
@@ -426,30 +501,37 @@ func (f *Field) validateProperties(path string) error {
 		if len(f.PropertyOrder) != len(f.Properties) {
 			return fmt.Errorf("%s.properties: propertyOrder has %d names for %d properties", path, len(f.PropertyOrder), len(f.Properties))
 		}
+
 		for _, name := range f.PropertyOrder {
 			if _, ok := f.Properties[name]; !ok {
 				return fmt.Errorf("%s.properties: propertyOrder names %q which is not a property", path, name)
 			}
 		}
 	}
+
 	names := make([]string, 0, len(f.Properties))
 	for name := range f.Properties {
 		names = append(names, name)
 	}
+
 	sort.Strings(names)
+
 	for _, name := range names {
 		childPath := path + ".properties." + name
 		if !propertyNameRE.MatchString(name) {
 			return fmt.Errorf("%s: invalid property name", childPath)
 		}
+
 		child := f.Properties[name]
 		if child == nil {
 			return fmt.Errorf("%s: nil field", childPath)
 		}
+
 		if err := child.validate(childPath); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -457,31 +539,39 @@ func (f *Field) validateConstraints(path string) error {
 	if f.MinLength != nil && *f.MinLength < 0 {
 		return fmt.Errorf("%s.minLength: must be >= 0", path)
 	}
+
 	if f.MaxLength != nil && *f.MaxLength < 0 {
 		return fmt.Errorf("%s.maxLength: must be >= 0", path)
 	}
+
 	if f.MinLength != nil && f.MaxLength != nil && *f.MinLength > *f.MaxLength {
 		return fmt.Errorf("%s.minLength: greater than maxLength", path)
 	}
+
 	if f.Minimum != nil && f.Maximum != nil && *f.Minimum > *f.Maximum {
 		return fmt.Errorf("%s.minimum: greater than maximum", path)
 	}
+
 	if f.Pattern != "" {
 		if _, err := regexp.Compile(f.Pattern); err != nil {
 			return fmt.Errorf("%s.pattern: invalid regular expression: %w", path, err)
 		}
 	}
+
 	inEnum := make(map[string]struct{}, len(f.Enum))
 	for _, v := range f.Enum {
 		if _, dup := inEnum[v]; dup {
 			return fmt.Errorf("%s.enum: duplicate value %q", path, v)
 		}
+
 		inEnum[v] = struct{}{}
 	}
+
 	for i, doc := range f.EnumDocs {
 		if _, ok := inEnum[doc.Value]; !ok {
 			return fmt.Errorf("%s.enumDocs[%d].value: %q is not in enum", path, i, doc.Value)
 		}
 	}
+
 	return nil
 }

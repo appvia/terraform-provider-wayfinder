@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package client
 
 import (
@@ -43,6 +46,7 @@ func (e *APIError) Error() string {
 	if e.Detail != "" {
 		msg += " (" + e.Detail + ")"
 	}
+
 	return fmt.Sprintf("wayfinder API %s %s: %d %s: %s", e.Method, e.Path, e.StatusCode, http.StatusText(e.StatusCode), msg)
 }
 
@@ -67,12 +71,15 @@ type ValidationError struct {
 func (e *ValidationError) Error() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "wayfinder API %s %s: validation failed", e.Method, e.Path)
+
 	if e.Message != "" {
 		b.WriteString(": " + e.Message)
 	}
+
 	for _, f := range e.Fields {
 		fmt.Fprintf(&b, "; %s: %s", f.Field, f.Message)
 	}
+
 	return b.String()
 }
 
@@ -91,7 +98,9 @@ func decodeError(method, path string, resp *http.Response, body []byte) error {
 			return v
 		}
 	}
+
 	e := &APIError{Method: method, Path: path, StatusCode: resp.StatusCode}
+
 	var eb errorBody
 	if json.Unmarshal(body, &eb) == nil && eb.Message != "" {
 		e.Message, e.Detail = eb.Message, eb.Detail
@@ -100,8 +109,10 @@ func decodeError(method, path string, resp *http.Response, body []byte) error {
 		if len(raw) > maxMessageBytes {
 			raw = raw[:maxMessageBytes] + "..."
 		}
+
 		e.Message = raw
 	}
+
 	switch {
 	case resp.StatusCode == http.StatusNotFound:
 		e.sentinel = ErrNotFound
@@ -110,5 +121,6 @@ func decodeError(method, path string, resp *http.Response, body []byte) error {
 	case resp.StatusCode == http.StatusConflict && resp.Header.Get(headerObjectAlreadyExists) != "":
 		e.sentinel = ErrAlreadyExists
 	}
+
 	return e
 }

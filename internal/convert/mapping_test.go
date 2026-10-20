@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert_test
 
 import (
@@ -56,6 +59,7 @@ func TestMappingTypeIsIndependent_whenCallerMutatesReturnedType(t *testing.T) {
 
 func TestMappingRejectsInvalidFields_whenManifestMalformed(t *testing.T) {
 	cycle := &manifest.Field{Type: "object"}
+
 	cycle.Properties = map[string]*manifest.Field{"cycle": cycle}
 	for _, field := range []*manifest.Field{{Type: "invalid"}, {Type: "array"}, {Type: "map"}, cycle} {
 		t.Run(field.Type, func(t *testing.T) {
@@ -77,10 +81,12 @@ func TestScalarListMapRoundTrip_whenZeroAndEmptyValuesConfigured(t *testing.T) {
 	kind := manifest.Kind{Kind: "Example", Group: "example.io", Version: "v1", Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
 		"enabled": {Type: "boolean"}, "ratio": {Type: "number"}, "names": {Type: "array", Items: str}, "tags": {Type: "map", Values: str},
 	}}}
+
 	m, err := convert.NewMapping(kind)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	prior := config(t, m, map[string]any{"enabled": false, "ratio": 0.0, "names": []tftypes.Value{tftypes.NewValue(tftypes.String, ""), tftypes.NewValue(tftypes.String, "last")}, "tags": map[string]tftypes.Value{"key": tftypes.NewValue(tftypes.String, "")}})
 	x := object(t, `{"apiVersion":"example.io/v1","kind":"Example","metadata":{},"spec":{"enabled":false,"ratio":0,"names":["","last"],"tags":{"key":""}}}`)
 	// When
@@ -88,6 +94,7 @@ func TestScalarListMapRoundTrip_whenZeroAndEmptyValuesConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := convert.ToObject(m, state, convert.ToOpts{})
 	if err != nil {
 		t.Fatal(err)
@@ -97,6 +104,7 @@ func TestScalarListMapRoundTrip_whenZeroAndEmptyValuesConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !reflect.DeepEqual(object(t, string(encoded)), x) {
 		t.Fatalf("object: %#v", got)
 	}

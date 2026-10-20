@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package vars
 
 import (
@@ -68,6 +71,7 @@ func (r *variableResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 func (r *variableResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	c, diags := clientFrom(req.ProviderData)
 	resp.Diagnostics.Append(diags...)
+
 	if c != nil {
 		r.client = c
 	}
@@ -76,18 +80,23 @@ func (r *variableResource) Configure(_ context.Context, req resource.ConfigureRe
 func (r *variableResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var m variableModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
 	resp.Diagnostics.Append(ensureAbsent(ctx, r.client, k, kindVariables)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	if err := put(ctx, r.client, k, kindVariables, json.RawMessage(m.Value.ValueString())); err != nil {
 		resp.Diagnostics.AddError("Unable to create variable "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
@@ -95,19 +104,24 @@ func (r *variableResource) Create(ctx context.Context, req resource.CreateReques
 func (r *variableResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var m variableModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
+
 	item, err := get(ctx, r.client, k, kindVariables)
 	if errors.Is(err, client.ErrNotFound) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
+
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to read variable "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	m.Value = jsontypes.NewNormalizedValue(string(item.Value))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
@@ -116,14 +130,17 @@ func (r *variableResource) Read(ctx context.Context, req resource.ReadRequest, r
 func (r *variableResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var m variableModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	k := m.scoped()
 	if err := put(ctx, r.client, k, kindVariables, json.RawMessage(m.Value.ValueString())); err != nil {
 		resp.Diagnostics.AddError("Unable to update variable "+k.ID(), err.Error())
 		return
 	}
+
 	m.ID = types.StringValue(k.ID())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
@@ -131,9 +148,11 @@ func (r *variableResource) Update(ctx context.Context, req resource.UpdateReques
 func (r *variableResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var m variableModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &m)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	if err := remove(ctx, r.client, m.scoped(), kindVariables); err != nil {
 		resp.Diagnostics.AddError("Unable to delete variable "+m.scoped().ID(), err.Error())
 	}
@@ -150,6 +169,7 @@ func importScope(ctx context.Context, req resource.ImportStateRequest, resp *res
 		resp.Diagnostics.AddError("Invalid import ID", err.Error())
 		return
 	}
+
 	for attr, v := range map[string]types.String{
 		"id":          types.StringValue(k.ID()),
 		"key":         types.StringValue(k.Key),

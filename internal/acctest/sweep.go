@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package acctest
 
 import (
@@ -27,26 +30,33 @@ func AddSweepers() {
 	if err != nil {
 		panic(fmt.Sprintf("loading embedded manifest: %v", err))
 	}
+
 	byKind := map[string]manifest.Kind{}
 	for _, k := range m.Kinds {
 		byKind[k.Kind] = k
 	}
+
 	resource.AddTestSweepers(sweepVarsName, &resource.Sweeper{Name: sweepVarsName, F: func(string) error {
 		c, err := NewClient()
 		if err != nil {
 			return err
 		}
+
 		return sweepVars(context.Background(), c)
 	}})
+
 	var before []string
+
 	for _, name := range sweptKinds {
 		k := byKind[name]
+
 		deps := append([]string{sweepVarsName}, before...)
 		resource.AddTestSweepers(k.TerraformName, &resource.Sweeper{Name: k.TerraformName, Dependencies: deps, F: func(string) error {
 			c, err := NewClient()
 			if err != nil {
 				return err
 			}
+
 			return sweepKind(context.Background(), c, k)
 		}})
 		before = append(before, k.TerraformName)
@@ -65,14 +75,17 @@ type listItems struct {
 
 func list(ctx context.Context, c *client.Client, ref client.Ref) (listItems, error) {
 	var out listItems
+
 	p, err := ref.CollectionPath(c.Tenant)
 	if err != nil {
 		return out, err
 	}
+
 	err = c.DoJSON(ctx, http.MethodGet, p, nil, &out)
 	if errors.Is(err, client.ErrNotFound) {
 		return listItems{}, nil
 	}
+
 	return out, err
 }
 
@@ -82,20 +95,25 @@ func testWorkspaces(ctx context.Context, c *client.Client) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	workspace, ok := m.FindKind("org", "Workspace")
 	if !ok {
 		return nil, errors.New("embedded manifest has no Workspace kind")
 	}
+
 	items, err := list(ctx, c, client.Ref{Group: workspace.Group, Version: workspace.Version, APIPath: workspace.APIPath})
 	if err != nil {
 		return nil, fmt.Errorf("listing workspaces: %w", err)
 	}
+
 	var out []string
+
 	for _, it := range items.Items {
 		if strings.HasPrefix(it.Metadata.Name, NamePrefix) {
 			out = append(out, it.Metadata.Name)
 		}
 	}
+
 	return out, nil
 }
 
@@ -105,6 +123,7 @@ func hasScope(k manifest.Kind, scope string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -114,32 +133,41 @@ func sweepKind(ctx context.Context, c *client.Client, k manifest.Kind) error {
 	if hasScope(k, "tenant") {
 		workspaces = append(workspaces, "")
 	}
+
 	if hasScope(k, "workspace") {
 		ws, err := testWorkspaces(ctx, c)
 		if err != nil {
 			return err
 		}
+
 		workspaces = append(workspaces, ws...)
 	}
+
 	var errs []error
+
 	for _, ws := range workspaces {
 		col := client.Ref{Group: k.Group, Version: k.Version, APIPath: k.APIPath, Workspace: ws, Versioned: k.Versioned}
+
 		items, err := list(ctx, c, col)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("listing %s in %q: %w", k.Kind, ws, err))
 			continue
 		}
+
 		for _, it := range items.Items {
 			if !strings.HasPrefix(it.Metadata.Name, NamePrefix) {
 				continue
 			}
+
 			ref := col
+
 			ref.Name, ref.ObjectVersion = it.Metadata.Name, it.Metadata.Version
 			if err := c.Delete(ctx, ref); err != nil && !errors.Is(err, client.ErrNotFound) {
 				errs = append(errs, fmt.Errorf("deleting %s %s/%s: %w", k.Kind, ws, it.Metadata.Name, err))
 			}
 		}
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -160,42 +188,53 @@ func sweepVars(ctx context.Context, c *client.Client) error {
 	if err != nil {
 		return err
 	}
+
 	m, err := manifest.LoadEmbedded()
 	if err != nil {
 		return err
 	}
+
 	environment, ok := m.FindKind("org", "Environment")
 	if !ok {
 		return errors.New("embedded manifest has no Environment kind")
 	}
+
 	tenant := "/api/v3/general/tenants/" + url.PathEscape(c.Tenant)
 	bases := []string{tenant}
+
 	var errs []error
+
 	for _, w := range ws {
 		wsBase := tenant + "/workspaces/" + url.PathEscape(w)
 		bases = append(bases, wsBase)
+
 		envs, err := list(ctx, c, client.Ref{Group: environment.Group, Version: environment.Version, APIPath: environment.APIPath, Workspace: w})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("listing environments in %q: %w", w, err))
 			continue
 		}
+
 		for _, e := range envs.Items {
 			bases = append(bases, wsBase+"/envs/"+url.PathEscape(e.Metadata.Name))
 		}
 	}
+
 	for _, base := range bases {
 		var vl varList
 		if err := c.DoJSON(ctx, http.MethodGet, base+"/vars", nil, &vl); err != nil {
 			if !errors.Is(err, client.ErrNotFound) {
 				errs = append(errs, fmt.Errorf("listing vars at %q: %w", base, err))
 			}
+
 			continue
 		}
+
 		for kind, entries := range map[string][]struct{ Name string }{"secrets": vl.Secrets, "variables": vl.Variables} {
 			for _, e := range entries {
 				if !strings.HasPrefix(e.Name, NamePrefix) {
 					continue
 				}
+
 				err := c.DoJSON(ctx, http.MethodDelete, base+"/vars/"+kind+"/"+url.PathEscape(e.Name), nil, nil)
 				if err != nil && !errors.Is(err, client.ErrNotFound) {
 					errs = append(errs, fmt.Errorf("deleting %s %s at %q: %w", kind, e.Name, base, err))
@@ -203,5 +242,6 @@ func sweepVars(ctx context.Context, c *client.Client) error {
 			}
 		}
 	}
+
 	return errors.Join(errs...)
 }

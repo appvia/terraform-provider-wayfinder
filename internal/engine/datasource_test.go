@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -25,11 +28,13 @@ func testDataSchema(k manifest.Kind) dsschema.Schema {
 		"annotations": dsschema.MapAttribute{Computed: true, ElementType: types.StringType},
 		"status_json": dsschema.StringAttribute{Computed: true},
 	}
+
 	for _, name := range []string{"workspace", "environment", "version"} {
 		if field, ok := testSchema(k).Attributes[name]; ok {
 			a[name] = dsschema.StringAttribute{Required: field.IsRequired(), Optional: field.IsOptional()}
 		}
 	}
+
 	switch k.Kind {
 	case "Workspace":
 		a["display_name"] = dsschema.StringAttribute{Computed: true}
@@ -38,6 +43,7 @@ func testDataSchema(k manifest.Kind) dsschema.Schema {
 	case "Blueprint":
 		a["source"] = dsschema.ObjectAttribute{Computed: true, AttributeTypes: map[string]attr.Type{"repository": types.StringType, "ref": types.StringType}}
 	}
+
 	return dsschema.Schema{Attributes: a}
 }
 
@@ -46,20 +52,25 @@ func TestDataSource_whenGoldenKindRead(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Given a seeded object and a data source schema without resource-only inputs.
 			e := newTestEnv(t, name)
+
 			workspace, version, scope := "", "", ""
 			if name != "Workspace" {
 				workspace = "ws"
 				scope = "workspace = \"ws\"\n"
 			}
+
 			if name == "Blueprint" {
 				version = "1.2.3"
 				scope += "version = \"1.2.3\"\n"
 			}
+
 			e.fake.Seed(e.ref(workspace, "", version), map[string]any{"metadata": map[string]any{"labels": map[string]any{"server": "yes"}}, "spec": map[string]any{"displayName": "Server value", "endpoint": "https://server", "source": map[string]any{"repository": "https://server/repo"}}})
+
 			field, want := "display_name", "Server value"
 			if name == "Integration" {
 				field, want = "endpoint", "https://server"
 			}
+
 			if name == "Blueprint" {
 				field, want = "source.repository", "https://server/repo"
 			}
@@ -88,6 +99,7 @@ func TestConfigure_whenNilOrWrongProviderData(t *testing.T) {
 	for _, data := range []any{nil, "wrong"} {
 		rr := fwresource.ConfigureResponse{}
 		sr := datasource.ConfigureResponse{}
+
 		r.Configure(t.Context(), fwresource.ConfigureRequest{ProviderData: data}, &rr)
 		s.Configure(t.Context(), datasource.ConfigureRequest{ProviderData: data}, &sr)
 		// Then only the wrong type is diagnosed.
@@ -103,10 +115,12 @@ func TestDataSource_whenMissingObjectReturnsError(t *testing.T) {
 	s := NewDataSource(e.k, testDataSchema(e.k)).(*kindDataSource)
 	s.client = e.c
 	typ := s.schema.Type().TerraformType(context.Background()).(tftypes.Object)
+
 	attrs := map[string]tftypes.Value{}
 	for name, child := range typ.AttributeTypes {
 		attrs[name] = tftypes.NewValue(child, nil)
 	}
+
 	attrs["name"] = tftypes.NewValue(tftypes.String, "missing")
 	resp := datasource.ReadResponse{}
 	// When reading.

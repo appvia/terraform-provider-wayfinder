@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert
 
 import "slices"
@@ -27,14 +30,17 @@ func withoutServerManaged(v any) any {
 	if !ok {
 		return v
 	}
+
 	out := make(map[string]any, len(m))
 	for k, val := range m {
 		if !IsServerManagedMetadataKey(k) {
 			out[k] = val
 		}
 	}
+
 	if len(out) == 0 {
 		return nil
 	}
+
 	return out
 }

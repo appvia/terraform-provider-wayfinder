@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package manifestresource
 
 import (
@@ -39,6 +42,7 @@ func TestParseWriteOnly_whenValid(t *testing.T) {
 			if len(problems) != 0 {
 				t.Fatalf("unexpected problems: %+v", problems)
 			}
+
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("got %#v, want %#v", got, tc.want)
 			}
@@ -104,18 +108,23 @@ func TestParseWriteOnly_whenInvalid(t *testing.T) {
 			if len(problems) == 0 {
 				t.Fatalf("expected a problem for %q", tc.name)
 			}
+
 			found := false
+
 			for _, p := range problems {
 				if p.attr != "manifest_wo" {
 					t.Fatalf("problem attr = %q, want manifest_wo", p.attr)
 				}
+
 				if strings.Contains(p.detail, woLiteral) {
 					t.Fatalf("problem detail echoes the write-only value: %q", p.detail)
 				}
+
 				if strings.HasPrefix(p.detail, tc.wantDetail) {
 					found = true
 				}
 			}
+
 			if !found {
 				t.Fatalf("no problem with detail %q in %+v", tc.wantDetail, problems)
 			}
@@ -127,6 +136,7 @@ func TestMergeWriteOnly_whenMerging(t *testing.T) {
 	m := testManifest(t)
 	integration := findKind(t, m, "Integration")
 	externalIdentity := findKind(t, m, "ExternalIdentity")
+
 	pipeline := findKind(t, m, "Pipeline")
 	for _, tc := range []struct {
 		name           string
@@ -199,12 +209,15 @@ func TestMergeWriteOnly_whenMerging(t *testing.T) {
 			if len(problems) != 0 {
 				t.Fatalf("unexpected problems: %+v", problems)
 			}
+
 			if want := (map[string]any{"spec": tc.want}); !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %#v, want %#v", got, want)
 			}
+
 			if !reflect.DeepEqual(base, baseBefore) || !reflect.DeepEqual(wo, woBefore) {
 				t.Fatal("merge mutated an input")
 			}
+
 			t.Log("merged map equals expected; both inputs unchanged; zero problems")
 		})
 	}
@@ -238,16 +251,20 @@ func TestMergeWriteOnly_whenValuesConflict(t *testing.T) {
 			if len(problems) != 1 {
 				t.Fatalf("got %d problems, want 1: %+v", len(problems), problems)
 			}
+
 			p := problems[0]
 			if p.attr != "manifest_wo" || p.summary != "Conflicting manifest_wo value" || !strings.HasPrefix(p.detail, tc.path+" is set in both ") {
 				t.Fatalf("unexpected problem: %+v", p)
 			}
+
 			if strings.Contains(p.attr+p.summary+p.detail, woLiteral) {
 				t.Fatal("problem echoes the write-only literal")
 			}
+
 			if !reflect.DeepEqual(got, baseBefore) || !reflect.DeepEqual(base, baseBefore) || !reflect.DeepEqual(wo, woBefore) {
 				t.Fatal("conflict changed the base or either input")
 			}
+
 			t.Logf("exactly one problem: %s", p.detail)
 		})
 	}
@@ -274,16 +291,20 @@ func TestMergeWriteOnly_whenListLengthsDiffer(t *testing.T) {
 			if len(problems) != 1 {
 				t.Fatalf("got %d problems, want 1: %+v", len(problems), problems)
 			}
+
 			p := problems[0]
 			if p.attr != "manifest_wo" || p.summary != "Invalid manifest_wo" || !strings.HasPrefix(p.detail, "spec.steps has "+tc.counts+";") {
 				t.Fatalf("unexpected problem: %+v", p)
 			}
+
 			if strings.Contains(p.attr+p.summary+p.detail, woLiteral) {
 				t.Fatal("problem echoes the write-only literal")
 			}
+
 			if !reflect.DeepEqual(got, baseBefore) || !reflect.DeepEqual(base, baseBefore) || !reflect.DeepEqual(wo, woBefore) {
 				t.Fatal("length mismatch changed the base or either input")
 			}
+
 			t.Logf("exactly one problem: %s", p.detail)
 		})
 	}
@@ -308,15 +329,18 @@ func TestMergeWriteOnly_whenInputsMustRemainIndependent(t *testing.T) {
 	if len(problems) != 0 {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	spec := got["spec"].(map[string]any)
 	spec["keep"].(map[string]any)["name"] = "changed"
 	spec["extra"].(map[string]any)["tokens"].([]any)[0] = "changed"
 	spec["items"].([]any)[0].(map[string]any)["name"] = "changed"
 	spec["items"].([]any)[1].(map[string]any)["token"] = "changed"
 	spec["token"].(map[string]any)["value"] = "changed"
+
 	if !reflect.DeepEqual(base, baseBefore) || !reflect.DeepEqual(wo, woBefore) {
 		t.Fatal("merged result aliases an input")
 	}
+
 	t.Log("result map and list mutations leave both input snapshots equal")
 }
 
@@ -330,11 +354,13 @@ func TestMergeWriteOnly_whenConflictsNeedDeterministicOrder(t *testing.T) {
 	if len(problems) != 2 {
 		t.Fatalf("got %d problems, want 2: %+v", len(problems), problems)
 	}
+
 	for i, path := range []string{"spec.a[0]", "spec.z"} {
 		if !strings.HasPrefix(problems[i].detail, path+" ") || strings.Contains(problems[i].detail, woLiteral) {
 			t.Fatalf("unexpected problem at index %d: %+v", i, problems[i])
 		}
 	}
+
 	t.Log("two problems in canonical path order: spec.a[0], spec.z; no write-only literal")
 }
 
@@ -342,6 +368,7 @@ func TestIsSecretPath_whenWalkingFields(t *testing.T) {
 	m := testManifest(t)
 	integration := findKind(t, m, "Integration")
 	externalIdentity := findKind(t, m, "ExternalIdentity")
+
 	schema := manifest.Kind{Spec: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{
 		"rules":  {Type: "array", Items: &manifest.Field{Type: "object", Properties: map[string]*manifest.Field{"token": {Type: "string", Sensitive: true}}}},
 		"tokens": {Type: "map", Values: &manifest.Field{Type: "string", Sensitive: true}},
@@ -380,8 +407,10 @@ func TestIsSecretPath_whenWalkingFields(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given a schema and a canonical path into it.
 			var p woPath
+
 			if tc.path != "" {
 				var err error
+
 				p, err = parseWOPath(tc.path)
 				if err != nil {
 					t.Fatal(err)
@@ -402,6 +431,7 @@ func pathStrings(ps []woPath) []string {
 	for _, p := range ps {
 		out = append(out, p.String())
 	}
+
 	return out
 }
 
@@ -414,6 +444,7 @@ func TestSelectWriteOnly_whenNewKey(t *testing.T) {
 	if want := map[string]any{"spec": map[string]any{"token": "a"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
+
 	if want := []string{"spec.token"}; !reflect.DeepEqual(pathStrings(paths), want) {
 		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
 	}
@@ -428,6 +459,7 @@ func TestSelectWriteOnly_whenValueChanged(t *testing.T) {
 	if want := map[string]any{"spec": map[string]any{"token": "new"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
+
 	if len(paths) != 1 {
 		t.Fatalf("paths %v, want one", pathStrings(paths))
 	}
@@ -475,6 +507,7 @@ func TestSelectWriteOnly_whenIndexPathBuildsNilPaddedList(t *testing.T) {
 	if want := map[string]any{"spec": map[string]any{"rules": []any{nil, map[string]any{"token": "t"}}}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
+
 	if want := []string{"spec.rules[1].token"}; !reflect.DeepEqual(pathStrings(paths), want) {
 		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
 	}
@@ -489,6 +522,7 @@ func TestSelectWriteOnly_whenMapKeyPath(t *testing.T) {
 	if want := map[string]any{"spec": map[string]any{"headers": map[string]any{"X-A": "1"}}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
+
 	if want := []string{`spec.headers.X-A`}; !reflect.DeepEqual(pathStrings(paths), want) {
 		t.Fatalf("paths %v, want %v", pathStrings(paths), want)
 	}
@@ -612,6 +646,7 @@ func TestWithoutWriteOnly_whenSourceNotMutated(t *testing.T) {
 
 func noWOLiteral(t *testing.T, problems []woProblem) {
 	t.Helper()
+
 	for _, p := range problems {
 		if strings.Contains(p.attr+p.summary+p.detail, woLiteral) {
 			t.Fatalf("problem echoes the write-only literal: %+v", p)
@@ -654,6 +689,7 @@ func TestValidateWriteOnly_whenAllGood(t *testing.T) {
 	if len(problems) != 0 {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	if want := map[string]any{"spec": map[string]any{"apiKey": woLiteral}}; !reflect.DeepEqual(wo, want) {
 		t.Fatalf("got %#v, want %#v", wo, want)
 	}
@@ -669,6 +705,7 @@ func TestValidateWriteOnly_whenUnknownVersionKey(t *testing.T) {
 	if len(problems) != 1 || problems[0].attr != "manifest_wo_version" || problems[0].detail != "spec.nope does not match a value in manifest_wo." {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	noWOLiteral(t, problems)
 }
 
@@ -680,6 +717,7 @@ func TestValidateWriteOnly_whenDuplicateCanonicalKeys(t *testing.T) {
 	if len(problems) != 1 || problems[0].summary != "Duplicate manifest_wo_version key" || problems[0].detail != "spec.apiKey and [\"spec\"].apiKey name the same manifest_wo path." {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	noWOLiteral(t, problems)
 }
 
@@ -691,6 +729,7 @@ func TestValidateWriteOnly_whenInvalidVersionKey(t *testing.T) {
 	if len(problems) != 1 || problems[0].summary != "Invalid manifest_wo_version key" {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	noWOLiteral(t, problems)
 }
 
@@ -704,6 +743,7 @@ func TestValidateWriteOnly_whenIndexesAbsentList(t *testing.T) {
 	if len(problems) != 1 || !strings.HasPrefix(problems[0].detail, "spec.rules[0].token indexes a list that manifest does not have") {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	noWOLiteral(t, problems)
 }
 
@@ -717,6 +757,7 @@ func TestValidateWriteOnly_whenMergeConflicts(t *testing.T) {
 	if len(problems) != 1 || problems[0].summary != "Conflicting manifest_wo value" {
 		t.Fatalf("unexpected problems: %+v", problems)
 	}
+
 	noWOLiteral(t, problems)
 }
 
@@ -728,5 +769,6 @@ func TestValidateWriteOnly_whenWOUnparseable(t *testing.T) {
 	if wo != nil || len(problems) != 1 || problems[0].summary != "Invalid manifest_wo" {
 		t.Fatalf("got %#v, %+v", wo, problems)
 	}
+
 	noWOLiteral(t, problems)
 }

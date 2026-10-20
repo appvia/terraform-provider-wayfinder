@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert
 
 import "encoding/json"
@@ -8,6 +11,7 @@ func StatusSummary(obj map[string]any) (status, message, detail string) {
 	status, _ = s["status"].(string)
 	message, _ = s["message"].(string)
 	detail, _ = s["detail"].(string)
+
 	return
 }
 
@@ -17,9 +21,11 @@ func StatusJSON(obj map[string]any) (string, bool) {
 	if !ok || status == nil {
 		return "", false
 	}
+
 	b, err := json.Marshal(status)
 	if err != nil {
 		return "", false
 	}
+
 	return string(b), true
 }

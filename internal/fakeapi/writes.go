@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi
 
 import (
@@ -18,11 +21,13 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 	if !ok || !runValidate(w, k, OpUpdate, obj) {
 		return
 	}
+
 	e, exists := s.objects[ref]
 	if !exists {
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
 	stored := generation(e.obj)
 	if sent := generation(obj); sent != 0 && sent != stored {
 		w.Header().Set(HeaderObjectModified, "true")
@@ -30,9 +35,12 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 			"message": "OBJECT_MODIFIED",
 			"detail":  "generation mismatch: provided " + strconv.FormatInt(sent, 10) + ", current stored generation " + strconv.FormatInt(stored, 10),
 		})
+
 		return
 	}
+
 	mergeSecrets(k, obj, e.obj)
+
 	md, prev := metadata(obj), metadata(e.obj)
 	for _, f := range []string{"uid", "creationTimestamp", "deletionTimestamp"} {
 		if v, ok := prev[f]; ok {
@@ -41,6 +49,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 			delete(md, f)
 		}
 	}
+
 	md["generation"] = stored + 1
 	prevStatus := child(e.obj, "status", false)
 	e.obj = obj
@@ -58,6 +67,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request, ref Ref) {
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
 	if e.kind.FinalizerGETs > 0 {
 		if !e.deleting {
 			e.deleting, e.getsLeft = true, e.kind.FinalizerGETs
@@ -66,6 +76,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request, ref Ref) {
 	} else {
 		delete(s.objects, ref)
 	}
+
 	s.respond(w, e)
 }
 
@@ -76,26 +87,32 @@ func (s *Server) Seed(ref Ref, obj map[string]any) {
 	s.t.Helper()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	k, ok := s.lookupKind(ref)
 	if !ok {
 		s.t.Fatalf("fakeapi: Seed: kind %s/%s/%s not registered for scope %s", ref.Group, ref.Version, ref.APIPath, ref.scope())
 	}
+
 	o := deepCopy(obj)
 	md := metadata(o)
+
 	md["name"] = ref.Name
 	for f, v := range map[string]string{"workspace": ref.Workspace, "environment": ref.Environment, "version": ref.ObjectVersion} {
 		if v != "" {
 			md[f] = v
 		}
 	}
+
 	if generation(o) == 0 {
 		md["generation"] = 1
 	}
+
 	for f, v := range map[string]string{"uid": s.nextID("uid"), "creationTimestamp": now().Format(time.RFC3339)} {
 		if str(md, f) == "" {
 			md[f] = v
 		}
 	}
+
 	e := &entry{kind: k, obj: o}
 	s.startOperation(e, child(o, "status", false))
 	e.obj = deepCopy(e.obj)
@@ -108,6 +125,7 @@ func (s *Server) Mutate(ref Ref, fn func(obj map[string]any)) {
 	s.t.Helper()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	e := s.mustEntry(ref)
 	gen := generation(e.obj)
 	o := deepCopy(e.obj)
@@ -122,18 +140,22 @@ func (s *Server) Mutate(ref Ref, fn func(obj map[string]any)) {
 func (s *Server) Object(ref Ref) (map[string]any, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	e, ok := s.objects[ref]
 	if !ok {
 		return nil, false
 	}
+
 	return deepCopy(e.obj), true
 }
 
 func (s *Server) mustEntry(ref Ref) *entry {
 	s.t.Helper()
+
 	e, ok := s.objects[ref]
 	if !ok {
 		s.t.Fatalf("fakeapi: no object %+v", ref)
 	}
+
 	return e
 }

@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package fakeapi
 
 import (
@@ -13,6 +16,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request, body []b
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
 	k, ok := s.lookupKind(p.ref)
 	// Versioned routes exist only for versioned kinds (pkg/apihandlers/apiobjecthandler.go:285-328).
 	if !ok || (p.hasVersionURL && !k.Versioned) {
@@ -27,9 +31,12 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request, body []b
 			writeError(w, r, http.StatusNotImplemented, "fakeapi: delete of all versions not implemented")
 			return
 		}
+
 		writeError(w, r, http.StatusInternalServerError, "internal server error")
+
 		return
 	}
+
 	switch {
 	case p.ref.Name == "" && r.Method == http.MethodPost:
 		s.create(w, r, k, p.ref, body)
@@ -57,19 +64,24 @@ func decodeObject(w http.ResponseWriter, r *http.Request, k *KindSpec, ref *Ref,
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return nil, false
 	}
+
 	md := metadata(obj)
+
 	for field, want := range map[string]string{"workspace": ref.Workspace, "environment": ref.Environment} {
 		if want == "" {
 			continue
 		}
+
 		if str(md, field) == "" {
 			md[field] = want
 		}
+
 		if str(md, field) != want {
 			writeValidation(w, "Resource validation failed", []FieldError{{Field: "metadata." + field, ErrCode: "invalidValue", Message: field + " must be " + want}})
 			return nil, false
 		}
 	}
+
 	if ref.Name == "" {
 		ref.Name = str(md, "name")
 		if ref.Name == "" {
@@ -81,21 +93,26 @@ func decodeObject(w http.ResponseWriter, r *http.Request, k *KindSpec, ref *Ref,
 		writeError(w, r, http.StatusInternalServerError, "internal server error")
 		return nil, false
 	}
+
 	if k.Versioned {
 		if ref.ObjectVersion != "" && str(md, "version") == "" {
 			md["version"] = ref.ObjectVersion
 		}
+
 		v := str(md, "version")
 		if ref.ObjectVersion != "" && v != ref.ObjectVersion {
 			writeValidation(w, "incorrect version set", []FieldError{{Field: "metadata.version", ErrCode: "invalidValue", Message: "must match version provided in URL"}})
 			return nil, false
 		}
+
 		if !strictSemver.MatchString(v) {
 			writeValidation(w, "Resource validation failed", []FieldError{{Field: "metadata.version", ErrCode: "invalidValue", Message: "version must be strict semver X.Y.Z"}})
 			return nil, false
 		}
+
 		ref.ObjectVersion = v
 	}
+
 	return obj, true
 }
 
@@ -103,10 +120,12 @@ func runValidate(w http.ResponseWriter, k *KindSpec, op Operation, obj map[strin
 	if k.Validate == nil {
 		return true
 	}
+
 	if errs := k.Validate(op, deepCopy(obj)); len(errs) > 0 {
 		writeValidation(w, "Resource validation failed", errs)
 		return false
 	}
+
 	return true
 }
 
@@ -117,11 +136,14 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 	if !ok || !runValidate(w, k, OpCreate, obj) {
 		return
 	}
+
 	if _, exists := s.objects[ref]; exists {
 		w.Header().Set(HeaderObjectAlreadyExists, "true")
 		writeJSON(w, http.StatusConflict, map[string]any{"message": k.Kind + " " + ref.Name + " already exists"})
+
 		return
 	}
+
 	s.objects[ref] = s.newEntry(k, obj)
 	s.respond(w, s.objects[ref])
 }
@@ -134,10 +156,12 @@ func (s *Server) newEntry(k *KindSpec, obj map[string]any) *entry {
 	md["creationTimestamp"] = now().Format(time.RFC3339)
 	delete(md, "deletionTimestamp")
 	child(md, "labels", true)[ManagedByLabel] = "true"
+
 	applyDefaults(k, obj)
 	e := &entry{kind: k, obj: obj}
 	s.startOperation(e, nil)
 	e.obj = deepCopy(e.obj)
+
 	return e
 }
 
@@ -154,35 +178,44 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request, ref Ref) {
 	if ok && e.deleting {
 		if e.getsLeft == 0 {
 			delete(s.objects, ref)
+
 			ok = false
 		}
+
 		e.getsLeft--
 	}
+
 	if !ok {
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
 	if !e.deleting {
 		e.advance()
 	}
+
 	s.respond(w, e)
 }
 
 func (s *Server) list(w http.ResponseWriter, k *KindSpec, scope Ref) {
 	refs := make([]Ref, 0)
+
 	for ref, e := range s.objects {
 		if e.kind == k && ref.Tenant == scope.Tenant && ref.Workspace == scope.Workspace && ref.Environment == scope.Environment {
 			refs = append(refs, ref)
 		}
 	}
+
 	sort.Slice(refs, func(i, j int) bool {
 		return refs[i].Name+"@"+refs[i].ObjectVersion < refs[j].Name+"@"+refs[j].ObjectVersion
 	})
+
 	items := make([]any, 0, len(refs))
 	for _, ref := range refs {
 		out := deepCopy(s.objects[ref].obj)
 		sanitize(k, out)
 		items = append(items, out)
 	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }

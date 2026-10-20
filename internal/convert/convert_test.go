@@ -1,3 +1,6 @@
+// Copyright 2026 Appvia Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 package convert_test
 
 import (
@@ -13,24 +16,30 @@ import (
 
 func mapping(t *testing.T, name string) *convert.Mapping {
 	t.Helper()
+
 	m, err := manifest.Load("../manifest/testdata/golden-manifest.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	k, ok := m.FindKind("core.appvia.io", name)
 	if !ok {
 		t.Fatal(name)
 	}
+
 	out, err := convert.NewMapping(*k)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return out
 }
 
 func config(t *testing.T, m *convert.Mapping, fields map[string]any) tftypes.Value {
 	t.Helper()
+
 	attrs := map[string]tftypes.Value{}
+
 	for name, typ := range m.TFType().AttributeTypes {
 		if v, ok := fields[name].(tftypes.Value); ok {
 			attrs[name] = v
@@ -38,24 +47,29 @@ func config(t *testing.T, m *convert.Mapping, fields map[string]any) tftypes.Val
 			attrs[name] = tftypes.NewValue(typ, fields[name])
 		}
 	}
+
 	return tftypes.NewValue(m.TFType(), attrs)
 }
 
 func values(t *testing.T, v tftypes.Value) map[string]tftypes.Value {
 	t.Helper()
+
 	var out map[string]tftypes.Value
 	if err := v.As(&out); err != nil {
 		t.Fatal(err)
 	}
+
 	return out
 }
 
 func object(t *testing.T, text string) map[string]any {
 	t.Helper()
+
 	var out map[string]any
 	if err := json.Unmarshal([]byte(text), &out); err != nil {
 		t.Fatal(err)
 	}
+
 	return out
 }
 
@@ -76,6 +90,7 @@ func TestGoldenRoundTrip_whenAllKindsConfigured(t *testing.T) {
 			tc.cfg["labels"] = map[string]tftypes.Value{"team": tftypes.NewValue(tftypes.String, "dev")}
 			x := object(t, `{"apiVersion":"core.appvia.io/v3","kind":"`+tc.kind+`","metadata":{"name":"demo","labels":{"team":"dev"}},"spec":`+tc.spec+`}`)
 			meta := x["metadata"].(map[string]any)
+
 			for _, key := range []string{"workspace", "environment", "version"} {
 				if v, ok := tc.cfg[key]; ok {
 					meta[key] = v
@@ -86,6 +101,7 @@ func TestGoldenRoundTrip_whenAllKindsConfigured(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			got, err := convert.ToObject(m, state, convert.ToOpts{})
 			if err != nil {
 				t.Fatal(err)
@@ -95,6 +111,7 @@ func TestGoldenRoundTrip_whenAllKindsConfigured(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if !reflect.DeepEqual(object(t, string(encoded)), x) {
 				t.Fatalf("got %#v, want %#v", got, x)
 			}
@@ -112,6 +129,7 @@ func TestCreateIncludesWriteOnly_whenExplicitlySelected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	want := map[string]any{"apiKey": "secret", "headers": map[string]any{"X": "key"}}
 	if !reflect.DeepEqual(got["spec"], want) {
 		t.Fatalf("spec: %#v", got["spec"])
@@ -129,12 +147,15 @@ func TestUpdatePreservesBlankSecrets_whenVersionsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !reflect.DeepEqual(got["spec"], base["spec"]) {
 		t.Fatalf("spec: %#v", got["spec"])
 	}
+
 	if !reflect.DeepEqual(base, object(t, `{"metadata":{"generation":7,"labels":{"x":"y"}},"spec":{"apiKey":"","headers":{"old":""},"unmanaged":true}}`)) {
 		t.Fatal("mutated Base")
 	}
+
 	labels := got["metadata"].(map[string]any)["labels"]
 	if !reflect.DeepEqual(labels, map[string]any{"x": "y", "team": "dev"}) {
 		t.Fatalf("labels: %#v", labels)
@@ -152,18 +173,22 @@ func TestReadFiltersDrift_whenServerReturnsUnconfiguredFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	v := values(t, got)
 	for _, key := range []string{"api_key_wo", "headers_wo", "region"} {
 		if !v[key].IsNull() {
 			t.Fatal(key + " should be null")
 		}
 	}
+
 	if !v["api_key_wo_version"].Equal(values(t, prior)["api_key_wo_version"]) {
 		t.Fatal("version not retained")
 	}
+
 	if !v["last_synced_at"].Equal(tftypes.NewValue(tftypes.String, "server")) {
 		t.Fatal("computed field missing")
 	}
+
 	if !v["labels"].Equal(tftypes.NewValue(tftypes.Map{ElementType: tftypes.String}, map[string]tftypes.Value{"team": tftypes.NewValue(tftypes.String, "new")})) {
 		t.Fatal("unmanaged label in state")
 	}
