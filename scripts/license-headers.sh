@@ -35,10 +35,13 @@ while IFS= read -r file; do
   prefix="$(prefix_for "$file")"
   [ -n "$prefix" ] || continue
   [ -f "$file" ] || continue
-  top="$(head -n 10 "$file")"
-  has_copyright=false has_spdx=false
-  grep -Eq "$COPYRIGHT_RE" <<<"$top" && has_copyright=true
-  grep -Eq "$SPDX_RE" <<<"$top" && has_spdx=true
+  # Copyright must be in the first 10 lines; SPDX there too, or directly after the copyright line
+  # (where a repair puts it), so a repaired header always passes the next check.
+  read -r has_copyright has_spdx < <(CRE="$COPYRIGHT_RE" SRE="$SPDX_RE" awk '
+    NR > 11 { exit }
+    NR <= 10 && !c && $0 ~ ENVIRON["CRE"] { c = NR }
+    (NR <= 10 || (c && NR == c + 1)) && $0 ~ ENVIRON["SRE"] { s = 1 }
+    END { print (c ? "true" : "false"), (s ? "true" : "false") }' "$file")
   if $has_copyright && $has_spdx; then
     continue
   fi
@@ -61,7 +64,7 @@ while IFS= read -r file; do
     RE="$COPYRIGHT_RE" awk -v s="$SPDX" \
       '{ print } !done && NR <= 10 && $0 ~ ENVIRON["RE"] { print substr($0, 1, index($0, " ")) s; done = 1 }' \
       "$file" >"$tmp"
-  elif [[ "$top" == '#!'* ]]; then
+  elif [[ "$(head -n 1 "$file")" == '#!'* ]]; then
     block="$prefix $COPYRIGHT"$'\n'"$prefix $SPDX"$'\n'
     { head -n 1 "$file"; printf '%s\n' "$block"; tail -n +2 "$file"; } >"$tmp"
   else

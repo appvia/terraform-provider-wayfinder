@@ -48,7 +48,13 @@ func TestRemoveStaleKeepsHandWrittenExamples(t *testing.T) {
 	hand := filepath.Join(o.examples, "resources", "wayfinder_variable", "resource.tf")
 
 	stale := filepath.Join(o.examples, "resources", "wayfinder_gone", "resource.tf")
-	for path, body := range map[string]string{hand: "resource \"wayfinder_variable\" \"x\" {}\n", stale: header + "x\n"} {
+	quoting := filepath.Join(o.out, "fixture_test.go")
+
+	for path, body := range map[string]string{
+		hand:    "resource \"wayfinder_variable\" \"x\" {}\n",
+		stale:   header + "x\n",
+		quoting: "package generated\n\nconst fixture = `\n// " + generatedMarker + "\n`\n",
+	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -64,6 +70,10 @@ func TestRemoveStaleKeepsHandWrittenExamples(t *testing.T) {
 
 	if _, err := os.Stat(hand); err != nil {
 		t.Fatalf("hand-written example removed: %v", err)
+	}
+
+	if _, err := os.Stat(quoting); err != nil {
+		t.Fatalf("hand-written file quoting the marker removed: %v", err)
 	}
 
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
