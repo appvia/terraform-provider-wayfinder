@@ -23,6 +23,8 @@ Integration represents an activated integration in your tenant. There are two ki
     and web APIs belong to a custom integration, which groups them and gives them
     context.
 
+Creating a `wayfinder_integration` is for custom integrations only. Feature integrations such as `azure` or `github` are enabled with `wayfinder_feature_integration`, and their objects are read here by the name `wayfinder.<name>`, for example `wayfinder.azure`.
+
 ## Example Usage
 
 ```terraform

@@ -39,6 +39,12 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 		return
 	}
 
+	s.updateEntry(k, e, obj)
+	s.respond(w, e)
+}
+
+// updateEntry applies the shared write semantics after validation and concurrency checks.
+func (s *Server) updateEntry(k *KindSpec, e *entry, obj map[string]any) {
 	mergeSecrets(k, obj, e.obj)
 
 	md, prev := metadata(obj), metadata(e.obj)
@@ -50,12 +56,11 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request, k *KindSpec, ref
 		}
 	}
 
-	md["generation"] = stored + 1
+	md["generation"] = generation(e.obj) + 1
 	prevStatus := child(e.obj, "status", false)
 	e.obj = obj
 	s.startOperation(e, prevStatus)
 	e.obj = deepCopy(e.obj)
-	s.respond(w, e)
 }
 
 // remove: DELETE on the item. Missing -> 404. Without finalizer mode the object is gone at once;

@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 
+	"github.com/appvia/terraform-provider-wayfinder/internal/featureintegration"
 	"github.com/appvia/terraform-provider-wayfinder/internal/generated"
 	"github.com/appvia/terraform-provider-wayfinder/internal/manifestresource"
 	"github.com/appvia/terraform-provider-wayfinder/internal/vars"
@@ -40,13 +41,15 @@ func (p *wayfinderProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 	resp.Schema = providerSchema()
 }
 
-// Resources registers one generated resource per typed kind, wayfinder_manifest, and the
-// per-key wayfinder_variable and wayfinder_secret resources.
+// Resources registers one generated resource per typed kind, wayfinder_manifest, the
+// per-key wayfinder_variable and wayfinder_secret resources, and wayfinder_feature_integration.
 func (p *wayfinderProvider) Resources(_ context.Context) []func() resource.Resource {
 	out := append([]func() resource.Resource{}, generated.Resources()...)
 	out = append(out, manifestresource.NewResource)
 
-	return append(out, vars.Resources()...)
+	out = append(out, vars.Resources()...)
+
+	return append(out, featureintegration.NewResource)
 }
 
 // DataSources registers one generated data source per typed kind and wayfinder_variable.
