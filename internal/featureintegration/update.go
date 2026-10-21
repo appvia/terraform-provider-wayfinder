@@ -94,19 +94,26 @@ func (r *featureResource) Update(ctx context.Context, req resource.UpdateRequest
 
 		spec := obj["spec"].(map[string]any)
 		params, _ := spec["params"].(map[string]any)
+		changed := false
 
 		for _, key := range removed {
-			delete(params, key)
+			if _, ok := params[key]; ok {
+				delete(params, key)
+
+				changed = true
+			}
 		}
 
-		if len(params) == 0 {
-			delete(spec, "params")
-		}
+		if changed {
+			if len(params) == 0 {
+				delete(spec, "params")
+			}
 
-		obj, err = r.client.Update(ctx, ref, obj)
-		if err != nil {
-			addAPIError(&resp.Diagnostics, err, plan.Name.ValueString())
-			return
+			obj, err = r.client.Update(ctx, ref, obj)
+			if err != nil {
+				addAPIError(&resp.Diagnostics, err, plan.Name.ValueString())
+				return
+			}
 		}
 
 		plan.setObject(obj)

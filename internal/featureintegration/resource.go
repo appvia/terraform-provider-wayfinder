@@ -28,6 +28,7 @@ import (
 var (
 	_ resource.ResourceWithConfigure   = (*featureResource)(nil)
 	_ resource.ResourceWithImportState = (*featureResource)(nil)
+	_ resource.ResourceWithModifyPlan  = (*featureResource)(nil)
 )
 
 // NewResource returns the wayfinder_feature_integration resource.
