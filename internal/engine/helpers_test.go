@@ -64,7 +64,25 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T, name string) testEnv {
 	t.Helper()
-	k := goldenKind(t, name)
+
+	return newKindEnv(t, goldenKind(t, name))
+}
+
+// newFeatureEnv is an Integration kind shaped like the real manifest entry
+// (group "integrations", tenant and workspace scopes), which the stale golden
+// fixture is not.
+func newFeatureEnv(t *testing.T) testEnv {
+	t.Helper()
+
+	k := goldenKind(t, "Integration")
+	k.Group, k.Scopes = "integrations", []string{"tenant", "workspace"}
+
+	return newKindEnv(t, k)
+}
+
+func newKindEnv(t *testing.T, k manifest.Kind) testEnv {
+	t.Helper()
+
 	f := fakeapi.New(t)
 	f.RecordBodies(true)
 	f.RegisterKind(kindSpec(k))

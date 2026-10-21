@@ -5,6 +5,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/client"
 	"github.com/appvia/terraform-provider-wayfinder/internal/convert"
@@ -59,7 +60,13 @@ func (s *kindDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 
 	obj, err := s.client.Get(ctx, reference(s.kind, i))
 	if err != nil {
+		if hint := notFoundHint(s.kind, i); hint != "" && errors.Is(err, client.ErrNotFound) {
+			resp.Diagnostics.AddError("Integration not found", err.Error()+"\n\n"+hint)
+			return
+		}
+
 		r.apiDiagnostics(&resp.Diagnostics, err, i.ID())
+
 		return
 	}
 

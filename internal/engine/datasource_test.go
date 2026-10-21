@@ -130,3 +130,46 @@ func TestDataSource_whenMissingObjectReturnsError(t *testing.T) {
 		t.Fatal("missing data source succeeded")
 	}
 }
+
+func readMissingByName(t *testing.T, e testEnv, name string) datasource.ReadResponse {
+	t.Helper()
+
+	s := NewDataSource(e.k, testDataSchema(e.k)).(*kindDataSource)
+	s.client = e.c
+	typ := s.schema.Type().TerraformType(context.Background()).(tftypes.Object)
+
+	attrs := map[string]tftypes.Value{}
+	for attr, child := range typ.AttributeTypes {
+		attrs[attr] = tftypes.NewValue(child, nil)
+	}
+
+	attrs["name"] = tftypes.NewValue(tftypes.String, name)
+	resp := datasource.ReadResponse{}
+	s.Read(t.Context(), datasource.ReadRequest{Config: tfsdk.Config{Raw: tftypes.NewValue(typ, attrs), Schema: s.schema}}, &resp)
+
+	return resp
+}
+
+func TestDataSource_whenBareFeatureNameMissing(t *testing.T) {
+	// Given an Integration data source and no object for a bare feature name.
+	e := newFeatureEnv(t)
+	// When reading it.
+	resp := readMissingByName(t, e, "azure")
+	// Then the error points at the wayfinder.-prefixed name and the feature resource.
+	got := resp.Diagnostics.Errors()
+	if len(got) != 1 || got[0].Summary() != "Integration not found" ||
+		!strings.Contains(got[0].Detail(), `"wayfinder.azure"`) || !strings.Contains(got[0].Detail(), "wayfinder_feature_integration") {
+		t.Fatalf("diagnostics = %v", resp.Diagnostics)
+	}
+}
+
+func TestDataSource_whenPrefixedNameMissing(t *testing.T) {
+	// Given an Integration data source and no object for a prefixed name.
+	e := newFeatureEnv(t)
+	// When reading it.
+	resp := readMissingByName(t, e, "wayfinder.azure")
+	// Then it fails without the bare-name hint.
+	if !resp.Diagnostics.HasError() || strings.Contains(resp.Diagnostics.Errors()[0].Detail(), "wayfinder_feature_integration") {
+		t.Fatalf("diagnostics = %v", resp.Diagnostics)
+	}
+}

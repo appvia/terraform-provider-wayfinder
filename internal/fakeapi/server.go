@@ -56,6 +56,7 @@ type Server struct {
 	mu            sync.Mutex
 	seq           int
 	kinds         map[kindKey]*KindSpec
+	features      map[string]Feature
 	objects       map[Ref]*entry
 	vars          map[VarScope]*varSet
 	auth          authState
@@ -70,6 +71,7 @@ func New(t testing.TB) *Server {
 	s := &Server{
 		t:             t,
 		kinds:         map[kindKey]*KindSpec{},
+		features:      map[string]Feature{},
 		objects:       map[Ref]*entry{},
 		vars:          map[VarScope]*varSet{},
 		auth:          newAuthState(),
@@ -134,12 +136,19 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, body []byte) {
 		return
 	}
 
+	segs, integrationRoute := splitEscaped(strings.TrimPrefix(r.URL.EscapedPath(), tenantsPrefix))
+	integrationRoute = strings.HasPrefix(path, tenantsPrefix) && integrationRoute && len(segs) == 4 && segs[1] == "integrations"
+
 	switch {
 	case path == serverInfoPath && r.Method == http.MethodGet:
 		// Like every other endpoint, serverinfo needs a token (a real server answers 401).
 		s.handleServerInfo(w)
 	case strings.HasPrefix(path, resourcesPrefix):
 		s.handleResource(w, r, body)
+	case integrationRoute && segs[3] == "enable" && r.Method == http.MethodPost:
+		s.handleEnable(w, r, segs, body)
+	case integrationRoute && segs[3] == "effective" && r.Method == http.MethodGet:
+		s.handleEffective(w, r, segs)
 	case strings.HasPrefix(path, tenantsPrefix):
 		s.handleVars(w, r, body)
 	default:

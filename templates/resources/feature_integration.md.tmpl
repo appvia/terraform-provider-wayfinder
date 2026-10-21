@@ -1,0 +1,52 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+Feature integrations are built into Wayfinder, for example `aws`, `azure`, `gcp`, `github` and `ai`. You don't create them, you turn them on. This resource calls Wayfinder's enable action with the bare feature name, and Wayfinder stores the result as an integration named `wayfinder.<name>`. Custom integrations, built from your own templates, are managed with `wayfinder_integration` instead.
+
+If someone disables the feature outside Terraform, the next plan shows an in-place update and the next apply enables it again.
+
+## Parameters
+
+Only the keys you set in `params` are managed. Keys set elsewhere, such as in the Wayfinder UI, are left alone. Removing a key from `params` deletes it from the feature in Wayfinder.
+
+Each value is a JSON document, so write it with `jsonencode` and use the type the feature expects. Wayfinder converts some values to the declared type, for example the string `"false"` to the bool `false`. When that happens apply fails and names the `jsonencode(...)` value to use, so your configuration matches what Wayfinder stores.
+
+## Destroying
+
+Destroy disables the feature. The integration object stays in Wayfinder, and enabling it again later keeps its stored settings.
+
+To leave a feature on when the configuration is destroyed, set `keep_enabled_on_destroy = true` and apply that change before you run destroy. Destroy reads the value from state, so setting it in the same run has no effect.
+
+To stop managing one feature without disabling it, remove the resource and add a `removed` block:
+
+```terraform
+removed {
+  from = wayfinder_feature_integration.azure
+
+  lifecycle {
+    destroy = false
+  }
+}
+```
+
+The always-on features `dns`, `kubernetes` and `terraform` can't be disabled. Destroying one of them removes it from state with a warning and leaves it enabled.
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+The import ID is the bare feature name or the `wayfinder.<name>` object name. Only an enabled feature can be imported. Import doesn't adopt existing parameters, so `params` starts empty and only the keys you then add are managed.
+
+{{ codefile "shell" .ImportFile }}
