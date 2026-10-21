@@ -69,9 +69,11 @@ func (r *featureResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"params": schema.MapAttribute{
 				Optional:    true,
 				ElementType: jsontypes.NormalizedType{},
+				Validators:  []validator.Map{paramValuesValidator{}},
 				MarkdownDescription: "Feature parameters as JSON-encoded values, for example " +
 					"`enable_wayfinder = jsonencode(false)`. Only keys set here are managed; removing a key " +
-					"deletes it in Wayfinder. Use the JSON type the feature expects.",
+					"deletes it in Wayfinder. Use the JSON type the feature expects. For a JSON null, use " +
+					"`jsonencode(null)`; Terraform null map elements are not accepted.",
 			},
 			"keep_enabled_on_destroy": schema.BoolAttribute{
 				Optional: true,

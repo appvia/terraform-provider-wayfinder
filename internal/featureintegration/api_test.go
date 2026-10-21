@@ -79,7 +79,7 @@ func TestRead_whenOnlyConfiguredParamsAreManaged(t *testing.T) {
 
 	obj := featureObject("azure", true, map[string]any{"changed": false, "outside": "preserved"})
 	// When refreshing the managed parameter projection.
-	got, diags := featureintegration.ProjectParams(prior, obj)
+	got, diags := featureintegration.ProjectParams(prior, obj, []string{"changed", "missing"})
 	// Then changed values are refreshed, missing keys disappear, and outside keys stay unmanaged.
 	if diags.HasError() {
 		t.Fatal(diags)
@@ -99,7 +99,12 @@ func TestRead_whenParamsNullOrEmpty(t *testing.T) {
 		// Given either null, empty, or missing managed parameters.
 		obj := featureObject("azure", true, map[string]any{"outside": "preserved"})
 		// When refreshing.
-		got, diags := featureintegration.ProjectParams(prior, obj)
+		var keys []string
+		for key := range prior.Elements() {
+			keys = append(keys, key)
+		}
+
+		got, diags := featureintegration.ProjectParams(prior, obj, keys)
 		// Then null stays null, and a non-null map stays non-null without adopting keys.
 		if diags.HasError() || got.IsNull() != prior.IsNull() || len(got.Elements()) != 0 {
 			t.Fatalf("prior = %v, projected = %v, diagnostics = %v", prior, got, diags)

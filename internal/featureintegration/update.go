@@ -20,9 +20,17 @@ func (r *featureResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	plannedParams, priorParams := plan.Params.Elements(), state.Params.Elements()
-	removed := make([]string, 0, len(priorParams))
+	plannedKeys := paramKeys(plan.Params)
+	keys, diags := managedParamKeys(ctx, req.Private, state.Params)
+	resp.Diagnostics.Append(diags...)
 
-	for key := range priorParams {
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	removed := make([]string, 0, len(keys))
+
+	for _, key := range keys {
 		if _, ok := plannedParams[key]; !ok {
 			removed = append(removed, key)
 		}
@@ -83,4 +91,5 @@ func (r *featureResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	resp.Diagnostics.Append(storeParamKeys(ctx, resp.Private, plannedKeys)...)
 }

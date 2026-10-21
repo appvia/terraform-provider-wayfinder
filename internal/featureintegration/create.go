@@ -23,9 +23,11 @@ func (r *featureResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	keys := paramKeys(m.Params)
 	if r.enablePlanned(ctx, &m, &resp.Diagnostics) {
 		// Track a successful enable even when a coercion diagnostic taints this resource.
 		resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+		resp.Diagnostics.Append(storeParamKeys(ctx, resp.Private, keys)...)
 	}
 }
 
@@ -44,7 +46,7 @@ func (r *featureResource) enablePlanned(ctx context.Context, m *featureModel, d 
 	}
 
 	m.setObject(obj)
-	projected, diags := projectParams(m.Params, obj)
+	projected, diags := projectParams(m.Params, obj, paramKeys(m.Params))
 	d.Append(diags...)
 
 	mismatch := false

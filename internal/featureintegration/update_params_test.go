@@ -124,3 +124,64 @@ func TestUpdate_whenAllParamsRemoved(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdate_whenParamRestoredAfterRefreshOnly(t *testing.T) {
+	for _, body := range []string{"", "params = {}"} {
+		t.Run(fmt.Sprintf("config_%q", body), func(t *testing.T) {
+			// Given a managed key and an unrelated key owned outside Terraform.
+			e := newEnv(t)
+			e.fake.Seed(featureRef("azure"), featureObject("azure", true, map[string]any{"outside": "preserved"}))
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: e.factories,
+				Steps: []resource.TestStep{
+					{Config: featureHCL("azure", `params = { drop = jsonencode(false) }`)},
+					{
+						PreConfig: func() {
+							e.changeFeature(t, "azure", func(spec map[string]any) {
+								delete(spec["params"].(map[string]any), "drop")
+							})
+							e.fake.ResetRequests()
+						},
+						RefreshState:       true,
+						ExpectNonEmptyPlan: true,
+						RefreshPlanChecks: resource.RefreshPlanChecks{
+							PostRefresh: []plancheck.PlanCheck{plancheck.ExpectResourceAction(address, plancheck.ResourceActionUpdate)},
+						},
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr(address, "params.%", "0"),
+							expectWrites(e, 0, 0),
+						),
+					},
+					{
+						// When the key is restored remotely, then removed from configuration.
+						PreConfig: func() {
+							e.changeFeature(t, "azure", func(spec map[string]any) {
+								spec["params"].(map[string]any)["drop"] = false
+							})
+							e.fake.ResetRequests()
+						},
+						Config: featureHCL("azure", body),
+						ConfigPlanChecks: resource.ConfigPlanChecks{
+							PreApply:             []plancheck.PlanCheck{plancheck.ExpectResourceAction(address, plancheck.ResourceActionUpdate)},
+							PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+						},
+						// Then Terraform deletes the owned key without touching the unrelated key.
+						Check: resource.ComposeAggregateTestCheckFunc(
+							expectWrites(e, 0, 1),
+							func(*terraform.State) error {
+								obj, _ := e.fake.Object(featureRef("azure"))
+								want := map[string]any{"outside": "preserved"}
+
+								if got := obj["spec"].(map[string]any)["params"]; !reflect.DeepEqual(got, want) {
+									return fmt.Errorf("stored params = %v, want %v", got, want)
+								}
+
+								return nil
+							},
+						),
+					},
+				},
+			})
+		})
+	}
+}

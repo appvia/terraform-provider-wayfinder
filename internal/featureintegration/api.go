@@ -74,18 +74,18 @@ func fieldPath(field string) (path.Path, bool) {
 	}
 }
 
-func projectParams(prior types.Map, obj map[string]any) (types.Map, diag.Diagnostics) {
-	if prior.IsNull() {
+func projectParams(prior types.Map, obj map[string]any, keys []string) (types.Map, diag.Diagnostics) {
+	if prior.IsNull() && len(keys) == 0 {
 		return types.MapNull(jsontypes.NormalizedType{}), nil
 	}
 
 	spec, _ := obj["spec"].(map[string]any)
 	params, _ := spec["params"].(map[string]any)
-	values := make(map[string]attr.Value, len(prior.Elements()))
+	values := make(map[string]attr.Value, len(keys))
 
 	var diags diag.Diagnostics
 
-	for key := range prior.Elements() {
+	for _, key := range keys {
 		value, ok := params[key]
 		if !ok {
 			continue

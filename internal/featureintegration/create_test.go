@@ -51,6 +51,7 @@ func TestCreate_whenParamsSet(t *testing.T) {
 	e := newEnv(t)
 	config := featureHCL("ai", `params = {
  enable_wayfinder = jsonencode(false)
+ nullable = jsonencode(null)
  options = jsonencode({
    z = [1, true, null]
    a = "value"
@@ -70,7 +71,7 @@ func TestCreate_whenParamsSet(t *testing.T) {
 					func(*terraform.State) error {
 						obj, _ := e.fake.Object(featureRef("ai"))
 						got := obj["spec"].(map[string]any)["params"]
-						want := map[string]any{"enable_wayfinder": false, "options": map[string]any{
+						want := map[string]any{"enable_wayfinder": false, "nullable": nil, "options": map[string]any{
 							"z": []any{float64(1), true, nil}, "a": "value",
 						}}
 
@@ -85,6 +86,7 @@ func TestCreate_whenParamsSet(t *testing.T) {
 			{
 				Config: featureHCL("ai", `params = {
  enable_wayfinder = jsonencode(false)
+ nullable = jsonencode(null)
  options = jsonencode({ a = "value", z = [1, true, null] })
 }`),
 				ConfigPlanChecks: resource.ConfigPlanChecks{

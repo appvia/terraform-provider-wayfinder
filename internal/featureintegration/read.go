@@ -35,12 +35,20 @@ func (r *featureResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	keys, diags := managedParamKeys(ctx, req.Private, m.Params)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	m.setObject(obj)
-	params, diags := projectParams(m.Params, obj)
+	params, diags := projectParams(m.Params, obj, keys)
 	resp.Diagnostics.Append(diags...)
 
 	m.Params = params
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+	resp.Diagnostics.Append(storeParamKeys(ctx, resp.Private, keys)...)
 }
 
 func (r *featureResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

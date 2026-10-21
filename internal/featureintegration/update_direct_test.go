@@ -4,6 +4,7 @@
 package featureintegration_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
@@ -53,6 +54,8 @@ func TestUpdate_whenOnlyDisableOnDestroyChanged(t *testing.T) {
 			}
 
 			resp := resource.UpdateResponse{State: state}
+			private := reflect.ValueOf(&resp).Elem().FieldByName("Private")
+			private.Set(reflect.New(private.Type().Elem()))
 			// When applying only the retention flag change.
 			r.Update(t.Context(), resource.UpdateRequest{
 				State: state, Plan: tfsdk.Plan(plan),

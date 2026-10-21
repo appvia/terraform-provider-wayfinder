@@ -84,7 +84,7 @@ resource "wayfinder_feature_integration" "github" {
 ### Optional
 
 - `keep_enabled_on_destroy` (Boolean) Destroy disables the feature by default. Set to true to leave it enabled, and apply this value before destroying. A `removed` block with `lifecycle { destroy = false }` can also drop one resource from state without disabling it.
-- `params` (Map of String) Feature parameters as JSON-encoded values, for example `enable_wayfinder = jsonencode(false)`. Only keys set here are managed; removing a key deletes it in Wayfinder. Use the JSON type the feature expects.
+- `params` (Map of String) Feature parameters as JSON-encoded values, for example `enable_wayfinder = jsonencode(false)`. Only keys set here are managed; removing a key deletes it in Wayfinder. Use the JSON type the feature expects. For a JSON null, use `jsonencode(null)`; Terraform null map elements are not accepted.
 
 ### Read-Only
 
