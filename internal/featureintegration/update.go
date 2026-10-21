@@ -5,6 +5,7 @@ package featureintegration
 
 import (
 	"context"
+	"slices"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -57,8 +58,29 @@ func (r *featureResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if needsEnable && !r.enablePlanned(ctx, &plan, &resp.Diagnostics) {
-		return
+	if needsEnable {
+		obj := r.enablePlanned(ctx, &plan, &resp.Diagnostics)
+		if obj == nil {
+			return
+		}
+
+		keys = append(keys, plannedKeys...)
+		slices.Sort(keys)
+		keys = slices.Compact(keys)
+
+		// Save the observed write before removal can fail; old keys remain owned
+		// until the removal PUT succeeds.
+		partial := plan
+		params, diags := projectParams(plan.Params, obj, keys)
+		resp.Diagnostics.Append(diags...)
+
+		partial.Params = params
+		resp.Diagnostics.Append(resp.State.Set(ctx, &partial)...)
+		resp.Diagnostics.Append(storeParamKeys(ctx, resp.Private, keys)...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	if len(removed) > 0 {

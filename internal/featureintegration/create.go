@@ -24,16 +24,16 @@ func (r *featureResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	keys := paramKeys(m.Params)
-	if r.enablePlanned(ctx, &m, &resp.Diagnostics) {
+	if r.enablePlanned(ctx, &m, &resp.Diagnostics) != nil {
 		// Track a successful enable even when a coercion diagnostic taints this resource.
 		resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 		resp.Diagnostics.Append(storeParamKeys(ctx, resp.Private, keys)...)
 	}
 }
 
-// enablePlanned returns whether the feature was enabled, including when Wayfinder coerced
+// enablePlanned returns the enabled object, including when Wayfinder coerced
 // a parameter and the returned state must be saved alongside an error.
-func (r *featureResource) enablePlanned(ctx context.Context, m *featureModel, d *diag.Diagnostics) bool {
+func (r *featureResource) enablePlanned(ctx context.Context, m *featureModel, d *diag.Diagnostics) map[string]any {
 	params := make(map[string]json.RawMessage, len(m.Params.Elements()))
 	for key, value := range m.Params.Elements() {
 		params[key] = json.RawMessage(value.(jsontypes.Normalized).ValueString())
@@ -42,7 +42,7 @@ func (r *featureResource) enablePlanned(ctx context.Context, m *featureModel, d 
 	obj, err := enable(ctx, r.client, m.Name.ValueString(), params)
 	if err != nil {
 		addAPIError(d, err, m.Name.ValueString())
-		return false
+		return nil
 	}
 
 	m.setObject(obj)
@@ -79,5 +79,5 @@ func (r *featureResource) enablePlanned(ctx context.Context, m *featureModel, d 
 		m.Params = projected
 	}
 
-	return true
+	return obj
 }
