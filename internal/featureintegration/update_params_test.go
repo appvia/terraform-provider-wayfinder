@@ -40,7 +40,7 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 						// When removing one key, optionally changing the retained value too.
 						PreConfig: func() {
 							obj, _ := e.fake.Object(featureRef("azure"))
-							generation = obj["metadata"].(map[string]any)["generation"].(float64)
+							generation, _ = obj["metadata"].(map[string]any)["generation"].(json.Number).Float64()
 
 							e.fake.ResetRequests()
 						},
@@ -54,7 +54,7 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 							expectWrites(e, tc.post, 1),
 							func(*terraform.State) error {
 								obj, _ := e.fake.Object(featureRef("azure"))
-								want := map[string]any{"outside": "preserved", "keep": float64(tc.keep)}
+								want := map[string]any{"outside": "preserved", "keep": json.Number(fmt.Sprint(tc.keep))}
 
 								if got := obj["spec"].(map[string]any)["params"]; !reflect.DeepEqual(got, want) {
 									return fmt.Errorf("stored params = %v, want %v", got, want)

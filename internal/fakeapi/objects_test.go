@@ -4,6 +4,8 @@
 package fakeapi_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
@@ -11,6 +13,42 @@ import (
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/fakeapi"
 )
+
+func TestStore_whenIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given an object holding an integer above 2^53.
+	s := newServer(t, identityKind())
+	obj := identityObject("big")
+	obj["spec"].(map[string]any)["limit"] = int64(9007199254740993)
+
+	// When it is created and read back.
+	wantCode(t, call(t, s, http.MethodPost, identityCollection, obj), http.StatusOK)
+
+	got := call(t, s, http.MethodGet, identityCollection+"/big", nil)
+
+	// Then the exact digits are served.
+	wantCode(t, got, http.StatusOK)
+
+	if !bytes.Contains(got.raw, []byte("9007199254740993")) || bytes.Contains(got.raw, []byte("9007199254740992")) {
+		t.Errorf("body = %s, want exact 9007199254740993", got.raw)
+	}
+}
+
+func TestSeed_whenIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given a seeded object holding an integer above 2^53.
+	s := newServer(t, identityKind())
+	obj := identityObject("seeded")
+	obj["spec"].(map[string]any)["limit"] = int64(9007199254740993)
+
+	// When it is seeded and read back through the test accessor.
+	s.Seed(identityRef("seeded"), obj)
+
+	stored, _ := s.Object(identityRef("seeded"))
+
+	// Then the stored value keeps its exact digits.
+	if got := dig(stored, "spec", "limit"); got != json.Number("9007199254740993") {
+		t.Errorf("spec.limit = %v (%T), want json.Number 9007199254740993", got, got)
+	}
+}
 
 func TestCreate_then_get_returns_generation_1_server_fields_and_blanked_secrets(t *testing.T) {
 	// Given

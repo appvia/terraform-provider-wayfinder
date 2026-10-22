@@ -4,6 +4,7 @@
 package fakeapi_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"reflect"
 	"testing"
@@ -84,7 +85,11 @@ func TestEnable_whenFeatureNotYetEnabled(t *testing.T) {
 				t.Errorf("created integration = %s", got.raw)
 			}
 
-			if stored, ok := s.Object(featureRef("azure")); !ok || !reflect.DeepEqual(stored, got.body) {
+			stored, ok := s.Object(featureRef("azure"))
+			sb, _ := json.Marshal(stored)
+			gb, _ := json.Marshal(got.body)
+
+			if !ok || string(sb) != string(gb) {
 				t.Errorf("stored integration = %v, exists = %v", stored, ok)
 			}
 		})
