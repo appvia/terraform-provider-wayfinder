@@ -4,9 +4,29 @@
 package fakeapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 )
+
+// decodeJSON decodes a single JSON value into v, keeping numbers as json.Number so integers
+// keep their exact digits beyond float64 precision.
+func decodeJSON(b []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+
+	if _, err := dec.Token(); err != io.EOF {
+		return errors.New("trailing data after JSON value")
+	}
+
+	return nil
+}
 
 // deepCopy returns an independent copy of a JSON object, normalising Go values (ints, typed
 // maps) to their decoded-JSON form so stored objects always look like request bodies.
@@ -17,7 +37,7 @@ func deepCopy(obj map[string]any) map[string]any {
 	}
 
 	out := map[string]any{}
-	if err := json.Unmarshal(b, &out); err != nil {
+	if err := decodeJSON(b, &out); err != nil {
 		panic("fakeapi: " + err.Error())
 	}
 
@@ -46,6 +66,9 @@ func generation(obj map[string]any) int64 {
 	switch v := metadata(obj)["generation"].(type) {
 	case float64:
 		return int64(v)
+	case json.Number:
+		n, _ := v.Int64()
+		return n
 	case int64:
 		return v
 	case int:

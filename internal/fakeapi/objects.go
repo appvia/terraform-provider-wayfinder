@@ -4,7 +4,6 @@
 package fakeapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"sort"
 	"time"
@@ -60,7 +59,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request, body []b
 // the URL when the body leaves them empty.
 func decodeObject(w http.ResponseWriter, r *http.Request, k *KindSpec, ref *Ref, body []byte) (map[string]any, bool) {
 	obj := map[string]any{}
-	if err := json.Unmarshal(body, &obj); err != nil {
+	if err := decodeJSON(body, &obj); err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return nil, false
 	}

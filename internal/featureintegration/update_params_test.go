@@ -8,12 +8,22 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
+
+func storedSpec(obj map[string]any) (map[string]any, error) {
+	spec, ok := obj["spec"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("spec is %T, want object", obj["spec"])
+	}
+
+	return spec, nil
+}
 
 func TestUpdate_whenParamRemoved(t *testing.T) {
 	for _, tc := range []struct {
@@ -39,8 +49,12 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 					{
 						// When removing one key, optionally changing the retained value too.
 						PreConfig: func() {
-							obj, _ := e.fake.Object(featureRef("azure"))
-							generation = obj["metadata"].(map[string]any)["generation"].(float64)
+							obj, ok := e.fake.Object(featureRef("azure"))
+							if !ok {
+								t.Fatal("feature azure missing before update")
+							}
+
+							generation, _ = obj["metadata"].(map[string]any)["generation"].(json.Number).Float64()
 
 							e.fake.ResetRequests()
 						},
@@ -53,10 +67,19 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 						Check: resource.ComposeAggregateTestCheckFunc(
 							expectWrites(e, tc.post, 1),
 							func(*terraform.State) error {
-								obj, _ := e.fake.Object(featureRef("azure"))
-								want := map[string]any{"outside": "preserved", "keep": float64(tc.keep)}
+								obj, ok := e.fake.Object(featureRef("azure"))
+								if !ok {
+									return fmt.Errorf("feature azure missing after update")
+								}
 
-								if got := obj["spec"].(map[string]any)["params"]; !reflect.DeepEqual(got, want) {
+								spec, err := storedSpec(obj)
+								if err != nil {
+									return err
+								}
+
+								want := map[string]any{"outside": "preserved", "keep": json.Number(fmt.Sprint(tc.keep))}
+
+								if got := spec["params"]; !reflect.DeepEqual(got, want) {
 									return fmt.Errorf("stored params = %v, want %v", got, want)
 								}
 
@@ -75,7 +98,12 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 										return err
 									}
 
-									if got := sent["metadata"].(map[string]any)["generation"]; got != generation+float64(tc.post) {
+									meta, ok := sent["metadata"].(map[string]any)
+									if !ok {
+										return fmt.Errorf("PUT metadata is %T, want object", sent["metadata"])
+									}
+
+									if got := meta["generation"]; got != generation+float64(tc.post) {
 										return fmt.Errorf("PUT generation = %v, want %v", got, generation+float64(tc.post))
 									}
 								}
@@ -88,6 +116,65 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestUpdate_whenParamRemovedAndOutsideIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given a managed key and an unrelated integer above 2^53 owned outside Terraform.
+	e := newEnv(t)
+	e.fake.RecordBodies(true)
+	e.fake.Seed(featureRef("azure"), featureObject("azure", true, map[string]any{"outside": int64(9007199254740993)}))
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: e.factories,
+		Steps: []resource.TestStep{
+			{Config: featureHCL("azure", `params = { keep = jsonencode(1), drop = jsonencode(false) }`)},
+			{
+				// When removing one managed key.
+				PreConfig: e.fake.ResetRequests,
+				Config:    featureHCL("azure", `params = { keep = jsonencode(1) }`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply:             []plancheck.PlanCheck{plancheck.ExpectResourceAction(address, plancheck.ResourceActionUpdate)},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				// Then the single PUT re-sends the unmanaged integer with its exact digits.
+				Check: resource.ComposeAggregateTestCheckFunc(
+					expectWrites(e, 0, 1),
+					func(*terraform.State) error {
+						for _, req := range e.fake.Requests() {
+							if req.Method != http.MethodPut {
+								continue
+							}
+
+							if !strings.Contains(string(req.Body), "9007199254740993") || strings.Contains(string(req.Body), "9007199254740992") {
+								return fmt.Errorf("PUT body lost integer precision: %s", req.Body)
+							}
+						}
+
+						obj, ok := e.fake.Object(featureRef("azure"))
+						if !ok {
+							return fmt.Errorf("feature azure missing after update")
+						}
+
+						spec, err := storedSpec(obj)
+						if err != nil {
+							return err
+						}
+
+						params, ok := spec["params"].(map[string]any)
+						if !ok {
+							return fmt.Errorf("spec.params is %T, want object", spec["params"])
+						}
+
+						if got := params["outside"]; got != json.Number("9007199254740993") {
+							return fmt.Errorf("stored outside = %v, want 9007199254740993", got)
+						}
+
+						return nil
+					},
+				),
+			},
+		},
+	})
 }
 
 func TestUpdate_whenAllParamsRemoved(t *testing.T) {
@@ -110,8 +197,17 @@ func TestUpdate_whenAllParamsRemoved(t *testing.T) {
 						Check: resource.ComposeAggregateTestCheckFunc(
 							expectWrites(e, 0, 1),
 							func(*terraform.State) error {
-								obj, _ := e.fake.Object(featureRef("azure"))
-								if params, ok := obj["spec"].(map[string]any)["params"]; ok {
+								obj, ok := e.fake.Object(featureRef("azure"))
+								if !ok {
+									return fmt.Errorf("feature azure missing after update")
+								}
+
+								spec, err := storedSpec(obj)
+								if err != nil {
+									return err
+								}
+
+								if params, ok := spec["params"]; ok {
 									return fmt.Errorf("spec.params still present: %v", params)
 								}
 
@@ -169,10 +265,19 @@ func TestUpdate_whenParamRestoredAfterRefreshOnly(t *testing.T) {
 						Check: resource.ComposeAggregateTestCheckFunc(
 							expectWrites(e, 0, 1),
 							func(*terraform.State) error {
-								obj, _ := e.fake.Object(featureRef("azure"))
+								obj, ok := e.fake.Object(featureRef("azure"))
+								if !ok {
+									return fmt.Errorf("feature azure missing after update")
+								}
+
+								spec, err := storedSpec(obj)
+								if err != nil {
+									return err
+								}
+
 								want := map[string]any{"outside": "preserved"}
 
-								if got := obj["spec"].(map[string]any)["params"]; !reflect.DeepEqual(got, want) {
+								if got := spec["params"]; !reflect.DeepEqual(got, want) {
 									return fmt.Errorf("stored params = %v, want %v", got, want)
 								}
 

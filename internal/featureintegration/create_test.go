@@ -4,6 +4,7 @@
 package featureintegration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -72,7 +73,7 @@ func TestCreate_whenParamsSet(t *testing.T) {
 						obj, _ := e.fake.Object(featureRef("ai"))
 						got := obj["spec"].(map[string]any)["params"]
 						want := map[string]any{"enable_wayfinder": false, "nullable": nil, "options": map[string]any{
-							"z": []any{float64(1), true, nil}, "a": "value",
+							"z": []any{json.Number("1"), true, nil}, "a": "value",
 						}}
 
 						if !reflect.DeepEqual(got, want) {

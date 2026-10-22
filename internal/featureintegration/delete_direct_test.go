@@ -86,6 +86,37 @@ func TestDelete_whenAlwaysEnabled(t *testing.T) {
 	})
 }
 
+func TestDelete_whenOutsideParamIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given an enabled feature with an unrelated integer above 2^53 owned outside Terraform.
+	e := newEnv(t)
+	e.fake.RecordBodies(true)
+	e.fake.Seed(featureRef("azure"), featureObject("azure", true, map[string]any{"outside": int64(9007199254740993)}))
+	r, state := lifecycleResource(t, e, "azure")
+
+	var resp resource.DeleteResponse
+	// When destroying.
+	r.Delete(t.Context(), resource.DeleteRequest{State: state}, &resp)
+	// Then the disable PUT re-sends the integer with its exact digits.
+	if resp.Diagnostics.HasError() {
+		t.Fatal(resp.Diagnostics)
+	}
+
+	if err := expectWrites(e, 0, 1)(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, req := range e.fake.Requests() {
+		if req.Method != http.MethodPut {
+			continue
+		}
+
+		body := string(req.Body)
+		if !strings.Contains(body, "9007199254740993") || strings.Contains(body, "9007199254740992") || !strings.Contains(body, `"enabled":false`) {
+			t.Fatalf("PUT body = %s, want exact integer and enabled=false", body)
+		}
+	}
+}
+
 func TestDelete_whenAlreadyDisabled(t *testing.T) {
 	// Given stale Terraform state for a feature that is already disabled.
 	e := newEnv(t)

@@ -4,6 +4,7 @@
 package featureintegration_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -57,7 +58,7 @@ func TestUpdate_whenMissingParamRemovedFromConfig(t *testing.T) {
 					expectWrites(e, 0, 0),
 					func(*terraform.State) error {
 						obj, _ := e.fake.Object(featureRef("azure"))
-						want := map[string]any{"keep": float64(1), "drop": true}
+						want := map[string]any{"keep": json.Number("1"), "drop": true}
 
 						if got := obj["spec"].(map[string]any)["params"]; !reflect.DeepEqual(got, want) {
 							return fmt.Errorf("stored params = %v, want %v", got, want)
