@@ -5,6 +5,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"reflect"
 	"strings"
@@ -140,6 +141,43 @@ func TestPrivateGeneration_whenImportedAndUpdated(t *testing.T) {
 
 	if string(b) != "2" {
 		t.Fatalf("update generation = %s", b)
+	}
+}
+
+func TestUpdate_whenUnmanagedIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given an object with an unmanaged integer above 2^53.
+	e := newTestEnv(t, "Workspace")
+	e.fake.Seed(e.ref("", "", ""), map[string]any{"spec": map[string]any{"displayName": "First", "cloudProvider": "aws", "unmanagedLimit": int64(9007199254740993)}})
+	r := directResource(e)
+	v := rawValue(t, e, map[string]any{"display_name": "First", "cloud_provider": "aws"})
+	resp := resource.ReadResponse{State: tfsdk.State{Raw: v, Schema: r.schema}}
+	f := reflect.ValueOf(&resp).Elem().FieldByName("Private")
+	f.Set(reflect.New(f.Type().Elem()))
+	r.Read(t.Context(), resource.ReadRequest{State: resp.State}, &resp)
+	assertDiagnostics(t, resp.Diagnostics)
+
+	// When a managed attribute changes and Update PUTs the object.
+	v = rawValue(t, e, map[string]any{"display_name": "Second", "cloud_provider": "aws"})
+	updated := resource.UpdateResponse{State: resp.State, Private: resp.Private}
+	r.Update(t.Context(), resource.UpdateRequest{State: resp.State, Private: resp.Private, Config: tfsdk.Config{Raw: v, Schema: r.schema}, Plan: tfsdk.Plan{Raw: v, Schema: r.schema}}, &updated)
+
+	// Then the unmanaged integer is re-sent with its exact digits.
+	assertDiagnostics(t, updated.Diagnostics)
+
+	if n := e.fake.CountRequests(http.MethodPut, ""); n != 1 {
+		t.Fatalf("PUT count = %d", n)
+	}
+
+	for _, q := range e.fake.Requests() {
+		if q.Method == http.MethodPut && (!strings.Contains(string(q.Body), "9007199254740993") || strings.Contains(string(q.Body), "9007199254740992")) {
+			t.Fatalf("PUT body = %s", q.Body)
+		}
+	}
+
+	o, _ := e.fake.Object(e.ref("", "", ""))
+
+	if got := o["spec"].(map[string]any)["unmanagedLimit"]; got != json.Number("9007199254740993") {
+		t.Fatalf("unmanagedLimit = %v", got)
 	}
 }
 
