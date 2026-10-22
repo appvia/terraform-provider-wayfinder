@@ -4,6 +4,9 @@
 package manifestresource
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -12,6 +15,7 @@ import (
 	"github.com/appvia/terraform-provider-wayfinder/internal/fakeapi"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func emptyAfterApply() resource.ConfigPlanChecks {
@@ -149,6 +153,54 @@ func TestPlan_whenManifestRejected(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdate_whenUnmanagedIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given an imported Pipeline whose unmanaged spec field holds an integer above 2^53.
+	e := newTestEnv(t)
+	e.fake.RecordBodies(true)
+	ref := e.ref(t, "Pipeline", "ws", "dev", "build")
+	e.fake.Seed(ref, map[string]any{"apiVersion": "core.appvia.io/v3", "kind": "Pipeline", "spec": map[string]any{"trigger": "manual", "unmanagedLimit": int64(9007199254740993)}})
+
+	text := "apiVersion: core/v3\nkind: Pipeline\nmetadata: {name: build, workspace: ws, environment: dev}\nspec: {trigger: manual}\n"
+	// When a managed field changes and Terraform applies the update.
+	resource.UnitTest(t, resource.TestCase{ProtoV6ProviderFactories: e.factories, Steps: []resource.TestStep{
+		{Config: config(text) + "import {\n  to = wayfinder_manifest.this\n  id = \"core/Pipeline/ws/dev/build\"\n}\n", ConfigPlanChecks: emptyAfterApply()},
+		{
+			PreConfig: e.fake.ResetRequests,
+			Config:    config(strings.Replace(text, "manual", "push", 1)),
+			Check: func(*terraform.State) error {
+				// Then exactly one PUT re-sends the unmanaged integer with its exact digits.
+				var puts [][]byte
+
+				for _, req := range e.fake.Requests() {
+					if req.Method == http.MethodPut {
+						puts = append(puts, req.Body)
+					}
+				}
+
+				if len(puts) != 1 {
+					return fmt.Errorf("PUT count = %d, want 1", len(puts))
+				}
+
+				if !bytes.Contains(puts[0], []byte("9007199254740993")) || bytes.Contains(puts[0], []byte("9007199254740992")) {
+					return fmt.Errorf("PUT body lost integer precision: %s", puts[0])
+				}
+
+				obj, ok := e.fake.Object(ref)
+
+				if !ok {
+					return fmt.Errorf("object missing after update")
+				}
+
+				if got := obj["spec"].(map[string]any)["unmanagedLimit"]; got != json.Number("9007199254740993") {
+					return fmt.Errorf("stored unmanagedLimit = %v, want 9007199254740993", got)
+				}
+
+				return nil
+			},
+		},
+	}})
 }
 
 func TestUpdate_whenChangedOutsideTerraform(t *testing.T) {
