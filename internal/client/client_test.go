@@ -235,6 +235,7 @@ func TestDoJSON_whenResponseIsMalformedOrHasTrailingData(t *testing.T) {
 		{name: "trailing_whitespace", body: "{\"metadata\":{}}\n \n", wantErr: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			// Given a server that answers 200 with the malformed or trailing-data body.
 			h := newHarness(t)
 
 			h.mu.Lock()
@@ -247,7 +248,11 @@ func TestDoJSON_whenResponseIsMalformedOrHasTrailingData(t *testing.T) {
 			})
 			h.mu.Unlock()
 
+			// When the client GETs the resource.
+
 			_, err := h.client().Get(t.Context(), envRef("dev"))
+
+			// Then trailing whitespace is accepted; other trailing data or truncation is a decode error.
 
 			if !tc.wantErr {
 				if err != nil {

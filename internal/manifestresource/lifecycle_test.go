@@ -193,7 +193,12 @@ func TestUpdate_whenUnmanagedIntegerExceedsFloat64Precision(t *testing.T) {
 					return fmt.Errorf("object missing after update")
 				}
 
-				if got := obj["spec"].(map[string]any)["unmanagedLimit"]; got != json.Number("9007199254740993") {
+				spec, ok := obj["spec"].(map[string]any)
+				if !ok {
+					return fmt.Errorf("spec is %T, want object", obj["spec"])
+				}
+
+				if got := spec["unmanagedLimit"]; got != json.Number("9007199254740993") {
 					return fmt.Errorf("stored unmanagedLimit = %v, want 9007199254740993", got)
 				}
 
