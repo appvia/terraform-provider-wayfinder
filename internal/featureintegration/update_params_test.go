@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -88,6 +89,51 @@ func TestUpdate_whenParamRemoved(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestUpdate_whenParamRemovedAndOutsideIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given a managed key and an unrelated integer above 2^53 owned outside Terraform.
+	e := newEnv(t)
+	e.fake.RecordBodies(true)
+	e.fake.Seed(featureRef("azure"), featureObject("azure", true, map[string]any{"outside": int64(9007199254740993)}))
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: e.factories,
+		Steps: []resource.TestStep{
+			{Config: featureHCL("azure", `params = { keep = jsonencode(1), drop = jsonencode(false) }`)},
+			{
+				// When removing one managed key.
+				PreConfig: e.fake.ResetRequests,
+				Config:    featureHCL("azure", `params = { keep = jsonencode(1) }`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply:             []plancheck.PlanCheck{plancheck.ExpectResourceAction(address, plancheck.ResourceActionUpdate)},
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				// Then the single PUT re-sends the unmanaged integer with its exact digits.
+				Check: resource.ComposeAggregateTestCheckFunc(
+					expectWrites(e, 0, 1),
+					func(*terraform.State) error {
+						for _, req := range e.fake.Requests() {
+							if req.Method != http.MethodPut {
+								continue
+							}
+
+							if !strings.Contains(string(req.Body), "9007199254740993") || strings.Contains(string(req.Body), "9007199254740992") {
+								return fmt.Errorf("PUT body lost integer precision: %s", req.Body)
+							}
+						}
+
+						obj, _ := e.fake.Object(featureRef("azure"))
+						if got := obj["spec"].(map[string]any)["params"].(map[string]any)["outside"]; got != json.Number("9007199254740993") {
+							return fmt.Errorf("stored outside = %v, want 9007199254740993", got)
+						}
+
+						return nil
+					},
+				),
+			},
+		},
+	})
 }
 
 func TestUpdate_whenAllParamsRemoved(t *testing.T) {
