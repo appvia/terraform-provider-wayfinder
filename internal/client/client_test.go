@@ -6,6 +6,7 @@ package client_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -31,7 +32,7 @@ func TestCRUD_roundtrip_against_fake(t *testing.T) {
 	}
 
 	md := created["metadata"].(map[string]any)
-	if md["generation"] != float64(1) || md["name"] != "dev" {
+	if md["generation"] != json.Number("1") || md["name"] != "dev" {
 		t.Fatalf("created metadata = %v", md)
 	}
 
@@ -47,7 +48,7 @@ func TestCRUD_roundtrip_against_fake(t *testing.T) {
 		t.Fatalf("Update: %v", err)
 	}
 
-	if g := updated["metadata"].(map[string]any)["generation"]; g != float64(2) {
+	if g := updated["metadata"].(map[string]any)["generation"]; g != json.Number("2") {
 		t.Fatalf("updated generation = %v, want 2", g)
 	}
 
@@ -174,6 +175,92 @@ func TestValidation_400_maps_to_ValidationError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "spec.stage") {
 		t.Fatalf("error text %q lacks field path", err)
+	}
+}
+
+func TestGetUpdate_whenIntegerExceedsFloat64Precision(t *testing.T) {
+	// Given an object whose integer exceeds 2^53
+	h := newHarness(t)
+	h.fake.RecordBodies(true)
+
+	obj := envObject("dev")
+	obj["spec"].(map[string]any)["limit"] = int64(9007199254740993)
+	h.fake.Seed(fakeEnvRef("dev"), obj)
+
+	c, ctx := h.client(), t.Context()
+
+	// When it is read and written back unchanged
+	got, err := c.Get(ctx, envRef("dev"))
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if _, err := c.Update(ctx, envRef("dev"), got); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	// Then the value is kept exactly on the wire
+	if l := got["spec"].(map[string]any)["limit"]; l != json.Number("9007199254740993") {
+		t.Fatalf("limit = %v (%T), want json.Number 9007199254740993", l, l)
+	}
+
+	puts := 0
+
+	for _, r := range h.fake.Requests() {
+		if r.Method != http.MethodPut {
+			continue
+		}
+
+		puts++
+
+		if !bytes.Contains(r.Body, []byte("9007199254740993")) || bytes.Contains(r.Body, []byte("9007199254740992")) {
+			t.Fatalf("PUT body = %s, want exact 9007199254740993", r.Body)
+		}
+	}
+
+	if puts != 1 {
+		t.Fatalf("PUT count = %d, want 1", puts)
+	}
+}
+
+func TestDoJSON_whenResponseIsMalformedOrHasTrailingData(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "trailing_value", body: `{"metadata":{}} {}`, wantErr: true},
+		{name: "trailing_garbage", body: `{"metadata":{}}x`, wantErr: true},
+		{name: "truncated", body: `{"metadata":`, wantErr: true},
+		{name: "trailing_whitespace", body: "{\"metadata\":{}}\n \n", wantErr: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+
+			h.mu.Lock()
+			h.inject = append(h.inject, func(w http.ResponseWriter) bool {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = io.WriteString(w, tc.body)
+
+				return true
+			})
+			h.mu.Unlock()
+
+			_, err := h.client().Get(t.Context(), envRef("dev"))
+
+			if !tc.wantErr {
+				if err != nil {
+					t.Fatalf("Get: %v", err)
+				}
+
+				return
+			}
+
+			if err == nil || !strings.Contains(err.Error(), "decoding GET /api/v3/resources/") {
+				t.Fatalf("err = %v, want decoding error", err)
+			}
+		})
 	}
 }
 

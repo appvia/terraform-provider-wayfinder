@@ -35,6 +35,8 @@ const (
 
 var errResponseTooLarge = errors.New("response too large")
 
+var errTrailingData = errors.New("unexpected data after JSON value")
+
 // TokenSource supplies the bearer token for each request.
 type TokenSource interface {
 	Token(ctx context.Context) (string, error)
@@ -69,6 +71,7 @@ func (c *Client) Create(ctx context.Context, ref Ref, obj map[string]any) (map[s
 }
 
 // Get reads the object identified by ref. A missing object yields an error matching ErrNotFound.
+// Numbers decode as json.Number so integers above 2^53 survive a read-modify-write.
 func (c *Client) Get(ctx context.Context, ref Ref) (map[string]any, error) {
 	path, err := ref.ItemPath(c.Tenant)
 	if err != nil {
@@ -118,6 +121,8 @@ func (c *Client) object(ctx context.Context, method, path string, obj map[string
 
 // DoJSON sends one authenticated request to path (already escaped, beginning with "/"),
 // JSON-encoding body when non-nil and decoding a non-empty response into out when non-nil.
+// Numbers in the response decode as json.Number when out is an interface value, so integers
+// keep their precision. A response with data after the first JSON value is an error.
 // Non-2xx responses map to *ValidationError or *APIError. Only GET is retried.
 func (c *Client) DoJSON(ctx context.Context, method, path string, body, out any) error {
 	var payload []byte
@@ -142,8 +147,15 @@ func (c *Client) DoJSON(ctx context.Context, method, path string, body, out any)
 				return nil
 			}
 
-			if err := json.Unmarshal(respBody, out); err != nil {
+			dec := json.NewDecoder(bytes.NewReader(respBody))
+			dec.UseNumber()
+
+			if err := dec.Decode(out); err != nil {
 				return fmt.Errorf("decoding %s %s response: %w", method, path, err)
+			}
+
+			if _, err := dec.Token(); err != io.EOF {
+				return fmt.Errorf("decoding %s %s response: %w", method, path, errTrailingData)
 			}
 
 			return nil

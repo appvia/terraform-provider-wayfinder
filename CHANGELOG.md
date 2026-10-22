@@ -20,3 +20,5 @@ Built from Wayfinder release `<tag>`.
 - `token` / `WAYFINDER_TOKEN` accepts `wf` refresh tokens and refreshes them.
 
 ### Fixed
+
+- Updates no longer round integers above 2^53 that Terraform does not manage (for example in feature integration parameters) when writing an object back to Wayfinder.
