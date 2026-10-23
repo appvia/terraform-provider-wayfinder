@@ -82,6 +82,7 @@ func (e *emitter) kindSchema(k manifest.Kind) (string, error) {
 
 	if k.Versioned {
 		identity("version", true)
+		e.publishState(&b, pkg)
 	}
 
 	e.use("types", "github.com/hashicorp/terraform-plugin-framework/types")
@@ -116,6 +117,25 @@ func (e *emitter) kindSchema(k manifest.Kind) (string, error) {
 	}
 
 	return fmt.Sprintf("%s.Schema{MarkdownDescription:%q, Attributes:map[string]%s.Attribute{%s}}", pkg, description, pkg, b.String()), nil
+}
+
+// Descriptions for the publish_state attribute emitted on versioned kinds.
+const (
+	publishStateResourceDescription   = "Publish state of this version: `Draft`, `Published` or `Deprecated`. Only published versions are offered in the catalogue. Leave unset to keep the state Wayfinder holds, for example one set with `wf publish`."
+	publishStateDataSourceDescription = "Publish state of this version: `Draft`, `Published` or `Deprecated`; null when none is set."
+)
+
+// publishState emits the publish_state attribute: optional+computed on resources, computed on data sources.
+func (e *emitter) publishState(b *strings.Builder, pkg string) {
+	if e.dataSource {
+		fmt.Fprintf(b, "%q: %s.StringAttribute{Computed:true, MarkdownDescription:%q},\n", "publish_state", pkg, publishStateDataSourceDescription)
+		return
+	}
+
+	e.use("validator", "github.com/hashicorp/terraform-plugin-framework/schema/validator")
+	e.use("stringvalidator", "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator")
+	fmt.Fprintf(b, "%q: %s.StringAttribute{Optional:true, Computed:true, MarkdownDescription:%q, %sValidators:[]validator.String{stringvalidator.OneOf(\"Draft\",\"Published\",\"Deprecated\"),}},\n",
+		"publish_state", pkg, publishStateResourceDescription, e.modifiers("String", false, true))
 }
 
 func propertyNames(f *manifest.Field) []string {

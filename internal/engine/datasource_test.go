@@ -35,6 +35,10 @@ func testDataSchema(k manifest.Kind) dsschema.Schema {
 		}
 	}
 
+	if k.Versioned {
+		a["publish_state"] = dsschema.StringAttribute{Computed: true, MarkdownDescription: "Publish state of this version: `Draft`, `Published` or `Deprecated`; null when none is set."}
+	}
+
 	switch k.Kind {
 	case "Workspace":
 		a["display_name"] = dsschema.StringAttribute{Computed: true}

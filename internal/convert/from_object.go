@@ -70,6 +70,12 @@ func fromObject(m *Mapping, obj map[string]any, ctx readContext) (tftypes.Value,
 		out[name] = v
 	}
 
+	if _, exists := m.typ.AttributeTypes["publish_state"]; exists {
+		if s, _ := meta["publishState"].(string); s != "" {
+			out["publish_state"] = tftypes.NewValue(tftypes.String, s)
+		}
+	}
+
 	for _, name := range []string{"labels", "annotations"} {
 		if ctx.computed || ctx.populateAll {
 			raw := meta[name]

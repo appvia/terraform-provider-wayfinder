@@ -6,4 +6,5 @@ resource "wayfinder_kube_resource_plan" "example" {
   name = "example"
   workspace = "example"
   version = "1.0.0"
+  publish_state = "Published"
 }

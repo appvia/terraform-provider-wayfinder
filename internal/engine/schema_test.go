@@ -73,6 +73,15 @@ func testSchema(k manifest.Kind) schema.Schema {
 		}
 	}
 
+	if k.Versioned {
+		a["publish_state"] = schema.StringAttribute{
+			Optional: true, Computed: true,
+			MarkdownDescription: "Publish state of this version: `Draft`, `Published` or `Deprecated`. Only published versions are offered in the catalogue. Leave unset to keep the state Wayfinder holds, for example one set with `wf publish`.",
+			PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			Validators:          []validator.String{stringvalidator.OneOf("Draft", "Published", "Deprecated")},
+		}
+	}
+
 	for _, name := range []string{"labels", "annotations"} {
 		a[name] = schema.MapAttribute{Optional: true, ElementType: types.StringType}
 	}

@@ -21,6 +21,7 @@ func TestMappingNames_whenAcronymsAndReservedNamesOccur(t *testing.T) {
 		{"name", "name", "spec_name"},
 		{"statusJSON", "status_json", "spec_status_json"},
 		{"waitForReady", "wait_for_ready", "spec_wait_for_ready"},
+		{"publishState", "publish_state", "spec_publish_state"},
 		{"connection", "connection", "spec_connection"},
 		{"count", "count", "spec_count"},
 		{"dependsOn", "depends_on", "spec_depends_on"},
@@ -38,6 +39,22 @@ func TestMappingNames_whenAcronymsAndReservedNamesOccur(t *testing.T) {
 			// Given / When / Then
 			if convert.SnakeCase(tc.json) != tc.snake || convert.AttrName(tc.json) != tc.attr {
 				t.Fatal(tc.json)
+			}
+		})
+	}
+}
+
+func TestMappingType_whenKindVersioned(t *testing.T) {
+	for _, tc := range []struct {
+		kind string
+		want bool
+	}{{"Blueprint", true}, {"Workspace", false}} {
+		t.Run(tc.kind, func(t *testing.T) {
+			// Given / When
+			_, got := mapping(t, tc.kind).TFType().AttributeTypes["publish_state"]
+			// Then
+			if got != tc.want {
+				t.Fatalf("publish_state present: got %v, want %v", got, tc.want)
 			}
 		})
 	}

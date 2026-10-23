@@ -20,6 +20,7 @@ resource "wayfinder_kube_resource_plan" "example" {
   name = "example"
   workspace = "example"
   version = "1.0.0"
+  publish_state = "Published"
 }
 ```
 
@@ -46,6 +47,7 @@ resource "wayfinder_kube_resource_plan" "example" {
 - `labels` (Map of String)
 - `manifests` (Attributes List) Manifests are Kubernetes manifests to apply to the cluster, applied in the order given. (see [below for nested schema](#nestedatt--manifests))
 - `outputs` (Attributes List) Outputs define the values this plan publishes once deployed, for other components and applications to consume. (see [below for nested schema](#nestedatt--outputs))
+- `publish_state` (String) Publish state of this version: `Draft`, `Published` or `Deprecated`. Only published versions are offered in the catalogue. Leave unset to keep the state Wayfinder holds, for example one set with `wf publish`.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `wait_for_ready` (Boolean)
 - `workload_identity` (Attributes) WorkloadIdentity requests a cloud identity for the workload this plan deploys, so it can access cloud resources without long-lived credentials. (see [below for nested schema](#nestedatt--workload_identity))

@@ -78,7 +78,7 @@ func TestGoldenRoundTrip_whenAllKindsConfigured(t *testing.T) {
 		kind, spec string
 		cfg        map[string]any
 	}{
-		{"Blueprint", `{"source":{"repository":"https://git.example","ref":"main"},"inputs":[{"name":"z","type":"string","required":true},{"name":"a","type":"number","required":false}],"publishedAt":"today"}`, map[string]any{"workspace": "ws", "version": "1.2.3", "source": map[string]tftypes.Value{"repository": tftypes.NewValue(tftypes.String, "https://git.example"), "ref": tftypes.NewValue(tftypes.String, "main")}, "inputs": []tftypes.Value{tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "type": tftypes.String, "required": tftypes.Bool}}, map[string]tftypes.Value{"name": tftypes.NewValue(tftypes.String, "z"), "type": tftypes.NewValue(tftypes.String, "string"), "required": tftypes.NewValue(tftypes.Bool, true)}), tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "type": tftypes.String, "required": tftypes.Bool}}, map[string]tftypes.Value{"name": tftypes.NewValue(tftypes.String, "a"), "type": tftypes.NewValue(tftypes.String, "number"), "required": tftypes.NewValue(tftypes.Bool, false)})}}},
+		{"Blueprint", `{"source":{"repository":"https://git.example","ref":"main"},"inputs":[{"name":"z","type":"string","required":true},{"name":"a","type":"number","required":false}],"publishedAt":"today"}`, map[string]any{"workspace": "ws", "version": "1.2.3", "publish_state": "Published", "source": map[string]tftypes.Value{"repository": tftypes.NewValue(tftypes.String, "https://git.example"), "ref": tftypes.NewValue(tftypes.String, "main")}, "inputs": []tftypes.Value{tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "type": tftypes.String, "required": tftypes.Bool}}, map[string]tftypes.Value{"name": tftypes.NewValue(tftypes.String, "z"), "type": tftypes.NewValue(tftypes.String, "string"), "required": tftypes.NewValue(tftypes.Bool, true)}), tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "type": tftypes.String, "required": tftypes.Bool}}, map[string]tftypes.Value{"name": tftypes.NewValue(tftypes.String, "a"), "type": tftypes.NewValue(tftypes.String, "number"), "required": tftypes.NewValue(tftypes.Bool, false)})}}},
 		{"Integration", `{"endpoint":"https://example","options":{"nested":[1,true]},"timeoutSeconds":30,"region":"eu-west-1","lastSyncedAt":"today"}`, map[string]any{"workspace": "ws", "environment": "env", "endpoint": "https://example", "options_json": `{"nested":[1,true]}`, "timeout_seconds": 30, "region": "eu-west-1"}},
 		{"Pipeline", `{"trigger":"manual","steps":[]}`, map[string]any{"workspace": "ws", "environment": "env", "trigger": "manual", "steps": []tftypes.Value{}}},
 		{"Workspace", `{"displayName":"Demo","cloudProvider":"aws","members":[],"createdAt":"today"}`, map[string]any{"display_name": "Demo", "cloud_provider": "aws", "members": []tftypes.Value{}}},
@@ -95,6 +95,10 @@ func TestGoldenRoundTrip_whenAllKindsConfigured(t *testing.T) {
 				if v, ok := tc.cfg[key]; ok {
 					meta[key] = v
 				}
+			}
+
+			if v, ok := tc.cfg["publish_state"]; ok {
+				meta["publishState"] = v
 			}
 			// When
 			state, err := convert.FromObject(m, x, config(t, m, tc.cfg))
@@ -202,5 +206,96 @@ func TestToObjectErrorsWithPath_whenJSONInvalid(t *testing.T) {
 	// Then
 	if err == nil || !strings.Contains(err.Error(), "options_json") {
 		t.Fatalf("error: %v", err)
+	}
+}
+
+func TestToObjectPublishState_whenPlannedValues(t *testing.T) {
+	unknown := tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+	null := tftypes.NewValue(tftypes.String, nil)
+
+	for _, tc := range []struct {
+		name, kind string
+		planned    any
+		base       string
+		want       any // nil means the key must be absent
+	}{
+		{"published", "Blueprint", "Published", "", "Published"},
+		{"draft", "Blueprint", "Draft", "", "Draft"},
+		{"deprecated", "Blueprint", "Deprecated", "", "Deprecated"},
+		{"null keeps base", "Blueprint", null, "Published", "Published"},
+		{"unknown without base", "Blueprint", unknown, "", nil},
+		{"unknown keeps base", "Blueprint", unknown, "Draft", "Draft"},
+		{"known overrides base", "Blueprint", "Published", "Draft", "Published"},
+		{"non-versioned kind", "Workspace", nil, "", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Given a planned publish_state and a fetched base object.
+			m := mapping(t, tc.kind)
+			fields := map[string]any{"name": "demo"}
+
+			if _, ok := m.TFType().AttributeTypes["publish_state"]; ok {
+				fields["publish_state"] = tc.planned
+			}
+
+			opts := convert.ToOpts{}
+			if tc.base != "" {
+				opts.Base = object(t, `{"metadata":{"publishState":"`+tc.base+`"}}`)
+			}
+			// When
+			got, err := convert.ToObject(m, config(t, m, fields), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Then
+			v, present := got["metadata"].(map[string]any)["publishState"]
+			if tc.want == nil {
+				if present {
+					t.Fatalf("publishState = %v, want absent", v)
+				}
+
+				return
+			}
+
+			if v != tc.want {
+				t.Fatalf("publishState = %v, want %v", v, tc.want)
+			}
+		})
+	}
+}
+
+func TestFromObjectPublishState_whenServerStates(t *testing.T) {
+	str := func(s any) tftypes.Value { return tftypes.NewValue(tftypes.String, s) }
+	priors := map[string]tftypes.Value{
+		"null":      str(nil),
+		"published": str("Published"),
+		"unknown":   str(tftypes.UnknownValue),
+	}
+
+	for _, tc := range []struct {
+		name, meta string
+		want       tftypes.Value
+	}{
+		{"published", `"publishState":"Published"`, str("Published")},
+		{"deprecated", `"publishState":"Deprecated"`, str("Deprecated")},
+		{"blank", `"publishState":""`, str(nil)},
+		{"json null", `"publishState":null`, str(nil)},
+		{"absent", `"x":"y"`, str(nil)},
+	} {
+		for priorName, prior := range priors {
+			t.Run(tc.name+"/prior_"+priorName, func(t *testing.T) {
+				// Given a server object and a prior publish_state.
+				m := mapping(t, "Blueprint")
+				x := object(t, `{"metadata":{"name":"demo",`+tc.meta+`},"spec":{}}`)
+				// When
+				got, err := convert.FromObject(m, x, config(t, m, map[string]any{"name": "demo", "publish_state": prior}))
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Then the server value always wins.
+				if v := values(t, got)["publish_state"]; !v.Equal(tc.want) {
+					t.Fatalf("publish_state = %s, want %s", v, tc.want)
+				}
+			})
+		}
 	}
 }

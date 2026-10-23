@@ -71,7 +71,7 @@ func IsReserved(name string) bool {
 	switch name {
 	case "id", "name", "workspace", "environment", "version", "labels", "annotations",
 		"status", "status_json", "timeouts", "wait_for_ready",
-		"connection", "count", "depends_on", "for_each", "lifecycle", "provider", "provisioner", "locals":
+		"connection", "count", "depends_on", "for_each", "lifecycle", "provider", "provisioner", "locals", "publish_state":
 		return true
 	default:
 		return false
@@ -125,6 +125,7 @@ func NewMapping(kind manifest.Kind) (*Mapping, error) {
 
 	if kind.Versioned {
 		attrs["version"] = tftypes.String
+		attrs["publish_state"] = tftypes.String
 	}
 
 	if kind.HasStatus {
@@ -149,7 +150,7 @@ func NewMapping(kind manifest.Kind) (*Mapping, error) {
 // id/name strings, labels/annotations string maps, status object with string
 // status/message/detail, status_json string, timeouts object with string
 // create/update/delete. workspace is present for workspace OR environment scopes;
-// environment for environment scopes; version for versioned kinds; wait_for_ready
+// environment for environment scopes; version and publish_state for versioned kinds; wait_for_ready
 // bool only for HasStatus. Flattened spec attributes use AttrName, then _json for
 // json fields, then _wo for sensitive fields plus an optional string _wo_version.
 // Nested objects apply the same suffix rules but use SnakeCase, not AttrName.

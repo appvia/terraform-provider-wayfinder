@@ -6,6 +6,7 @@ resource "wayfinder_cloud_resource_plan" "example" {
   name = "example"
   workspace = "example"
   version = "1.0.0"
+  publish_state = "Published"
   cloud = "aws"
   description = "example"
   terraform = {
