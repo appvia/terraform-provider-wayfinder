@@ -43,6 +43,8 @@ type lifecycle struct {
 	updated string
 	imports []importStep
 	checks  []resource.TestCheckFunc
+	// updateChecks run after the update step.
+	updateChecks []resource.TestCheckFunc
 	// secrets are literals that must never reach the plan, state or the state file.
 	secrets []string
 	// checkDestroy replaces checkDestroyed when set.
@@ -71,7 +73,7 @@ func run(t *testing.T, lc lifecycle) {
 			ConfigPlanChecks: emptyAfterApply(append(secretPlan,
 				plancheck.ExpectResourceAction(lc.updated, plancheck.ResourceActionUpdate))...),
 			ConfigStateChecks: []statecheck.StateCheck{absentFromState(lc.secrets)},
-			Check:             absentFromStateFile(stateDir, lc.secrets),
+			Check:             resource.ComposeTestCheckFunc(append(lc.updateChecks, absentFromStateFile(stateDir, lc.secrets))...),
 		},
 	}
 	for _, i := range lc.imports {
