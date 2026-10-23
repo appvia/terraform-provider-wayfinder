@@ -8,7 +8,9 @@ Each release records the Wayfinder release it was built from.
 
 ## Unreleased
 
-Built from Wayfinder release `<tag>`.
+## 0.4.0 - 2026-10-23
+
+Built from Wayfinder release `v3.4.0`.
 
 ### Added
 
