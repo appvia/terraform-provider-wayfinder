@@ -13,6 +13,7 @@ Built from Wayfinder release `<tag>`.
 ### Added
 
 - `use_cli` and `cli_profile` provider attributes: authenticate with the signed-in `wf` CLI session, with automatic token refresh.
+- `publish_state` on `wayfinder_cloud_resource_plan` and `wayfinder_kube_resource_plan` (and their data sources): set `Published`, `Draft` or `Deprecated` to control whether a plan version is offered in the catalogue. Leave it unset to keep the state Wayfinder holds, for example one set with `wf publish`.
 
 ### Changed
 
