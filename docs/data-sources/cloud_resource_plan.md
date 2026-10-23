@@ -54,6 +54,7 @@ data "wayfinder_cloud_resource_plan" "example" {
 - `outputs` (Attributes List) Outputs are the values this plan publishes for consumers to use, e.g. a connection string or a bucket name, each with its name and type. They must match the outputs the plan's Terraform actually declares, and are checked against them when the plan is saved.
 
 Declare them here even though Terraform declares its own outputs: Terraform output blocks carry no type, so this is the only place the type of each output is stated. Without it, consumers of the plan see outputs with no type at all. (see [below for nested schema](#nestedatt--outputs))
+- `publish_state` (String) Publish state of this version: `Draft`, `Published` or `Deprecated`; null when none is set.
 - `resource_type` (String) ResourceType classifies this plan as either a runtime (a platform for applications to run on) or a dependency (an application dependency such as a data store, queue, or other infrastructure). The catalogue uses it to help developers find the right kind of plan.
 
 - `runtime`: Indicates the plan provisions a platform for applications to run on (e.g. a managed runtime, FaaS, container host).

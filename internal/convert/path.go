@@ -100,6 +100,18 @@ func (m *Mapping) identityPath(field string) (path.Path, bool) {
 		name, key, hasKey = strings.Cut(field, ".")
 	}
 
+	if name == "publishState" {
+		if hasKey {
+			return path.Empty(), false
+		}
+
+		if _, ok := m.typ.AttributeTypes["publish_state"]; !ok {
+			return path.Empty(), false
+		}
+
+		return path.Root("publish_state"), true
+	}
+
 	switch name {
 	case "name", "workspace", "environment", "version":
 		if hasKey {

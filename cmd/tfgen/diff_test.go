@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/appvia/terraform-provider-wayfinder/internal/manifest"
 )
 
 func diffFixture(t *testing.T, newName string) diffReport {
@@ -107,5 +109,35 @@ func TestDiff_whenIdentical_reportsNoChanges(t *testing.T) {
 	// Then
 	if r.breaking() || r.changed() {
 		t.Fatalf("identical manifests reported changes: %+v", r)
+	}
+}
+
+func TestResourceSchemas_whenKindVersionedHasPublishState(t *testing.T) {
+	// Given
+	m, err := manifest.Load("../../internal/manifest/testdata/golden-manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When
+	schemas, err := resourceSchemas(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then
+	if got := schemas["wayfinder_blueprint"].types["publish_state"]; got != "string" {
+		t.Fatalf("versioned publish_state type = %q, want string", got)
+	}
+
+	if _, ok := schemas["wayfinder_workspace"].types["publish_state"]; ok {
+		t.Fatal("non-versioned kind must not have publish_state")
+	}
+
+	r, err := diffFiles("../../internal/manifest/testdata/golden-manifest.json", "../../internal/manifest/testdata/golden-manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if r.breaking() || r.changed() {
+		t.Fatalf("golden manifest against itself reported changes: %+v", r)
 	}
 }

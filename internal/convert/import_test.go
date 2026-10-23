@@ -167,3 +167,37 @@ func TestFromObject_whenPopulateAllSkipsServerManagedMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestFromObject_whenPublishStateImportedOrReadAsDataSource(t *testing.T) {
+	str := func(s any) tftypes.Value { return tftypes.NewValue(tftypes.String, s) }
+
+	for _, tc := range []struct {
+		name, state string
+		want        tftypes.Value
+	}{
+		{"set", "Draft", str("Draft")},
+		{"blank", "", str(nil)},
+	} {
+		// Given a server object with (or without) a publish state.
+		m := mapping(t, "Blueprint")
+		x := object(t, `{"metadata":{"name":"demo","publishState":"`+tc.state+`"},"spec":{}}`)
+		prior := config(t, m, nil)
+
+		imported, err := convert.FromObjectOpts(m, x, prior, convert.FromOpts{PopulateAll: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ds, err := convert.FromDataSource(m, x, prior)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Then both import and data-source reads report the server value.
+		for mode, got := range map[string]tftypes.Value{"import": imported, "datasource": ds} {
+			if v := values(t, got)["publish_state"]; !v.Equal(tc.want) {
+				t.Fatalf("%s/%s publish_state = %s, want %s", tc.name, mode, v, tc.want)
+			}
+		}
+	}
+}

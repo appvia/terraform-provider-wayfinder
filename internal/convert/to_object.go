@@ -90,6 +90,15 @@ func ToObject(m *Mapping, cfg tftypes.Value, opts ToOpts) (map[string]any, error
 		}
 	}
 
+	if v, ok := attrs["publish_state"]; ok && v.IsKnown() && !v.IsNull() {
+		var state string
+		if err := v.As(&state); err != nil {
+			return nil, fmt.Errorf("publish_state: %w", err)
+		}
+
+		meta["publishState"] = state
+	}
+
 	spec, err := m.spec.writeFields(attrs, jsonMap(out["spec"]), writeContext{include: opts.IncludeWriteOnly, prior: opts.Prior})
 	if err != nil {
 		return nil, fmt.Errorf("spec: %w", err)

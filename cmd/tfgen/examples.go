@@ -36,8 +36,13 @@ func exampleFiles(k manifest.Kind) map[string]string {
 		fmt.Fprintf(&imports, "# %s scope\nterraform import %s.example '%s'\n", scope, name, id)
 	}
 
+	resIdentity := identity
+	if k.Versioned {
+		resIdentity += "  publish_state = \"Published\"\n"
+	}
+
 	return map[string]string{
-		"resources/" + name + "/resource.tf":       header + fmt.Sprintf("resource %q \"example\" {\n%s%s}\n", name, identity, required.body(k.Spec, true, "  ", "")),
+		"resources/" + name + "/resource.tf":       header + fmt.Sprintf("resource %q \"example\" {\n%s%s}\n", name, resIdentity, required.body(k.Spec, true, "  ", "")),
 		"resources/" + name + "/import.sh":         imports.String(),
 		"data-sources/" + name + "/data-source.tf": header + fmt.Sprintf("data %q \"example\" {\n%s}\n", name, identity),
 	}
