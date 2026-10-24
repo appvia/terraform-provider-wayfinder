@@ -57,6 +57,7 @@ test-scripts:
 	./scripts/test-wayfinder-checkout.sh
 	./scripts/test-bump-wayfinder.sh
 	./scripts/test-license-headers.sh
+	./scripts/test-check-docs.sh
 
 check-reproducible:
 	./scripts/check-reproducible.sh

@@ -1,0 +1,24 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+For a webhook's ingest URL use [`wayfinder_webhook_ingest_url`](webhook_ingest_url.md). It's typed and needs no Wayfinder API names.
+
+{{ .Description | trimspace }}
+
+This resource reads one sub-resource of a Wayfinder object with a GET request and returns the response in `output`. Name the object with `type` (`group/version/Kind`, for example `integrations/v3/Webhook`), `name`, and `workspace` and `environment` where the kind needs them. `action` is the sub-resource to read. Set `response_export_values` to a list of dot-separated paths into the JSON object response, for example `["url"]` or `["status.token"]`. When set, `output` contains only those paths with their nesting preserved, and a missing path appears as null. The whole of `output` is sensitive.
+
+## Requirements and lifecycle
+
+This is an ephemeral resource, so it needs Terraform 1.11 or later, or OpenTofu 1.11 or later. It's read on every plan and apply and is never stored in state or plan files. Use its result only where ephemeral values are allowed: write-only attributes such as `value_wo`, provider blocks, locals and other ephemeral resources.
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+{{ .SchemaMarkdown | trimspace }}
