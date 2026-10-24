@@ -67,6 +67,7 @@ func (p *wayfinderProvider) Configure(ctx context.Context, req provider.Configur
 	}
 	resp.ResourceData = c
 	resp.DataSourceData = c
+	resp.EphemeralResourceData = c
 }
 
 // authConfig maps the provider block onto auth.Config. Null attributes become "" so auth falls

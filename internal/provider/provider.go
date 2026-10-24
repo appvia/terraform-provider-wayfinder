@@ -9,10 +9,12 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 
+	wayfinderephemeral "github.com/appvia/terraform-provider-wayfinder/internal/ephemeral"
 	"github.com/appvia/terraform-provider-wayfinder/internal/featureintegration"
 	"github.com/appvia/terraform-provider-wayfinder/internal/generated"
 	"github.com/appvia/terraform-provider-wayfinder/internal/manifestresource"
@@ -20,6 +22,7 @@ import (
 )
 
 var _ provider.Provider = (*wayfinderProvider)(nil)
+var _ provider.ProviderWithEphemeralResources = (*wayfinderProvider)(nil)
 
 type wayfinderProvider struct {
 	version string
@@ -60,4 +63,8 @@ func (p *wayfinderProvider) DataSources(_ context.Context) []func() datasource.D
 
 func (p *wayfinderProvider) Functions(_ context.Context) []func() function.Function {
 	return nil
+}
+
+func (p *wayfinderProvider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{wayfinderephemeral.NewResourceAction, wayfinderephemeral.NewWebhookIngestURL}
 }
