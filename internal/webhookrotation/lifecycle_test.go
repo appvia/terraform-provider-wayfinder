@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/appvia/terraform-provider-wayfinder/internal/webhookrotation"
@@ -76,6 +77,35 @@ func TestRead_whenWebhookMissing(t *testing.T) {
 
 	if got := e.fake.CountRequests(http.MethodPost, ""); got != 0 {
 		t.Fatalf("POST requests = %d, want 0", got)
+	}
+}
+
+func TestUpdate_whenPlanCarriesRotation(t *testing.T) {
+	t.Parallel()
+	// Given prior state and a plan with changed triggers but the same computed rotation metadata.
+	e := newEnv(t)
+	e.allowRotate("", "hook")
+	r, s := e.resource(t)
+	m := rotatedModel()
+	prior := stateOf(t, s, m)
+	m.Triggers = types.MapValueMust(types.StringType, map[string]attr.Value{"n": types.StringValue("2")})
+	plan := tfsdk.Plan{Schema: s, Raw: stateOf(t, s, m).Raw}
+
+	// When Update is invoked directly, even though configured changes require replacement.
+	resp := resource.UpdateResponse{State: prior}
+	r.Update(t.Context(), resource.UpdateRequest{Plan: plan, State: prior}, &resp)
+
+	// Then the complete plan, including rotation_id and rotated_at, becomes state without a request.
+	if resp.Diagnostics.HasError() {
+		t.Fatal(resp.Diagnostics)
+	}
+
+	if !resp.State.Raw.Equal(plan.Raw) {
+		t.Errorf("state = %s, want plan %s", resp.State.Raw, plan.Raw)
+	}
+
+	if requests := e.fake.Requests(); len(requests) != 0 {
+		t.Errorf("requests = %+v, want none", requests)
 	}
 }
 

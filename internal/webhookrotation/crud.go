@@ -39,7 +39,7 @@ func (r *rotationResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	ref, item, ok := r.webhook(m.Webhook.ValueString(), m.Workspace.ValueString(), &resp.Diagnostics)
+	ref, item, ok := r.webhook(m.Webhook.ValueString(), m.Workspace, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -79,7 +79,7 @@ func (r *rotationResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	ref, item, ok := r.webhook(m.Webhook.ValueString(), m.Workspace.ValueString(), &resp.Diagnostics)
+	ref, item, ok := r.webhook(m.Webhook.ValueString(), m.Workspace, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -112,8 +112,8 @@ func (r *rotationResource) Delete(context.Context, resource.DeleteRequest, *reso
 
 // webhook resolves the webhook object and its item path. Names are checked again here because
 // values unknown at plan time skip the schema validators.
-func (r *rotationResource) webhook(name, workspace string, d *diag.Diagnostics) (client.Ref, string, bool) {
-	if invalidSegment(name) || (workspace != "" && invalidSegment(workspace)) {
+func (r *rotationResource) webhook(name string, workspace types.String, d *diag.Diagnostics) (client.Ref, string, bool) {
+	if invalidSegment(name) || (!workspace.IsNull() && invalidSegment(workspace.ValueString())) {
 		d.AddError("Invalid webhook reference", "webhook and workspace must be single non-empty names, not . or .., without / or \\.")
 		return client.Ref{}, "", false
 	}
@@ -132,7 +132,7 @@ func (r *rotationResource) webhook(name, workspace string, d *diag.Diagnostics) 
 
 	ref := client.Ref{
 		Group: k.Group, Version: k.Version, APIPath: k.APIPath, Versioned: k.Versioned,
-		Name: name, Workspace: workspace,
+		Name: name, Workspace: workspace.ValueString(),
 	}
 
 	item, err := ref.ItemPath(r.client.Tenant)
