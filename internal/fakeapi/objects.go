@@ -24,7 +24,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request, body []b
 	}
 
 	if p.action != "" {
-		s.getSubresource(w, r, p)
+		s.serveSubresource(w, r, p)
 		return
 	}
 	// The unversioned item routes of a versioned kind fail with a plain error -> 500

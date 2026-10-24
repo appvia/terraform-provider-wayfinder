@@ -53,7 +53,7 @@ func getAction(ctx context.Context, c *client.Client, k manifest.Kind, ref clien
 		case errors.Is(err, client.ErrNotFound):
 			detail := fmt.Sprintf("Wayfinder returned 404 for %s. Check the object exists at that scope, and that the action is valid.", path)
 			if k.Kind == "Webhook" && action == "ingesturl" {
-				detail += fmt.Sprintf(" The URL exists only after `wf rotate webhook %s`.", ref.Name)
+				detail += fmt.Sprintf(" The URL exists only after the webhook is rotated, with a `wayfinder_webhook_rotation` resource or `wf rotate webhook %s`.", ref.Name)
 			}
 
 			diags.AddError("Wayfinder action not found", detail)

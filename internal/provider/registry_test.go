@@ -65,7 +65,7 @@ func TestProvider_registers_whenListingTypes(t *testing.T) {
 		texts = append(texts, name, a.GetMarkdownDescription())
 	}
 	// Then every generated type plus the hand-written ones is registered exactly once.
-	wantResources := append(generated.ResourceTypeNames(), "wayfinder_manifest", "wayfinder_variable", "wayfinder_secret", "wayfinder_feature_integration")
+	wantResources := append(generated.ResourceTypeNames(), "wayfinder_manifest", "wayfinder_variable", "wayfinder_secret", "wayfinder_feature_integration", "wayfinder_webhook_rotation")
 	wantDataSources := append(generated.ResourceTypeNames(), "wayfinder_variable")
 
 	assertSameSet(t, "resources", resources, wantResources)
