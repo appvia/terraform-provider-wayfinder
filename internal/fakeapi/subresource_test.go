@@ -129,3 +129,34 @@ func TestSubresource_whenVersionedKindMissingVersion(t *testing.T) {
 
 	wantCode(t, call(t, s, http.MethodGet, planCollection+"/p/secrets", nil), http.StatusNotFound)
 }
+
+func TestSubresource_whenPostSet(t *testing.T) {
+	s := newServer(t, identityKind())
+	s.SetSubresourceMethod(clientRef(identityRef("id1"), false), http.MethodPost, "rotate", http.StatusOK, map[string]any{"url": "https://ingest.example/x"})
+
+	got := call(t, s, http.MethodPost, identityCollection+"/id1/rotate", nil)
+
+	wantCode(t, got, http.StatusOK)
+
+	if dig(got.body, "url") != "https://ingest.example/x" {
+		t.Errorf("body = %s", got.raw)
+	}
+
+	if n := s.CountRequests(http.MethodPost, identityCollection+"/id1/rotate"); n != 1 {
+		t.Errorf("logged POST requests = %d, want 1", n)
+	}
+}
+
+func TestSubresource_whenPostUnsetAndGetSet(t *testing.T) {
+	s := newServer(t, identityKind())
+	s.SetSubresource(clientRef(identityRef("id1"), false), "rotate", http.StatusOK, map[string]any{"get": true})
+
+	wantCode(t, call(t, s, http.MethodPost, identityCollection+"/id1/rotate", nil), http.StatusNotFound)
+}
+
+func TestSubresource_whenPostSetDoesNotAffectGet(t *testing.T) {
+	s := newServer(t, identityKind())
+	s.SetSubresourceMethod(clientRef(identityRef("id1"), false), http.MethodPost, "rotate", http.StatusOK, map[string]any{"url": "u"})
+
+	wantCode(t, call(t, s, http.MethodGet, identityCollection+"/id1/rotate", nil), http.StatusNotFound)
+}
