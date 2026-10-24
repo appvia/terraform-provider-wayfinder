@@ -59,6 +59,7 @@ type Server struct {
 	features      map[string]Feature
 	objects       map[Ref]*entry
 	vars          map[VarScope]*varSet
+	subresources  map[subKey]subresource
 	auth          authState
 	serverVersion string
 	recordBodies  bool

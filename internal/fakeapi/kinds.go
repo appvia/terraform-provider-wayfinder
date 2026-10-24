@@ -111,10 +111,11 @@ func (s *Server) RegisterKind(k KindSpec) {
 }
 
 // resourcePath is a parsed resource URL (R8, pkg/wfclient/apiurlmanager.go:147-216):
-// /api/v3/resources/tenants/{t}[/workspaces/{ws}[/envs/{env}]]/{group}/{version}/{apiPath}[/{name}[/versions/{v}]].
+// /api/v3/resources/tenants/{t}[/workspaces/{ws}[/envs/{env}]]/{group}/{version}/{apiPath}[/{name}[/versions/{v}][/{action}]].
 type resourcePath struct {
-	ref           Ref  // Name empty for collection routes
-	hasVersionURL bool // the /versions/{v} suffix was present
+	ref           Ref    // Name empty for collection routes
+	hasVersionURL bool   // the /versions/{v} suffix was present
+	action        string // trailing /{action} segment of a subresource route
 }
 
 func parseResourcePath(r *http.Request) (resourcePath, bool) {
@@ -142,8 +143,12 @@ func parseResourcePath(r *http.Request) (resourcePath, bool) {
 	case len(rest) == 0:
 	case len(rest) == 1:
 		p.ref.Name = rest[0]
+	case len(rest) == 2:
+		p.ref.Name, p.action = rest[0], rest[1]
 	case len(rest) == 3 && rest[1] == "versions":
 		p.ref.Name, p.ref.ObjectVersion, p.hasVersionURL = rest[0], rest[2], true
+	case len(rest) == 4 && rest[1] == "versions":
+		p.ref.Name, p.ref.ObjectVersion, p.hasVersionURL, p.action = rest[0], rest[2], true, rest[3]
 	default:
 		return resourcePath{}, false
 	}
