@@ -8,6 +8,15 @@ Each release records the Wayfinder release it was built from.
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-24
+
+Built from Wayfinder release `v3.4.0`.
+
+### Added
+
+- Ephemeral resource `wayfinder_webhook_ingest_url`: reads a webhook's ingest URL at plan/apply time without storing it in state or plan files. The URL is a credential and exists only after the webhook is rotated (`wf rotate webhook <name>`). Requires Terraform/OpenTofu 1.11 or later.
+- Ephemeral resource `wayfinder_resource_action`: a read-only (GET) escape hatch that returns any object sub-resource response as a sensitive value, optionally trimmed with `response_export_values`.
+
 ## 0.4.0 - 2026-10-23
 
 Built from Wayfinder release `v3.4.0`.
