@@ -22,6 +22,11 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request, body []b
 		writeError(w, r, http.StatusNotFound, "not found")
 		return
 	}
+
+	if p.action != "" {
+		s.getSubresource(w, r, p)
+		return
+	}
 	// The unversioned item routes of a versioned kind fail with a plain error -> 500
 	// (get: pkg/apihandlers/apiobjecthandler.go:503-505; update: apiobjecthandler_update.go:85-87).
 	if k.Versioned && p.ref.Name != "" && !p.hasVersionURL {

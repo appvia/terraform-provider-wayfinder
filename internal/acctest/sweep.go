@@ -19,7 +19,7 @@ import (
 
 // sweptKinds are the kinds the acceptance tests create, in the order they must be deleted:
 // Workspace last, because a workspace refuses deletion while it still holds objects.
-var sweptKinds = []string{"ExternalIdentity", "KubeResourcePlan", "RoleBinding", "ServiceAccount", "Group", "Environment", "Workspace"}
+var sweptKinds = []string{"ExternalIdentity", "KubeResourcePlan", "RoleBinding", "ServiceAccount", "Group", "Environment", "Webhook", "Integration", "Workspace"}
 
 // sweepVarsName is the sweeper for wayfinder_variable and wayfinder_secret keys.
 const sweepVarsName = "wayfinder_vars"

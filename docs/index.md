@@ -181,7 +181,7 @@ resource "wayfinder_secret" "github" {
 }
 ```
 
-Ephemeral variables and ephemeral resources can feed write-only attributes, so the secret doesn't touch state at any point. Because Wayfinder never returns secret values, changes made to them outside Terraform aren't detected.
+Ephemeral variables and ephemeral resources can feed write-only attributes, so the secret doesn't touch state at any point. To pass a webhook's ingest URL along this way, read it with the [`wayfinder_webhook_ingest_url`](ephemeral-resources/webhook_ingest_url.md) ephemeral resource. Because Wayfinder never returns secret values, changes made to them outside Terraform aren't detected.
 
 ## Waiting for readiness
 
