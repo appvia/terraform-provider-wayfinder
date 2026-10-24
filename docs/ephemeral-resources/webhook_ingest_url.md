@@ -2,16 +2,16 @@
 page_title: "wayfinder_webhook_ingest_url Ephemeral Resource - wayfinder"
 subcategory: ""
 description: |-
-  Reads a webhook's ingest URL on every plan and apply. The URL is a credential: it is sensitive, ephemeral and never stored in state or plan files. It exists only after wf rotate webhook <name> and requires the webhooks/ingesturl permission (granted with rotate). Requires Terraform/OpenTofu >= 1.11.
+  Reads a webhook's ingest URL on every plan and apply. The URL is a credential: it is sensitive, ephemeral and never stored in state or plan files. It exists only after the webhook is rotated with wayfinder_webhook_rotation or wf rotate webhook <name>, and requires the webhooks/ingesturl permission (granted with rotate). Requires Terraform/OpenTofu >= 1.11.
 ---
 
 # wayfinder_webhook_ingest_url (Ephemeral Resource)
 
-Reads a webhook's ingest URL on every plan and apply. The URL is a credential: it is sensitive, ephemeral and never stored in state or plan files. It exists only after `wf rotate webhook <name>` and requires the `webhooks/ingesturl` permission (granted with rotate). Requires Terraform/OpenTofu >= 1.11.
+Reads a webhook's ingest URL on every plan and apply. The URL is a credential: it is sensitive, ephemeral and never stored in state or plan files. It exists only after the webhook is rotated with `wayfinder_webhook_rotation` or `wf rotate webhook <name>`, and requires the `webhooks/ingesturl` permission (granted with rotate). Requires Terraform/OpenTofu >= 1.11.
 
 The ingest URL is a credential. Anyone who has it can post events to the webhook, so treat `url` like a password. It's marked sensitive, and because this is an ephemeral resource it never lands in state.
 
-A webhook has no ingest URL until one is generated with `wf rotate webhook <name>`. Reading it before then fails. Running the rotate command again replaces the URL, and the next plan or apply picks up the new one.
+A webhook has no ingest URL until one is generated, either with a [`wayfinder_webhook_rotation`](../resources/webhook_rotation.md) resource or with `wf rotate webhook <name>`. Reading it before then fails. Pass `name = wayfinder_webhook_rotation.<label>.name` so the URL is read after the rotation, in the same apply. Rotating again replaces the URL, and the next plan or apply picks up the new one.
 
 Reading the URL needs the ingest-URL permission on the webhook, which is separate from permission to read the webhook itself.
 
@@ -25,19 +25,24 @@ This is an ephemeral resource, so it needs Terraform 1.11 or later, or OpenTofu 
 # Copyright 2026 Appvia Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
-# Read the ingest URL of a webhook. Generate it first with
-# `wf rotate webhook alerts`.
+# Rotate the webhook to generate its ingest URL, then read it. The rotation's
+# name is unknown until it has run, so the URL is read after it, in the same apply.
+resource "wayfinder_webhook_rotation" "alerts" {
+  webhook   = "alerts"
+  workspace = "plat"
+}
+
 ephemeral "wayfinder_webhook_ingest_url" "alerts" {
-  name      = "alerts"
+  name      = wayfinder_webhook_rotation.alerts.name
   workspace = "plat"
 }
 
 # Pass the URL to a write-only attribute so it never touches state.
-# Bump value_wo_version after rotating the URL to send the new one.
+# rotation_id changes on every rotation, so the new URL is sent when it rotates.
 resource "wayfinder_secret" "alerts_ingest_url" {
   key              = "alerts_ingest_url"
   value_wo         = jsonencode(ephemeral.wayfinder_webhook_ingest_url.alerts.url)
-  value_wo_version = "1"
+  value_wo_version = wayfinder_webhook_rotation.alerts.rotation_id
 }
 ```
 

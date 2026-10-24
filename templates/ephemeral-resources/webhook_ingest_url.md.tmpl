@@ -11,7 +11,7 @@ description: |-
 
 The ingest URL is a credential. Anyone who has it can post events to the webhook, so treat `url` like a password. It's marked sensitive, and because this is an ephemeral resource it never lands in state.
 
-A webhook has no ingest URL until one is generated with `wf rotate webhook <name>`. Reading it before then fails. Running the rotate command again replaces the URL, and the next plan or apply picks up the new one.
+A webhook has no ingest URL until one is generated, either with a [`wayfinder_webhook_rotation`](../resources/webhook_rotation.md) resource or with `wf rotate webhook <name>`. Reading it before then fails. Pass `name = wayfinder_webhook_rotation.<label>.name` so the URL is read after the rotation, in the same apply. Rotating again replaces the URL, and the next plan or apply picks up the new one.
 
 Reading the URL needs the ingest-URL permission on the webhook, which is separate from permission to read the webhook itself.
 

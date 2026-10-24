@@ -8,6 +8,10 @@ Each release records the Wayfinder release it was built from.
 
 ## Unreleased
 
+### Added
+
+- Resource `wayfinder_webhook_rotation`: rotates a webhook's ingest URL on create or when `triggers` change, without storing the URL. Read the URL with the `wayfinder_webhook_ingest_url` ephemeral resource; `rotation_id` changes on every rotation for use as a `*_wo_version`.
+
 ## 0.5.0 - 2026-10-24
 
 Built from Wayfinder release `v3.4.0`.

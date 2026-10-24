@@ -1,0 +1,49 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+A webhook has no ingest URL until one is generated. This resource generates it, so there is no CLI step between creating the webhook and using its URL. Every rotation replaces the URL and invalidates the previous one immediately, so update the sender that posts to it in the same run.
+
+## The URL is never stored
+
+The ingest URL is a credential, so this resource doesn't keep it in state or plan files. Read it with the [`wayfinder_webhook_ingest_url`](../ephemeral-resources/webhook_ingest_url.md) ephemeral resource and pass `name = wayfinder_webhook_rotation.<label>.name`. That value isn't known until the rotation has run, so the ephemeral resource is read after it, in the same apply. The ephemeral resource needs Terraform 1.11 or later, or OpenTofu 1.11 or later.
+
+To send the URL to a write-only attribute such as `value_wo` only when it changes, set the attribute's `*_wo_version` to `rotation_id`. It is a random value that changes on every rotation and tells you nothing about the URL.
+
+## Rotating again
+
+Changing `webhook`, `workspace` or `triggers` replaces the resource and issues a new URL. To rotate on a schedule, or on demand, put a value that changes into `triggers`, for example the ID of a `time_rotating` resource.
+
+Changing the webhook's own settings with `wayfinder_webhook` doesn't change the URL.
+
+## Importing and recreated webhooks
+
+- Importing the resource doesn't rotate and leaves `triggers` unset. Adding `triggers` afterwards replaces the resource, so the URL is rotated on the next apply.
+- If the webhook is recreated under the same name, the new webhook has no URL until this resource is replaced. Tie a trigger to a value that changes when the webhook is recreated, so the URL is generated again.
+
+## Destroying
+
+Destroy only removes the resource from state. It doesn't rotate the URL, and the current URL keeps working.
+
+## Permissions
+
+Rotating a webhook needs the `webhooks/rotate` permission, which is separate from permission to manage the webhook itself. Reading the URL needs the ingest-URL permission.
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+The import ID is the webhook name, or `<workspace>/<webhook>` for a workspace webhook. Import doesn't rotate the URL.
+
+{{ codefile "shell" .ImportFile }}
