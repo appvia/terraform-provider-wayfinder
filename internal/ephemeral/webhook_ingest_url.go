@@ -42,7 +42,7 @@ func (r *webhookIngestURL) Schema(_ context.Context, _ ephemeral.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Reads a webhook's ingest URL on every plan and apply. The URL is a credential: " +
 			"it is sensitive, ephemeral and never stored in state or plan files. It exists only after " +
-			"`wf rotate webhook <name>` and requires the `webhooks/ingesturl` permission (granted with rotate). " +
+			"the webhook is rotated with `wayfinder_webhook_rotation` or `wf rotate webhook <name>`, and requires the `webhooks/ingesturl` permission (granted with rotate). " +
 			"Requires Terraform/OpenTofu >= 1.11.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
