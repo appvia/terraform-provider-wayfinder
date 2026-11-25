@@ -53,7 +53,7 @@ jobs:
       # from the org GitHub App; no long-lived personal token is involved.
       - name: Mint Wayfinder read token
         id: wf-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ secrets.ORG_ACTIONS_APP_ID }}
           private-key: ${{ secrets.ORG_ACTIONS_APP_SECRET }}
@@ -116,7 +116,7 @@ jobs:
       - name: Mint bump PR token
         id: pr-token
         if: ${{ !cancelled() && steps.resolve.outputs.bump == 'true' && env.HAS_BUMP_APP == 'true' }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ secrets.BUMP_APP_CLIENT_ID }}
           private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
